@@ -21,6 +21,14 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     const anchor=new Date(Date.UTC(y,m,1)),yy=anchor.getUTCFullYear(),mm=anchor.getUTCMonth();
     return iso(new Date(Date.UTC(yy,mm,cutoff===0?monthDays(yy,mm):Math.min(cutoff,monthDays(yy,mm)))));
   }
+  function monthFor(day,offset=0){
+    const base=date(day),first=new Date(Date.UTC(base.getUTCFullYear(),base.getUTCMonth()+offset,1));
+    return {start:iso(first),end:iso(new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth()+1,0)))};
+  }
+  function monthGrid(period){
+    const first=add(period.start,-((weekday(period.start)+6)%7)),last=add(period.end,6-((weekday(period.end)+6)%7));
+    return dates(first,last).map(day=>({day,inMonth:day>=period.start&&day<=period.end}));
+  }
   function periodFor(day,cutoff){
     const d=date(day),y=d.getUTCFullYear(),m=d.getUTCMonth();
     let end=endInMonth(y,m,cutoff);
@@ -66,6 +74,7 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     return Math.max(0,end-start-(Number(record.breakMinutes)||0)-extra);
   }
   function status(record,day){
+    if(day>TODAY)return "upcoming";
     if(!record)return isWorkday(day)?"missing":"holiday";
     if(record.kind==="leave")return "leave";
     if(record.kind==="holiday")return "holiday";
@@ -73,7 +82,7 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     if(!record.end)return day===TODAY?(record.openBreak!=null?"break":"working"):"incomplete";
     return "complete";
   }
-  const statusText=s=>({missing:"未入力",holiday:"休み",leave:"有休",working:"勤務中",break:"休憩中",incomplete:"退勤未入力",complete:"入力済み"}[s]||"未入力");
+  const statusText=s=>({missing:"未入力",holiday:"休み",leave:"有休",working:"勤務中",break:"休憩中",incomplete:"退勤未入力",complete:"入力済み",upcoming:"これから"}[s]||"未入力");
   function summary(state,employeeId,period,now=BASE_NOW){
     let minutes=0,days=0,missing=0,leave=0,open=0;
     const list=visibleDates(period);
@@ -209,14 +218,16 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-  function exportRows(state,employee,period,now=BASE_NOW){
-    return visibleDates(period).map(d=>{
+  function exportRows(state,employee,period,now=BASE_NOW,includeFuture=false){
+    const days=includeFuture?dates(period.start,period.end).filter(d=>d>=FIRST):visibleDates(period);
+    return days.map(d=>{
+      if(d>TODAY)return [d,WEEK[weekday(d)],"","","","","",""];
       const r=state.records[key(employee.id,d)],s=status(r,d);
       return [d,WEEK[weekday(d)],statusText(s),r?.start||"",r?.end?r.end+(r.overnight?"（翌日）":""):"",r?.breakMinutes||0,{v:worked(r,d,now)/1440,duration:true},r?.note||""];
     });
   }
   function employeeWorkbook(state,employee,period,now=BASE_NOW){
-    return xlsx([{name:"勤怠表",headerRow:5,rows:[["勤怠表（モック）"],["氏名",employee.name],["対象期間",period.start+"〜"+period.end],[],["日付","曜日","区分","出勤","退勤","休憩（分）","実働","メモ"],...exportRows(state,employee,period,now)]}]);
+    return xlsx([{name:"勤怠表",headerRow:5,rows:[["勤怠表（モック）"],["氏名",employee.name],["対象期間",period.start+"〜"+period.end],[],["日付","曜日","区分","出勤","退勤","休憩（分）","実働","メモ"],...exportRows(state,employee,period,now,true)]}]);
   }
   function adminWorkbook(state,employees,period,now=BASE_NOW){
     return xlsx([
@@ -224,6 +235,6 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
       {name:"日別明細",rows:[["社員ID","氏名","所属","日付","曜日","区分","出勤","退勤","休憩（分）","実働","メモ"],...employees.flatMap(e=>exportRows(state,e,period,now).map(r=>[e.id,e.name,e.department,...r]))]}
     ]);
   }
-  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,worked,status,statusText,summary,validate,punch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
+  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,monthFor,monthGrid,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,worked,status,statusText,summary,validate,punch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
 });
 window.AttendanceCore = window.createAttendanceCore();

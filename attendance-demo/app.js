@@ -5,7 +5,7 @@ const $=id=>document.getElementById(id),h=value=>C.xml(value);
 const STORAGE="day-attendance-app-v1";
 let state=C.seed();
 try{state=C.hydrate(JSON.parse(localStorage.getItem(STORAGE)||"null"))||state;}catch{}
-const ui={role:"employee",tab:"home",employee:"E001",offset:0,filter:"all",query:"",department:"all",onlyMissing:false,detail:null};
+const ui={role:"employee",tab:"home",employee:"E001",offset:0,monthOffset:0,recordsView:"list",selectedDay:C.TODAY,filter:"all",query:"",department:"all",onlyMissing:false,detail:null};
 const paths={
 home:"M3 10.5 12 3l9 7.5M5 9v11h5v-6h4v6h5V9",
 calendar:"M5 5h14v16H5zM8 3v4m8-4v4M5 10h14",
@@ -71,25 +71,53 @@ function homeView(){
  '<div class="today-meta"><span>出勤 <b>'+(r?.start||"—")+'</b></span><span>退勤 <b>'+(r?.end||"—")+'</b></span><span>休憩 <b>'+rest+'分</b></span></div>'+
  '<div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakButton+'<div class="today-footer"><span>日本時間</span>'+action("edit","時刻を入力・修正",'data-date="'+C.TODAY+'" data-employee="'+e.id+'"',"hero-link")+'</div></section>'+
  (firstMissing?'<button type="button" class="notice" data-action="edit" data-date="'+firstMissing+'" data-employee="'+e.id+'"><span class="notice-dot"></span><span><strong>'+stamp(firstMissing)+'の記録が未入力です</strong><small>タップして入力できます</small></span>'+icon("chevron",17)+'</button>':'<div class="notice notice-good">'+icon("check",18)+'<span>今の期間に未入力の記録はありません</span></div>')+
- '<section class="panel"><div class="section-heading"><div><p class="eyebrow">今の締め期間</p><h2>'+periodLabel(p)+'</h2></div>'+action("records-all","一覧を見る "+icon("chevron",14),"","text-button")+'</div>'+
+ '<section class="panel"><div class="section-heading"><div><p class="eyebrow">今の締め期間</p><h2>'+periodLabel(p)+'</h2></div>'+action("records-all","月の一覧 "+icon("chevron",14),"","text-button")+'</div>'+
  '<div class="mini-stats"><div><span>実働</span><strong>'+C.shortDuration(sum.minutes)+'<small>時間</small></strong></div><div><span>出勤</span><strong>'+sum.days+'<small>日</small></strong></div><div><span>未入力</span><strong class="'+(sum.missing?"amber":"")+'">'+sum.missing+'<small>日</small></strong></div></div></section>'+
  '<section class="panel"><div class="section-heading"><h2>今週の記録</h2><span class="muted small">日付から修正できます</span></div>'+weekChart(e.id)+'</section>'+
  '<div class="quick-grid">'+action("edit",icon("edit",19)+'<span>勤怠を入力</span>','data-date="'+C.TODAY+'" data-employee="'+e.id+'"',"quick-button")+action("export-own",icon("download",19)+'<span>Excelを出力</span>',"","quick-button")+'</div>';
 }
+
+function monthRange(offset=ui.monthOffset){return C.monthFor(C.TODAY,offset);}
+function monthTitle(p){return p.start.slice(0,4)+"年"+Number(p.start.slice(5,7))+"月";}
+function alignRecordMonth(day){
+ const target=C.date(day),current=C.date(C.TODAY);
+ ui.monthOffset=(target.getUTCFullYear()-current.getUTCFullYear())*12+target.getUTCMonth()-current.getUTCMonth();
+ ui.selectedDay=day;
+}
+function monthControl(){
+ const p=monthRange(),prev=monthRange(ui.monthOffset-1);
+ return '<section class="period-control"><div class="period-selector month-selector">'+action("month-nav",icon("back",17),'data-direction="-1" aria-label="前の月" '+(prev.start<C.FIRST?"disabled":""),"icon-button")+'<div><strong>'+monthTitle(p)+'</strong><small>'+periodLabel(p)+'</small></div>'+action("month-nav",icon("chevron",17),'data-direction="1" aria-label="次の月" '+(ui.monthOffset>=0?"disabled":""),"icon-button")+'</div></section>';
+}
+function recordsViewSwitch(){
+ return '<div class="records-view-switch" aria-label="勤怠の表示形式">'+action("records-view",icon("menu",16)+"リスト",'id="records-view-list" data-view="list" aria-pressed="'+(ui.recordsView==="list")+'"',ui.recordsView==="list"?"selected":"")+action("records-view",icon("calendar",16)+"カレンダー",'id="records-view-calendar" data-view="calendar" aria-pressed="'+(ui.recordsView==="calendar")+'"',ui.recordsView==="calendar"?"selected":"")+'</div>';
+}
 function recordRow(id,d){
- const r=state.records[C.key(id,d)],s=C.status(r,d),work=C.worked(r,d,now());
- const range=r?.kind==="work"?(r.start||"—")+' <span class="range-arrow">→</span> '+(r.end?r.end+(r.overnight?" 翌日":""):"—"):s==="missing"?"時刻を入力":C.statusText(s);
- return '<button type="button" class="record-row" data-action="edit" data-employee="'+id+'" data-date="'+d+'"><span class="record-date"><strong>'+md(d)+'</strong><small>'+C.WEEK[C.weekday(d)]+'曜日</small></span><span class="record-middle"><span class="'+(s==="missing"?"blue":"")+'">'+range+'</span><small>'+badge(s)+(r?.note?' <span class="note-dot" title="メモあり">メモ</span>':"")+'</small></span><span class="record-hours">'+(r?.kind==="work"?C.shortDuration(work):"—")+'</span>'+icon("chevron",15)+'</button>';
+ const r=state.records[C.key(id,d)],s=C.status(r,d),future=d>C.TODAY,work=C.worked(r,d,now());
+ const range=future?'— <span class="range-arrow">→</span> —':r?.kind==="work"?(r.start||"—")+' <span class="range-arrow">→</span> '+(r.end?r.end+(r.overnight?" 翌日":""):"—"):s==="missing"?"時刻を入力":C.statusText(s);
+ return '<button type="button" id="record-'+id+'-'+d+'" class="record-row '+(d===C.TODAY?"is-today ":"")+(future?"is-future":"")+'" data-action="edit" data-employee="'+id+'" data-date="'+d+'" '+(future?'disabled aria-label="'+stamp(d)+' これから。未来の日付は表示のみです"':d===C.TODAY?'aria-current="date"':"")+'><span class="record-date"><strong>'+md(d)+'</strong><small>'+C.WEEK[C.weekday(d)]+'曜日</small></span><span class="record-middle"><span class="'+(s==="missing"?"blue":"")+'">'+range+'</span><small>'+badge(s)+(!future&&r?.note?' <span class="note-dot" title="メモあり">メモ</span>':"")+'</small></span><span class="record-hours">'+(!future&&r?.kind==="work"?C.shortDuration(work):"—")+'</span>'+icon("chevron",15)+'</button>';
+}
+function calendarView(id,p){
+ const selected=ui.selectedDay>=p.start&&ui.selectedDay<=p.end&&ui.selectedDay<=C.TODAY?ui.selectedDay:p.end<C.TODAY?p.end:C.TODAY;
+ const grid=C.monthGrid(p).map(cell=>{
+  const d=cell.day,n=Number(d.slice(8,10));
+  if(!cell.inMonth)return '<div class="calendar-day outside-month" aria-hidden="true"><span class="calendar-number">'+n+'</span></div>';
+  const r=state.records[C.key(id,d)],s=C.status(r,d),future=d>C.TODAY,work=C.worked(r,d,now()),weekend=C.weekday(d)===0||C.weekday(d)===6;
+  const label=future?"—":["complete","working","break"].includes(s)?C.shortDuration(work):s==="missing"?"未入力":s==="incomplete"?"要確認":s==="leave"?"有休":"休み";
+  const aria=stamp(d)+" "+C.statusText(s)+(r?.kind==="work"&&!future?" "+C.duration(work):"");
+  return '<button type="button" id="calendar-day-'+id+'-'+d+'" class="calendar-day state-'+s+(d===C.TODAY?" is-today":"")+(d===selected?" is-selected":"")+(weekend?" is-weekend":"")+'" data-action="edit" data-date="'+d+'" data-employee="'+id+'" aria-label="'+h(aria)+'" '+(d===C.TODAY?'aria-current="date" ':"")+(future?"disabled":"")+'><span class="calendar-number">'+n+'</span><span class="calendar-day-label">'+label+'</span><span class="calendar-dot" aria-hidden="true"></span></button>';
+ }).join("");
+ return '<section class="month-calendar" aria-label="'+monthTitle(p)+'の勤怠カレンダー"><div class="calendar-weekdays" aria-hidden="true">'+["月","火","水","木","金","土","日"].map(d=>'<span>'+d+'</span>').join("")+'</div><div class="calendar-grid">'+grid+'</div><div class="calendar-legend"><span><i class="legend-blue"></i>記録あり</span><span><i class="legend-amber"></i>未入力</span><span><i class="legend-gray"></i>休み・これから</span></div></section>'+
+ '<section class="calendar-selected"><div class="calendar-selected-heading"><h2>選択した日</h2><span>タップして入力・修正</span></div>'+recordRow(id,selected)+'</section>';
 }
 function recordsView(){
- const e=employee(),p=period(),sum=C.summary(state,e.id,p,now()),all=C.visibleDates(p).reverse(),days=ui.filter==="missing"?all.filter(d=>["missing","incomplete"].includes(C.status(state.records[C.key(e.id,d)],d))):all;
- const editDay=p.end<C.TODAY?p.end:C.TODAY;
- return '<div class="page-title"><div><p class="eyebrow">あなたの勤怠</p><h1>勤怠の記録</h1></div>'+action("export-own",icon("download",20),'aria-label="この期間のExcelを出力"',"icon-button outlined")+'</div>'+periodControl()+
- '<section class="panel compact"><div class="mini-stats"><div><span>実働</span><strong>'+C.shortDuration(sum.minutes)+'<small>時間</small></strong></div><div><span>出勤</span><strong>'+sum.days+'<small>日</small></strong></div><div><span>未入力</span><strong class="'+(sum.missing?"amber":"")+'">'+sum.missing+'<small>日</small></strong></div></div></section>'+
- '<div class="list-toolbar"><div class="segmented">'+action("record-filter","すべて",'data-filter="all" aria-pressed="'+(ui.filter==="all")+'"',ui.filter==="all"?"selected":"")+action("record-filter","未入力 "+sum.missing,'data-filter="missing" aria-pressed="'+(ui.filter==="missing")+'"',ui.filter==="missing"?"selected":"")+'</div>'+
- action("edit",icon("edit",16)+"入力",'data-date="'+editDay+'" data-employee="'+e.id+'" data-work="true"',"text-button")+'</div>'+
- '<section class="records-list">'+(days.length?days.map(d=>recordRow(e.id,d)).join(""):'<div class="empty">'+icon("check",32)+'<h3>未入力はありません</h3><p>この期間の記録は入力できています。</p></div>')+'</section>'+
- '<p class="helper">勤務中の実働は、現在時刻までの時間です。<br>休みの日も、日付をタップして勤務を入力できます。</p>';
+ const e=employee(),p=monthRange(),sum=C.summary(state,e.id,p,now()),all=C.dates(p.start,p.end);
+ const days=ui.filter==="missing"?all.filter(d=>["missing","incomplete"].includes(C.status(state.records[C.key(e.id,d)],d))):all;
+ const editDay=p.end<C.TODAY?p.end:C.TODAY,calendar=ui.recordsView==="calendar";
+ const heading='<div class="page-title"><div><p class="eyebrow">あなたの勤怠</p><h1>'+(ui.monthOffset===0?"今月の勤怠":"月ごとの勤怠")+'</h1></div>'+action("export-own",icon("download",20),'aria-label="表示中の月のExcelを出力"',"icon-button outlined")+'</div>'+monthControl()+recordsViewSwitch();
+ const summary=calendar?'<div class="month-quick-summary"><span>実働 <b>'+C.shortDuration(sum.minutes)+'</b></span><span>出勤 <b>'+sum.days+'日</b></span><span>未入力 <b class="'+(sum.missing?"amber":"")+'">'+sum.missing+'日</b></span></div>':'<section class="panel compact"><div class="mini-stats"><div><span>実働</span><strong>'+C.shortDuration(sum.minutes)+'<small>時間</small></strong></div><div><span>出勤</span><strong>'+sum.days+'<small>日</small></strong></div><div><span>未入力</span><strong class="'+(sum.missing?"amber":"")+'">'+sum.missing+'<small>日</small></strong></div></div></section>';
+ if(calendar)return heading+summary+'<div class="calendar-tools"><span>日付をタップして入力・修正</span>'+action("jump-today","今日","","text-button")+'</div>'+calendarView(e.id,p)+'<p class="helper">未来の日付は表示のみです。<br>管理者の集計は、設定した締め日で区切ります。</p>';
+ return heading+summary+'<div class="list-toolbar"><div class="segmented">'+action("record-filter","すべて",'data-filter="all" aria-pressed="'+(ui.filter==="all")+'"',ui.filter==="all"?"selected":"")+action("record-filter","未入力 "+sum.missing,'data-filter="missing" aria-pressed="'+(ui.filter==="missing")+'"',ui.filter==="missing"?"selected":"")+'</div><div class="record-actions">'+action("jump-today","今日","","text-button")+action("edit",icon("edit",16)+"入力",'data-date="'+editDay+'" data-employee="'+e.id+'" data-work="true"',"text-button")+'</div></div>'+
+ '<div class="list-count"><span>'+days.length+'日分を表示</span><span class="muted small">日付をタップして編集</span></div><section class="records-list">'+(days.length?days.map(d=>recordRow(e.id,d)).join(""):'<div class="empty">'+icon("check",32)+'<h3>未入力はありません</h3><p>この月の記録は入力できています。</p></div>')+'</section><p class="helper">未入力・休み・これからの日も1ヶ月分表示します。<br>未来の日付は表示のみです。</p>';
 }
 function employeeMenu(){
  const e=employee();
@@ -163,7 +191,7 @@ function refreshClock(clock=C.clockAt()){
   const next=window.createAttendanceCore(new Date(clock.iso)),nextState=next.hydrate(state);
   C=next;window.AttendanceCore=C;
   if(nextState)state=nextState;
-  ui.offset=0;$("editDate").min=C.FIRST;$("editDate").max=C.TODAY;
+  ui.offset=0;ui.monthOffset=0;ui.selectedDay=C.TODAY;$("editDate").min=C.FIRST;$("editDate").max=C.TODAY;
   render();if($("detailDialog").open&&ui.detail)detailView(ui.detail);persist();return;
  }
  const main=$("clockMain"),seconds=$("clockSeconds"),time=$("liveClock"),day=$("homeDate");
@@ -203,6 +231,7 @@ function toggleTimeFields(){$("timeFields").hidden=$("editKind").value!=="work";
 function openEditor(id,day,forceWork=false){
  if(ui.role!=="admin"&&id!==ui.employee)return;
  if(!state.employees.some(e=>e.id===id)||day<C.FIRST||day>C.TODAY)return toast("入力できるサンプルの日付を選んでください。");
+ if(ui.role==="employee"&&ui.tab==="records")ui.selectedDay=day;
  fillEditor(id,day,forceWork);openDialog($("editDialog"));
 }
 function saveEditor(){
@@ -212,6 +241,7 @@ function saveEditor(){
  const result=C.validate(record,day,now());
  if(!result.ok){$("editorError").textContent=result.error;return;}
  state.records[C.key(id,day)]=result.value;
+ if(ui.role==="employee"&&ui.tab==="records")alignRecordMonth(day);
  $("editDialog").close();render();
  if($("detailDialog").open&&ui.detail)detailView(ui.detail);
  persist("勤怠を保存しました");
@@ -223,7 +253,7 @@ function downloadBytes(bytes,filename){
 }
 function exportOwn(id=ui.employee){
  const e=state.employees.find(item=>item.id===id);if(!e||(ui.role!=="admin"&&id!==ui.employee))return;
- const p=ui.tab==="home"||ui.tab==="menu"?current():period();
+ const p=ui.role==="employee"&&ui.tab==="records"?monthRange():(ui.tab==="home"||ui.tab==="menu"?current():period());
  try{downloadBytes(C.employeeWorkbook(state,e,p,now()),"勤怠_"+e.name.replace(/\s/g,"")+"_"+p.start+"_"+p.end+".xlsx");}catch{toast("Excelを作成できませんでした。もう一度お試しください。");}
 }
 function exportAdmin(){
@@ -236,7 +266,7 @@ document.addEventListener("click",event=>{
  const b=event.target.closest?.("[data-action]");if(!b||b.disabled)return;
  const a=b.dataset.action;
  if(a==="role"){
-  ui.role=b.dataset.role==="admin"?"admin":"employee";ui.tab=ui.role==="admin"?"summary":"home";ui.offset=0;render();return;
+  ui.role=b.dataset.role==="admin"?"admin":"employee";ui.tab=ui.role==="admin"?"summary":"home";ui.offset=0;ui.monthOffset=0;ui.selectedDay=C.TODAY;render();return;
  }
  if(a==="brand-home"){ui.tab=ui.role==="admin"?"summary":"home";ui.offset=0;render();return;}
  if(a==="tab"){
@@ -248,7 +278,23 @@ document.addEventListener("click",event=>{
   if(target>0||p.start<C.FIRST)return;ui.offset=target;render();return;
  }
  if(a==="current-period"){ui.offset=0;render();return;}
- if(a==="records-all"){ui.tab="records";ui.offset=0;ui.filter="all";render();return;}
+ if(a==="records-all"){ui.tab="records";ui.offset=0;ui.monthOffset=0;ui.selectedDay=C.TODAY;ui.filter="all";render();return;}
+
+ if(a==="records-view"){
+  ui.recordsView=b.dataset.view==="calendar"?"calendar":"list";ui.filter="all";render();
+  $("records-view-"+ui.recordsView)?.focus?.();return;
+ }
+ if(a==="month-nav"){
+  const offset=ui.monthOffset+Number(b.dataset.direction),p=monthRange(offset);
+  if(offset>0||p.start<C.FIRST)return;
+  ui.monthOffset=offset;ui.selectedDay=p.end<C.TODAY?p.end:C.TODAY;render();return;
+ }
+ if(a==="jump-today"){
+  ui.monthOffset=0;ui.selectedDay=C.TODAY;ui.filter="all";render();
+  if(ui.recordsView==="list")$("record-"+ui.employee+"-"+C.TODAY)?.scrollIntoView?.({block:"center",behavior:"auto"});
+  else $("calendar-day-"+ui.employee+"-"+C.TODAY)?.focus?.();return;
+ }
+
  if(a==="record-filter"){ui.filter=b.dataset.filter==="missing"?"missing":"all";render();return;}
  if(a==="people-all"||a==="people-missing"){
   if(ui.role!=="admin")return;ui.tab="people";ui.query="";ui.department="all";ui.onlyMissing=a==="people-missing";render();return;
@@ -274,13 +320,13 @@ document.addEventListener("click",event=>{
   const context={...editContext},day=$("editDate").value;
   if(!state.records[C.key(context.employeeId,day)])return;
   ask("この勤怠を削除しますか？",stamp(day)+"のサンプル記録を削除します。",()=>{
-   delete state.records[C.key(context.employeeId,day)];$("editDialog").close();render();if($("detailDialog").open&&ui.detail)detailView(ui.detail);persist("勤怠を削除しました");
+   delete state.records[C.key(context.employeeId,day)];if(ui.role==="employee"&&ui.tab==="records")alignRecordMonth(day);$("editDialog").close();render();if($("detailDialog").open&&ui.detail)detailView(ui.detail);persist("勤怠を削除しました");
   });return;
  }
  if(a==="confirm-yes"){const callback=confirmCallback;confirmCallback=null;$("confirmDialog").close();if(callback)callback();return;}
  if(a==="cancel-cutoff"){if(ui.role!=="admin")return;state.settings.pending=null;render();persist("締め日の変更予約を取り消しました");return;}
  if(a==="reset-demo"){
-  ask("初期状態に戻しますか？","入力したサンプルの記録と、締め日の変更予約を削除して初期状態に戻します。",()=>{state=C.seed();ui.employee="E001";ui.offset=0;ui.query="";ui.department="all";ui.onlyMissing=false;render();persist("サンプルを初期状態に戻しました");});return;
+  ask("初期状態に戻しますか？","入力したサンプルの記録と、締め日の変更予約を削除して初期状態に戻します。",()=>{state=C.seed();ui.employee="E001";ui.offset=0;ui.monthOffset=0;ui.selectedDay=C.TODAY;ui.query="";ui.department="all";ui.onlyMissing=false;render();persist("サンプルを初期状態に戻しました");});return;
  }
 });
 document.addEventListener("input",event=>{
@@ -306,7 +352,10 @@ document.addEventListener("submit",event=>{
 });
 document.querySelectorAll("dialog").forEach(dialog=>dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close();}));
 $("confirmDialog").addEventListener("close",()=>{confirmCallback=null;});
-$("editDialog").addEventListener("close",()=>{editContext=null;});
+$("editDialog").addEventListener("close",()=>{
+ editContext=null;
+ if(ui.role==="employee"&&ui.tab==="records"&&ui.recordsView==="calendar"){render();$("calendar-day-"+ui.employee+"-"+ui.selectedDay)?.focus?.();}
+});
 $("detailDialog").addEventListener("close",()=>{ui.detail=null;});
 $("editDate").min=C.FIRST;$("editDate").max=C.TODAY;
 render();

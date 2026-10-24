@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#f4f7fb">
 <meta name="description" content="スマートフォン向け勤怠アプリの操作モック。サンプルデータで入力・修正・集計・Excel出力を試せます。">
 <title>day.｜勤怠アプリのモック</title>
-<link rel="stylesheet" href="./styles.css?v=clock1">
-<script src="./model.js?v=clock1" defer></script>
-<script src="./app.js?v=clock1" defer></script>
+<link rel="stylesheet" href="./styles.css?v=month1">
+<script src="./model.js?v=month1" defer></script>
+<script src="./app.js?v=month1" defer></script>
 </head>
 <body>
 <div id="app"></div>
@@ -42,7 +42,7 @@
  <div class="sheet-head"><h2 id="aboutTitle">このモックについて</h2><button type="button" class="icon-button" data-action="close" data-dialog="aboutDialog" aria-label="閉じる">×</button></div>
  <div class="sheet-content">
   <p class="dialog-copy">架空の社員50名のモックです。時計と打刻には、端末から取得した日本時間を使います。</p>
-  <ul class="about-list"><li>出退勤の記録・時刻の入力と修正</li><li>締め期間ごとの記録と集計</li><li>社員の検索・所属や未入力での絞り込み</li><li>管理者の締め日変更予約</li><li>サンプル勤怠表のExcel出力</li></ul>
+  <ul class="about-list"><li>出退勤の記録・時刻の入力と修正</li><li>リスト／カレンダーで1ヶ月分の記録を確認</li><li>未入力の日付からの入力・修正</li><li>締め期間ごとの集計</li><li>社員の検索・所属や未入力での絞り込み</li><li>管理者の締め日変更予約</li><li>サンプル勤怠表のExcel出力</li></ul>
   <p class="dialog-copy">変更はこのブラウザ内に保存されます。社員・管理者の切り替えは画面確認用で、本番の認証ではありません。Microsoftログインや勤務先のデータには接続していません。</p>
   <p class="dialog-copy">実働は休憩を引いた時間です。残業や有休残数などの就業ルールは未設定です。Excelの書式は仮のものです。</p>
   <button type="button" class="button primary full" data-action="close" data-dialog="aboutDialog">操作してみる</button>
