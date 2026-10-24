@@ -63,20 +63,30 @@ button:not(:disabled):active{transform:translateY(1px)}
 .punch-state{display:inline-flex;align-items:center;gap:7px;font-size:14px;line-height:1.6;font-weight:650;color:var(--accent)}
 .punch-state:before{content:"";width:5px;height:5px;background:var(--accent);border-radius:50%}
 .clock-layout{min-width:0;padding:15px 0 23px;text-align:center}
-.home-clock{display:block;margin:0;color:var(--accent);line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums}
-.clock-main{font-size:clamp(64px,20.8vw,88px);letter-spacing:-.04em;font-weight:500}
+.home-clock{display:inline-flex;align-items:baseline;justify-content:center;margin:0;color:var(--accent);line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1}
+.clock-main{display:inline-block;flex:none;width:4.65ch;text-align:right;font-size:clamp(64px,20.8vw,88px);letter-spacing:-.04em;font-weight:500}
+.clock-seconds{display:inline-block;flex:none;width:2.55ch;text-align:left;font-size:clamp(22px,7.3vw,32px);letter-spacing:0;font-weight:500}
 .punch-clock-label{margin:7px 0 0;color:var(--muted);font-size:11px;line-height:1.6;letter-spacing:.04em}
 .hero-actions.clock-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.punch-button{display:flex;align-items:center;justify-content:center;gap:12px;min-height:54px;width:100%;padding:12px 15px;border:1px solid #989faa;border-radius:6px;background:transparent;color:var(--accent);font-size:17px;line-height:1.4;font-weight:650;letter-spacing:.04em}
+.punch-button{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;min-height:56px;height:56px;width:100%;padding:8px 12px;border:1px solid #989faa;border-radius:6px;background:transparent;color:var(--accent);font-size:17px;line-height:1.4;font-weight:650;letter-spacing:.04em;transition:transform .1s ease,background-color .14s ease,color .14s ease}
 .punch-button.is-primary,.hero-break.is-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .punch-button.is-secondary{background:transparent;color:var(--accent);border-color:#989faa}
 .punch-button:disabled{opacity:1;flex-direction:column;gap:1px;padding:6px 12px;color:var(--muted);border-color:transparent;background:transparent}
+.punch-button.is-undo{font-size:13px;gap:6px;letter-spacing:0}
+.punch-label{display:inline-block;animation:punch-label-in .12s ease-out both}
+.punch-button:not(:disabled):active{transform:translateY(2px) scale(.985)}
+.punch-button.is-feedback:disabled{flex-direction:row;gap:6px;padding:8px 10px;border-color:var(--accent);background:var(--accent);color:#fff;font-size:13px;letter-spacing:0}
+.punch-button.is-feedback>svg,.punch-feedback-text{animation:punch-feedback-in .18s ease-out both}
+.punch-button.is-feedback>svg path{stroke-dasharray:24;stroke-dashoffset:24;animation:punch-check .24s ease-out forwards}
+.punch-error{margin:12px 0 0;padding:10px 12px;border-left:3px solid #a43145;background:#fff0f2;color:#942a3d;font-size:12px;line-height:1.8}
+.punch-error:empty{display:none}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@keyframes punch-feedback-in{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:translateY(0)}}
+@keyframes punch-check{to{stroke-dashoffset:0}}
+@keyframes punch-label-in{from{opacity:.6;transform:translateY(1px)}to{opacity:1;transform:translateY(0)}}
 .punch-state-note{display:block;font-size:11px;line-height:1.5;font-weight:400;letter-spacing:0;color:var(--muted)}
 .punch-secondary-row{display:flex;justify-content:flex-end;margin-top:10px}
 .hero-break{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 13px;border:1px solid #989faa;border-radius:6px;background:transparent;color:var(--accent);font-size:13px;font-weight:600}
-.punch-cancel-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:4px}
-.punch-cancel{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:44px;padding:6px 0;border:0;background:none;color:var(--muted);font-size:12px;text-decoration:underline;text-underline-offset:3px}
-.punch-cancel:focus-visible{outline-color:var(--accent)}
 .home-issue{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:0 0 0 11px;margin:0 0 24px;border:0;border-left:3px solid #91799a;background:none;text-align:left}
 .home-issue>span:first-child{flex:1;min-width:0}
 .home-issue strong{display:block;color:#735d78;font-size:13px;line-height:1.6}
@@ -338,6 +348,7 @@ dialog::backdrop{background:#25364b80}
 @media(max-width:280px){
  .home-heading{flex-wrap:wrap;gap:5px}
  .clock-main{font-size:clamp(32px,22vw,62px)}
+ .clock-seconds{font-size:clamp(14px,7.3vw,20px)}
  .hero-actions.clock-actions{grid-template-columns:minmax(0,1fr)}
  .punch-button{min-width:0}
  .mode-switch{gap:7px}
@@ -346,5 +357,7 @@ dialog::backdrop{background:#25364b80}
 }
 @media(prefers-reduced-motion:reduce){
  *,*::before,*::after{scroll-behavior:auto!important;transition:none!important}
- button:not(:disabled):active{transform:none}
+ button:not(:disabled):active,.punch-button:not(:disabled):active{transform:none}
+ .punch-label,.punch-button.is-feedback>svg,.punch-feedback-text,.punch-button.is-feedback>svg path{animation:none}
+ .punch-button.is-feedback>svg path{stroke-dashoffset:0}
 }

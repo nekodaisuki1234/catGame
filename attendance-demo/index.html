@@ -6,9 +6,9 @@
 <meta id="browserTheme" name="theme-color" content="#f3f5f7">
 <meta name="description" content="スマートフォン向け勤怠アプリの操作モック。サンプルデータで入力・修正・集計・Excel出力を試せます。">
 <title>day.｜勤怠アプリのモック</title>
-<link rel="stylesheet" href="./styles.css?v=accent1">
-<script src="./model.js?v=undo1" defer></script>
-<script src="./app.js?v=paper1" defer></script>
+<link rel="stylesheet" href="./styles.css?v=live1">
+<script src="./model.js?v=live1" defer></script>
+<script src="./app.js?v=live1" defer></script>
 </head>
 <body>
 <div id="app"></div>
@@ -48,6 +48,7 @@
   <button type="button" class="button primary full" data-action="close" data-dialog="aboutDialog">操作してみる</button>
  </div>
 </dialog>
+<div id="punchAnnouncement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

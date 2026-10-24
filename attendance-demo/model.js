@@ -151,7 +151,12 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     const error=message=>({ok:false,error:message});
     if(day!==TODAY)return error("取り消せるのは今日の打刻だけです。過去の記録は勤怠タブから修正してください。");
     if(!record||record.kind!=="work"||timeToMin(record.start)==null)return error("取り消す出勤の記録がありません。");
-    if(action==="start")return {ok:true,value:beforeStartRecord(record.beforeStart)};
+    if(action==="start"){
+      if(record.end)return error("退勤の記録があります。先に退勤を取り消してください。");
+      if(record.openBreak!=null||Number(record.breakMinutes)>0||(Array.isArray(record.breaks)&&record.breaks.length))return error("休憩の記録があるため、出勤だけを取り消せません。勤怠タブで記録を確認してください。");
+      if(record.note)return error("メモがあるため、出勤だけを取り消せません。勤怠タブで記録を確認してください。");
+      return {ok:true,value:beforeStartRecord(record.beforeStart)};
+    }
     if(action!=="end")return error("取り消す打刻を選んでください。");
     if(timeToMin(record.end)==null)return error("取り消す退勤の記録がありません。");
     const start=timeToMin(record.start),rest=Number(record.breakMinutes),breaks=Array.isArray(record.breaks)?record.breaks:[];
