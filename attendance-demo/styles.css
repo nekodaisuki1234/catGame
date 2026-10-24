@@ -74,6 +74,9 @@ button:not(:disabled):active{transform:translateY(1px)}
 .punch-state-note{display:block;font-size:11px;line-height:1.5;font-weight:400;letter-spacing:0;color:var(--muted)}
 .punch-secondary-row{display:flex;justify-content:flex-end;margin-top:10px}
 .hero-break{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 13px;border:1px solid #989faa;border-radius:6px;background:transparent;color:var(--accent);font-size:13px;font-weight:600}
+.punch-cancel-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:4px}
+.punch-cancel{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:44px;padding:6px 0;border:0;background:none;color:var(--muted);font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.punch-cancel:focus-visible{outline-color:var(--accent)}
 .home-issue{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:0 0 0 11px;margin:0 0 24px;border:0;border-left:3px solid #9c7d2d;background:none;text-align:left}
 .home-issue>span:first-child{flex:1;min-width:0}
 .home-issue strong{display:block;color:#715b20;font-size:13px;line-height:1.6}
@@ -283,6 +286,7 @@ dialog::backdrop{background:#25364b80}
 .sheet-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
 .sheet-content{padding:20px 20px 24px}
 .dialog-mini{max-width:420px}
+#confirmText{white-space:pre-line}
 .dialog-copy{margin:0 0 17px;color:var(--muted);font-size:13px;line-height:1.9}
 .about-list{padding-left:19px;margin:10px 0 18px;color:#414e60;font-size:13px;line-height:2}
 .detail-summary{display:flex;flex-wrap:wrap;gap:12px;margin:2px 0 17px;color:var(--muted);font-size:12px}

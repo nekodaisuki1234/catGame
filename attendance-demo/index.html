@@ -6,9 +6,9 @@
 <meta id="browserTheme" name="theme-color" content="#f5f1e8">
 <meta name="description" content="スマートフォン向け勤怠アプリの操作モック。サンプルデータで入力・修正・集計・Excel出力を試せます。">
 <title>day.｜勤怠アプリのモック</title>
-<link rel="stylesheet" href="./styles.css?v=navy1">
-<script src="./model.js?v=state1" defer></script>
-<script src="./app.js?v=state1" defer></script>
+<link rel="stylesheet" href="./styles.css?v=undo1">
+<script src="./model.js?v=undo1" defer></script>
+<script src="./app.js?v=undo1" defer></script>
 </head>
 <body>
 <div id="app"></div>
@@ -36,7 +36,7 @@
 </dialog>
 <dialog id="confirmDialog" class="dialog-mini" aria-labelledby="confirmTitle">
  <div class="sheet-head"><h2 id="confirmTitle"></h2><button type="button" class="icon-button" data-action="close" data-dialog="confirmDialog" aria-label="閉じる">×</button></div>
- <div class="sheet-content"><p id="confirmText" class="dialog-copy"></p><div class="form-actions"><button type="button" class="button" data-action="close" data-dialog="confirmDialog">キャンセル</button><button type="button" class="button primary" data-action="confirm-yes">実行する</button></div></div>
+ <div class="sheet-content"><p id="confirmText" class="dialog-copy"></p><div class="form-actions"><button type="button" class="button" data-action="close" data-dialog="confirmDialog">キャンセル</button><button type="button" class="button primary" id="confirmAction" data-action="confirm-yes">実行する</button></div></div>
 </dialog>
 <dialog id="aboutDialog" class="dialog-mini" aria-labelledby="aboutTitle">
  <div class="sheet-head"><h2 id="aboutTitle">このモックについて</h2><button type="button" class="icon-button" data-action="close" data-dialog="aboutDialog" aria-label="閉じる">×</button></div>

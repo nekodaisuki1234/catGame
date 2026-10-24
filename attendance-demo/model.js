@@ -143,12 +143,32 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     Object.assign(value,{start:record.start,end:record.end||"",breakMinutes:rest,overnight:!!record.overnight&&end!=null});
     return {ok:true,value};
   }
+  function beforeStartRecord(record){
+    if(!record||!["holiday","leave"].includes(record.kind))return null;
+    return {kind:record.kind,start:"",end:"",breakMinutes:0,overnight:false,openBreak:null,note:String(record.note||"").slice(0,300)};
+  }
+  function cancelPunch(record,action,day=TODAY,now=BASE_NOW){
+    const error=message=>({ok:false,error:message});
+    if(day!==TODAY)return error("取り消せるのは今日の打刻だけです。過去の記録は勤怠タブから修正してください。");
+    if(!record||record.kind!=="work"||timeToMin(record.start)==null)return error("取り消す出勤の記録がありません。");
+    if(action==="start")return {ok:true,value:beforeStartRecord(record.beforeStart)};
+    if(action!=="end")return error("取り消す打刻を選んでください。");
+    if(timeToMin(record.end)==null)return error("取り消す退勤の記録がありません。");
+    const start=timeToMin(record.start),rest=Number(record.breakMinutes),breaks=Array.isArray(record.breaks)?record.breaks:[];
+    if(!Number.isInteger(now)||now<0||now>=1440||start>now||!Number.isInteger(rest)||rest<0||rest>now-start||record.openBreak!=null||
+       breaks.some(b=>!Number.isInteger(b?.start)||!Number.isInteger(b?.end)||b.start<start||b.end<b.start||b.end>now)){
+      return error("現在時刻と出勤・休憩の記録が合わないため、勤務中に戻せません。勤怠タブで時刻を確認してください。");
+    }
+    const value={...record,end:"",overnight:false,openBreak:null};
+    delete value.endAt;
+    return {ok:true,value};
+  }
   function punch(record,action,now=BASE_NOW){
     let r=record?{...record}:null;
     const error=message=>({ok:false,error:message});
     if(action==="start"){
       if(r&&r.kind==="work"&&r.start)return error("本日の出勤は記録済みです。修正画面で変更できます。");
-      return {ok:true,value:{kind:"work",start:time(now),end:"",breakMinutes:0,overnight:false,openBreak:null,breaks:[],note:""}};
+      return {ok:true,value:{kind:"work",start:time(now),end:"",breakMinutes:0,overnight:false,openBreak:null,breaks:[],note:"",beforeStart:beforeStartRecord(record)}};
     }
     if(!r||r.kind!=="work"||timeToMin(r.start)==null)return error("出勤を記録してから操作してください。");
     if(r.end)return error("本日は退勤済みです。修正画面で変更できます。");
@@ -264,6 +284,6 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
       {name:"日別明細",rows:[["社員ID","氏名","所属","日付","曜日","区分","出勤","退勤","休憩（分）","実働","メモ"],...employees.flatMap(e=>exportRows(state,e,period,now).map(r=>[e.id,e.name,e.department,...r]))]}
     ]);
   }
-  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,monthFor,monthGrid,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,worked,timeline,status,statusText,summary,validate,punch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
+  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,monthFor,monthGrid,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,worked,timeline,status,statusText,summary,validate,punch,cancelPunch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
 });
 window.AttendanceCore = window.createAttendanceCore();

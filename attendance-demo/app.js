@@ -38,7 +38,7 @@ let toastTimer,confirmCallback=null,editContext=null;
 function toast(message){$("toast").textContent=message;$("toast").classList.add("visible");clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("toast").classList.remove("visible"),3600);}
 function persist(message){try{localStorage.setItem(STORAGE,JSON.stringify(state));if(message)toast(message);}catch{toast("画面内で更新しました。このブラウザでは保存できません。");}}
 function openDialog(dialog){if(!dialog.open)dialog.showModal();}
-function ask(title,message,callback){$("confirmTitle").textContent=title;$("confirmText").textContent=message;confirmCallback=callback;openDialog($("confirmDialog"));}
+function ask(title,message,callback,label="実行する"){$("confirmTitle").textContent=title;$("confirmText").textContent=message;$("confirmAction").textContent=label;confirmCallback=callback;openDialog($("confirmDialog"));}
 function periodControl(){
  const p=period(),prev=C.periodAt(C.TODAY,state.settings.cutoff,ui.offset-1);
  return '<section class="period-control"><div class="period-selector">'+action("period",icon("back",17),'data-direction="-1" '+(prev.start<C.FIRST?"disabled":""),"icon-button")+'<div><strong>'+periodLabel(p)+'</strong><small>'+p.start.slice(0,4)+'年・'+cutoffLabel(p.cutoff)+'締め</small></div>'+action("period",icon("chevron",17),'data-direction="1" '+(ui.offset>=0?"disabled":""),"icon-button")+'</div>'+(ui.offset!==0?action("current-period","今の期間へ","","text-button"):"")+'</section>';
@@ -84,14 +84,37 @@ function homeView(){
  const punchState=started?(finished?"退勤済み":breaking?"休憩中":"勤務中"):r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"出勤前";
  const month=C.monthFor(C.TODAY),missing=C.visibleDates(month).filter(day=>day<C.TODAY&&["missing","incomplete"].includes(C.status(state.records[C.key(e.id,day)],day)));
  const firstMissing=missing[0],firstStatus=firstMissing?C.status(state.records[C.key(e.id,firstMissing)],firstMissing):null;
- const buttons=action("punch",'<span>'+(started?"出勤済み":"出勤")+'</span>'+(!started?icon("arrow",20):""),'data-punch="start" '+(started?"disabled":""),"punch-button "+(!started?"is-primary":"is-secondary"))+
- action("punch",'<span>'+(finished?"退勤済み":"退勤")+'</span>'+(!started?'<small class="punch-state-note">出勤後に使えます</small>':"")+(started&&!finished&&!breaking?icon("arrow",20):""),'data-punch="end" '+(!started||finished?"disabled":""),"punch-button "+(started&&!finished&&!breaking?"is-primary":"is-secondary"));
+ const buttons=action("punch",'<span>'+(started?"出勤済み":"出勤")+'</span>'+(!started?icon("arrow",20):""),'id="startPunch" data-punch="start" '+(started?"disabled":""),"punch-button "+(!started?"is-primary":"is-secondary"))+
+ action("punch",'<span>'+(finished?"退勤済み":"退勤")+'</span>'+(!started?'<small class="punch-state-note">出勤後に使えます</small>':"")+(started&&!finished&&!breaking?icon("arrow",20):""),'id="endPunch" data-punch="end" '+(!started||finished?"disabled":""),"punch-button "+(started&&!finished&&!breaking?"is-primary":"is-secondary"));
+ const cancelAttrs='data-date="'+C.TODAY+'" data-employee="'+e.id+'" ';
+ const cancelButtons=started?'<div class="punch-cancel-actions" aria-label="今日の打刻の取り消し">'+action("cancel-punch","出勤を取り消す",cancelAttrs+'data-punch="start"',"punch-cancel")+(finished?action("cancel-punch","退勤を取り消す",cancelAttrs+'data-punch="end"',"punch-cancel"):"")+'</div>':"";
  const breakButton=started&&!finished?'<div class="punch-secondary-row">'+action("punch",icon("pause",15)+(breaking?"休憩を終える":"休憩を開始"),'data-punch="'+(breaking?"resume":"break")+'"',"hero-break "+(breaking?"is-primary":"is-secondary"))+'</div>':"";
  const issue=firstMissing?'<button type="button" class="home-issue" data-action="edit" data-date="'+firstMissing+'" data-employee="'+e.id+'"><span><strong>未入力の勤怠が'+missing.length+'日あります</strong><small>'+stamp(firstMissing)+(firstStatus==="incomplete"?"・退勤時刻の確認":"・記録が未入力")+'</small></span><span class="issue-action">確認する '+icon("chevron",14)+'</span></button>':"";
  return '<div class="home-heading"><h1>今日の勤怠</h1><p id="homeDate" class="home-date">'+liveDateLabel(clock.day)+'</p></div>'+
- '<section class="punch-box" aria-label="今日の打刻"><div class="punch-topline"><h2>今日の打刻</h2><strong id="todayPunchState" class="punch-state">'+h(punchState)+'</strong></div><div class="clock-layout"><time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+clock.time+'（日本時間）"><span id="clockMain" class="clock-main">'+clock.time+'</span></time><p class="punch-clock-label">現在時刻・日本時間</p></div><div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakButton+'</section>'+
+ '<section class="punch-box" aria-label="今日の打刻"><div class="punch-topline"><h2>今日の打刻</h2><strong id="todayPunchState" class="punch-state">'+h(punchState)+'</strong></div><div class="clock-layout"><time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+clock.time+'（日本時間）"><span id="clockMain" class="clock-main">'+clock.time+'</span></time><p class="punch-clock-label">現在時刻・日本時間</p></div><div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakButton+cancelButtons+'</section>'+
  issue+'<div id="todayTimeline">'+timelineView(r,clock)+'</div><div id="homeWeek">'+weekGraphic(e.id,clock)+'</div>'+
  '<section class="home-records"><h2>記録の確認・修正</h2>'+action("records-all",'<span><strong>今月の勤怠を開く</strong><small>リスト／カレンダー</small></span>'+icon("chevron",17),"","home-record-link")+'</section>';
+}
+
+function requestPunchCancellation(id,day,punch){
+ const clock=C.clockAt();refreshClock(clock);
+ if(ui.role!=="employee"||id!==ui.employee)return;
+ if(day!==clock.day)return toast("日付が変わりました。今日の打刻から操作してください。");
+ const key=C.key(id,day),record=state.records[key],result=C.cancelPunch(record,punch,day,clock.minutes);
+ if(!result.ok)return toast(result.error);
+ const snapshot=JSON.stringify(record),name=employee().name;
+ const restoreLabel=record.beforeStart?.kind==="leave"?"有休":record.beforeStart?.kind==="holiday"?"休み":null;
+ const message=punch==="end"?"退勤を取り消して、勤務中に戻します。出勤・休憩・メモの記録は残ります。":
+ "今日の出勤・退勤・休憩を取り消し、"+(restoreLabel?"打刻前の「"+restoreLabel+"」に戻します。":"未打刻に戻します。")+(record.note?"この勤務記録のメモも取り消されます。":"");
+ ask((punch==="end"?"退勤":"出勤")+"を取り消しますか？",name+"さん・"+stamp(day)+"\n"+message,()=>{
+  const latestClock=C.clockAt();refreshClock(latestClock);
+  if(ui.role!=="employee"||ui.employee!==id||latestClock.day!==day)return toast("表示する社員か日付が変わったため、取り消しませんでした。");
+  if(JSON.stringify(state.records[key])!==snapshot)return toast("記録が変更されたため、取り消しませんでした。内容を確認してもう一度操作してください。");
+  const latest=C.cancelPunch(state.records[key],punch,day,latestClock.minutes);
+  if(!latest.ok)return toast(latest.error);
+  if(latest.value==null)delete state.records[key];else state.records[key]=latest.value;
+  render();$(punch==="start"?"startPunch":"endPunch")?.focus();persist(punch==="end"?"退勤を取り消し、勤務中に戻しました":"出勤を取り消しました");
+ },"打刻を取り消す");
 }
 
 function monthRange(offset=ui.monthOffset){return C.monthFor(C.TODAY,offset);}
@@ -273,6 +296,7 @@ function saveEditor(){
   const closed=C.punch(previous,"resume",now());
   if(closed.ok)previous=closed.value;
  }
+ if(previous?.kind==="work"&&result.value.kind==="work"&&Object.prototype.hasOwnProperty.call(previous,"beforeStart"))result.value.beforeStart=previous.beforeStart?{...previous.beforeStart}:null;
  if(previous?.kind==="work"&&result.value.kind==="work"&&["start","end","breakMinutes","overnight"].every(field=>previous[field]===result.value[field])){
   if(Array.isArray(previous.breaks))result.value.breaks=previous.breaks.map(b=>({...b}));
   if(previous.startAt)result.value.startAt=previous.startAt;
@@ -338,6 +362,7 @@ document.addEventListener("click",event=>{
   if(ui.role!=="admin")return;ui.tab="people";ui.query="";ui.department="all";ui.onlyMissing=a==="people-missing";render();return;
  }
  if(a==="edit"){openEditor(b.dataset.employee||ui.employee,b.dataset.date||C.TODAY,b.dataset.work==="true");return;}
+ if(a==="cancel-punch"){requestPunchCancellation(b.dataset.employee,b.dataset.date,b.dataset.punch);return;}
  if(a==="punch"){
   const clock=C.clockAt();refreshClock(clock);
   const k=C.key(ui.employee,clock.day),result=C.punch(state.records[k],b.dataset.punch,clock.minutes);
