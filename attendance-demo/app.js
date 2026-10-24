@@ -52,14 +52,14 @@ function nav(){
 function dayIllustration(clock,phase){
  const night=clock.minutes<360||clock.minutes>=1080,done=phase==="finished",rest=phase==="break"||phase==="off";
  const scene=night?"night":"day",pose=done?"settled":rest?"resting":phase==="working"?"awake":"rising";
- const sky=night?'<path d="M46 13a16 16 0 1 0 16 22 17 17 0 0 1-16-22Z" fill="#edf2fc" stroke="#355da0" stroke-width="1.7"/><path d="M66 11v7m-3.5-3.5h7M24 17v4m-2-2h4" stroke="#cf793e" stroke-width="1.6" stroke-linecap="round"/>':
- '<g class="sun-rays" stroke="#cc7439" stroke-width="1.7" stroke-linecap="round"><path d="M45 8v4M45 46v4M24 29h4M62 29h4M30 14l3 3m24-3-3 3M30 44l3-3m24 3-3-3"/></g><circle cx="45" cy="29" r="12" fill="#f6d7ba" stroke="#cc7439" stroke-width="1.6"/>';
- const detail=done?'<path d="m35 57 3 3 6-6" fill="none" stroke="#355da0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>':rest?'<path d="M34 57h10m-10 4h10" stroke="#355da0" stroke-width="1.6" stroke-linecap="round"/>':'<circle class="scene-step" cx="'+(phase==="working"?"52":"31")+'" cy="58" r="2.5" fill="#355da0"/>';
- return '<svg class="day-illustration scene-'+scene+' pose-'+pose+'" data-scene="'+scene+'" data-phase="'+phase+'" viewBox="0 0 88 76" fill="none" aria-hidden="true"><path d="M12 53h64M17 65h54" stroke="#dbe1e9" stroke-width="1.3" stroke-linecap="round"/>'+sky+detail+'</svg>';
+ const sky=night?'<path d="M82 13a34 34 0 1 0 33 49 36 36 0 0 1-33-49Z" fill="#f3b16c" stroke="#254b87" stroke-width="2.2" stroke-linejoin="round"/><path d="m109 14 2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5Z" fill="#254b87"/><circle cx="39" cy="28" r="2.3" fill="#254b87"/>':
+ '<g class="sun-rays" stroke="#aa5725" stroke-width="2.2" stroke-linecap="round"><path d="M78 9v7M78 84v7M37 50h7M112 50h7M49 21l5 5m48-5-5 5M49 79l5-5m48 5-5-5"/></g><circle cx="78" cy="50" r="26" fill="#ed9954" stroke="#aa5725" stroke-width="2.2"/>';
+ const detail=done?'<path d="m62 104 4 4 8-9" stroke="#254b87" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>':rest?'<path d="M62 103h12m-12 5h12" stroke="#254b87" stroke-width="2.2" stroke-linecap="round"/>':'<circle class="scene-step" cx="'+(phase==="working"?"88":"37")+'" cy="104" r="3.5" fill="#254b87"/>';
+ return '<svg class="day-illustration scene-'+scene+' pose-'+pose+'" data-scene="'+scene+'" data-phase="'+phase+'" viewBox="0 0 132 118" fill="none" aria-hidden="true"><path d="M14 92Q65 101 119 89" stroke="#7598cb" stroke-width="1.5" stroke-linecap="round"/>'+sky+detail+'</svg>';
 }
 function timelineView(r,clock){
  const t=C.timeline(r,C.TODAY,clock.minutes),status=r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"まだ打刻がありません";
- if(!t)return '<section class="day-timeline" aria-labelledby="timelineHeading"><div class="graphic-heading"><h2 id="timelineHeading">今日の流れ</h2></div><div class="timeline-empty"><span>出勤</span><i aria-hidden="true"></i><span>休憩</span><i aria-hidden="true"></i><span>退勤</span></div><p class="graphic-note">'+status+'</p></section>';
+ if(!t)return '<section class="day-timeline is-empty" aria-labelledby="timelineHeading"><h2 id="timelineHeading">今日の流れ</h2><p class="timeline-empty-copy">'+status+'</p></section>';
  const lower=Math.floor(t.start/60)*60,upper=Math.max(lower+60,Math.ceil(t.end/60)*60),span=upper-lower;
  const percent=n=>Math.max(0,Math.min(100,(n-lower)/span*100));
  const position=n=>percent(n).toFixed(3);
@@ -97,7 +97,7 @@ function homeView(){
  action("punch","退勤",'data-punch="end" '+(!started||finished?"disabled":""),"punch-button "+(started&&!finished&&!breaking?"is-primary":"is-secondary"));
  const breakButton=started&&!finished?'<div class="punch-secondary-row">'+action("punch",icon("pause",15)+(breaking?"休憩を終える":"休憩を開始"),'data-punch="'+(breaking?"resume":"break")+'"',"hero-break "+(breaking?"is-primary":"is-secondary"))+'</div>':"";
  const issue=firstMissing?'<button type="button" class="home-issue" data-action="edit" data-date="'+firstMissing+'" data-employee="'+e.id+'"><span><strong>未入力の勤怠が'+missing.length+'日あります</strong><small>'+stamp(firstMissing)+(firstStatus==="incomplete"?"・退勤時刻の確認":"・記録が未入力")+'</small></span><span class="issue-action">確認する '+icon("chevron",14)+'</span></button>':"";
- return '<div class="home-heading"><div><h1>今日の勤怠</h1><p id="homeDate" class="home-date">'+liveDateLabel(clock.day)+'</p></div><p class="home-greeting">'+h(e.name.split(" ")[0])+'さん、おつかれさまです。</p></div>'+
+ return '<div class="home-heading"><div><h1>今日の勤怠</h1><p id="homeDate" class="home-date">'+liveDateLabel(clock.day)+'</p><p class="home-greeting">'+h(e.name.split(" ")[0])+'さん、おつかれさまです。</p></div></div>'+
  '<section class="punch-box" aria-label="今日の打刻"><div class="punch-topline"><h2>今日の打刻</h2><strong id="todayPunchState" class="punch-state">'+h(punchState)+'</strong></div><div class="clock-scene-row"><div><p class="punch-clock-label">現在の時刻 <span>日本時間</span></p><time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+clock.time+'（日本時間）"><span id="clockMain" class="clock-main">'+clock.time+'</span></time></div><span id="dayScene">'+dayIllustration(clock,phase)+'</span></div><div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakButton+'</section>'+
  issue+'<div id="todayTimeline">'+timelineView(r,clock)+'</div><div id="homeWeek">'+weekGraphic(e.id,clock)+'</div>'+
  '<section class="home-records"><h2>記録の確認・修正</h2>'+action("records-all",'<span><strong>今月の勤怠を開く</strong><small>リスト／カレンダー</small></span>'+icon("chevron",17),"","home-record-link")+'</section>';
@@ -243,7 +243,7 @@ function render(){
  let content;
  if(admin)content=ui.tab==="people"?peopleView():ui.tab==="settings"?settingsView():adminSummary();
  else content=ui.tab==="records"?recordsView():ui.tab==="menu"?employeeMenu():homeView();
- $("app").innerHTML='<div class="shell '+(admin?"admin":"")+'"><header class="app-header"><div class="header-row">'+action("brand-home",'day<span>.</span>',"","brand")+'<div class="mode-switch" aria-label="表示モード">'+action("role","社員",'data-role="employee" aria-pressed="'+(!admin)+'"',!admin?"selected":"")+action("role","管理者",'data-role="admin" aria-pressed="'+admin+'"',admin?"selected":"")+'</div></div><div class="demo-strip"><span><i></i>操作モック · サンプルデータ</span>'+action("about","このモックについて","","text-button")+'</div></header><main class="main-content">'+content+'</main>'+nav()+'</div>';
+ $("app").innerHTML='<div class="shell '+(admin?"admin":ui.tab==="home"?"home-shell":"")+'"><header class="app-header"><div class="header-row">'+action("brand-home",'day<span>.</span>',"","brand")+'<div class="mode-switch" aria-label="表示モード">'+action("role","社員",'data-role="employee" aria-pressed="'+(!admin)+'"',!admin?"selected":"")+action("role","管理者",'data-role="admin" aria-pressed="'+admin+'"',admin?"selected":"")+'</div></div><div class="demo-strip"><span><i></i>操作モック · サンプルデータ</span>'+action("about","このモックについて","","text-button")+'</div></header><main class="main-content">'+content+'</main>'+nav()+'</div>';
  if(admin&&ui.tab==="settings")updatePreview();
 }
 function fillEditor(id,day,forceWork=false){

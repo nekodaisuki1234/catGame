@@ -288,3 +288,62 @@ dialog{border-radius:12px}
  .graphic-note{font-size:12px;flex-wrap:wrap}
 }
 @media(prefers-reduced-motion:reduce){.punch-button,.hero-break{transition:none}.punch-button:enabled:active,.hero-break:enabled:active{transform:none}}
+
+
+/* Give the clock and sky a shared composition, with color concentrated at the punch. */
+.home-shell{--blue:#174da9;--ink:#16365f;--line:#c8d3e3;background:#e4ebf7}
+.home-shell .app-header,.home-shell .bottom-nav{background:#e4ebf7;border-color:#c8d3e3}
+.home-shell .brand{color:#16365f}
+.home-shell .demo-strip,.home-shell .demo-strip .text-button{color:#4d617e}
+.home-shell .demo-strip i{background:#5377b0}
+.home-shell .home-heading{display:block;margin-bottom:16px}
+.home-shell .home-heading>div{min-width:0}
+.home-shell .home-heading h1{margin-bottom:4px}
+.home-shell .home-date{color:#3d5578}
+.home-shell .home-greeting{max-width:none;text-align:left;margin:4px 0 0;font-size:12px;line-height:1.7;color:#4d617e}
+.home-shell .punch-box{padding:16px 18px 18px;border:1px solid #b0c6e8;border-radius:12px;background:#b7cff3;margin-bottom:18px}
+.home-shell .punch-topline h2{color:#355579}
+.home-shell .punch-state{color:#16365f;font-size:16px}
+.home-shell .clock-scene-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 124px;align-items:center;gap:0;min-height:142px;padding:3px 0 16px}
+.home-shell .clock-scene-row:after{content:"";position:absolute;left:0;right:4px;bottom:13px;height:1px;background:#91add6;pointer-events:none}
+.home-shell .clock-scene-row>div{position:relative;z-index:1;min-width:0}
+.home-shell .punch-clock-label{color:#355579}
+.home-shell .punch-clock-label>span{color:#355579}
+.home-shell .home-clock{margin-top:7px;line-height:1.05;color:#12356b}
+.home-shell .clock-main{font-size:clamp(49px,15.3vw,64px);font-weight:600;letter-spacing:-.055em}
+.home-shell #dayScene{display:block;position:relative;width:124px;height:124px;min-width:0;justify-self:end}
+.home-shell .day-illustration{width:100%;height:100%;overflow:visible}
+.home-shell .pose-settled .sun-rays,.home-shell .pose-resting .sun-rays{opacity:1}
+.home-shell .punch-button.is-primary,.home-shell .hero-break.is-primary{background:#174da9;border-color:#174da9;color:#fff}
+.home-shell .punch-button.is-secondary,.home-shell .hero-break.is-secondary{background:#e2eafa;border-color:#8eadd9;color:#244a7e}
+.home-shell .punch-button:disabled{background:#dce6f6;border-color:#a9bfdf;color:#516c91}
+.home-shell .home-issue{background:transparent;border-left-color:#9f821e}
+.home-shell .home-issue strong{color:#705a0c}
+.home-shell .home-issue small{color:#4d617e}
+.home-shell .graphic-total,.home-shell .graphic-note,.home-shell .timeline-legend,.home-shell .timeline-caveat,.home-shell .timeline-break-times{color:#4d617e}
+.home-shell .timeline-rail{background:#c8d4e5}
+.home-shell .timeline-boundaries{color:#4d617e}
+.home-shell .timeline-boundaries b{color:#254570}
+.day-timeline.is-empty{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 13px;margin:0 0 18px}
+.day-timeline.is-empty h2{margin:0;font-size:14px;line-height:1.6;white-space:nowrap}
+.timeline-empty-copy{margin:0;color:#4d617e;font-size:12px;line-height:1.7;text-align:right}
+.home-shell .week-graphic-track{border-bottom-color:#aebfd7}
+.home-shell .week-graphic-bar{background:#174da9}
+.home-shell .week-graphic-value{color:#244571}
+.home-shell .week-graphic-date{color:#4d617e}
+.home-shell .kind-missing .week-graphic-mark{border-color:#927514;color:#705a0c}
+.home-shell .kind-missing .week-graphic-value{color:#705a0c}
+.home-shell .kind-holiday .week-graphic-mark,.home-shell .kind-leave .week-graphic-mark{color:#52698b}
+.home-shell .kind-future .week-graphic-mark,.home-shell .kind-unstarted .week-graphic-mark{color:#52698b}
+.home-shell .kind-future .week-graphic-value,.home-shell .kind-future .week-graphic-date{color:#52698b}
+.home-shell .kind-unstarted .week-graphic-value,.home-shell .kind-holiday .week-graphic-value,.home-shell .kind-leave .week-graphic-value{color:#4d617e}
+.home-shell .week-graphic-day.is-today .week-graphic-date{color:#174da9}
+.home-shell .week-graphic-day:enabled:hover{background:#dce6f6}
+.home-shell .home-record-link{background:transparent}
+.home-shell .home-record-link small{color:#4d617e}
+@media(max-width:350px){
+ .home-shell .punch-box{padding:15px}
+ .home-shell .clock-scene-row{grid-template-columns:minmax(0,1fr) 104px;min-height:130px}
+ .home-shell #dayScene{width:104px;height:110px}
+ .home-shell .home-greeting{max-width:none;font-size:12px}
+}
