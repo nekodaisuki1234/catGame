@@ -1,6 +1,13 @@
-window.AttendanceCore = (function createAttendanceCore(){
+window.createAttendanceCore = (function createAttendanceCore(referenceTime){
   "use strict";
-  const TODAY="2026-10-23",FIRST="2026-08-01",BASE_NOW=16*60+30,VERSION=1;
+  const clockFormatter=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"});
+  function clockAt(instant=new Date()){
+    const p=Object.fromEntries(clockFormatter.formatToParts(instant).map(part=>[part.type,part.value]));
+    const hour=String(Number(p.hour)%24).padStart(2,"0"),day=p.year+"-"+p.month+"-"+p.day;
+    return {day,minutes:Number(hour)*60+Number(p.minute),seconds:Number(p.second),secondsText:p.second,time:hour+":"+p.minute,iso:day+"T"+hour+":"+p.minute+":"+p.second+"+09:00"};
+  }
+  const snapshot=clockAt(referenceTime||new Date());
+  const TODAY=snapshot.day,FIRST="2026-08-01",BASE_NOW=snapshot.minutes,VERSION=1;
   const WEEK=["日","月","火","水","木","金","土"];
   const pad=n=>String(n).padStart(2,"0");
   const iso=d=>d.toISOString().slice(0,10);
@@ -89,7 +96,7 @@ window.AttendanceCore = (function createAttendanceCore(){
     if(start==null)return {ok:false,error:"出勤時刻を入力してください。"};
     if(record.end&&end==null)return {ok:false,error:"退勤時刻を確認してください。"};
     if(end==null&&day!==TODAY)return {ok:false,error:"過去の勤務には退勤時刻も入力してください。"};
-    if(end==null&&start>now)return {ok:false,error:"勤務中の出勤時刻は、サンプル時刻より前にしてください。"};
+    if(end==null&&start>now)return {ok:false,error:"勤務中の出勤時刻は、現在時刻より前にしてください。"};
     const span=end==null?now-start:end+(record.overnight?1440:0)-start;
     if(span<0)return {ok:false,error:"退勤が翌日の場合は「翌日に退勤」を選んでください。"};
     const rest=Number(record.breakMinutes);
@@ -126,7 +133,7 @@ window.AttendanceCore = (function createAttendanceCore(){
     const employees=Array.from({length:50},(_,i)=>({id:"E"+String(i+1).padStart(3,"0"),name:i===0?"田中 花子":surnames[i%10]+" "+given[Math.floor(i/10)],department:["営業","企画","管理"][i%3]}));
     const records={};
     dates(FIRST,TODAY).forEach((d,di)=>{
-      if(!isWorkday(d))return;
+      if(!isWorkday(d)||d===TODAY)return;
       employees.forEach((e,i)=>{
         if((di*3+i*7)%43===0)return;
         if((di+i*3)%47===0){records[key(e.id,d)]={kind:"leave",start:"",end:"",breakMinutes:0,overnight:false,openBreak:null,note:""};return;}
@@ -134,14 +141,15 @@ window.AttendanceCore = (function createAttendanceCore(){
         records[key(e.id,d)]={kind:"work",start,end:d===TODAY?"":i%7===0?"17:45":"18:00",breakMinutes:60,overnight:false,openBreak:null,note:""};
       });
     });
-    delete records[key("E001","2026-10-21")];
-    records[key("E001","2026-10-22")]={kind:"work",start:"09:00",end:"18:00",breakMinutes:60,overnight:false,openBreak:null,note:""};
-    records[key("E001",TODAY)]={kind:"work",start:"09:00",end:"",breakMinutes:60,overnight:false,openBreak:null,note:""};
-    return {version:VERSION,employees,records,settings:{cutoff:20,pending:null}};
+    let previous=add(TODAY,-1);while(!isWorkday(previous))previous=add(previous,-1);
+    let earlier=add(previous,-1);while(!isWorkday(earlier))earlier=add(earlier,-1);
+    delete records[key("E001",earlier)];
+    if(previous>=FIRST)records[key("E001",previous)]={kind:"work",start:"09:00",end:"18:00",breakMinutes:60,overnight:false,openBreak:null,note:""};
+    return {version:VERSION,seededThrough:TODAY,employees,records,settings:{cutoff:20,pending:null}};
   }
   function hydrate(raw){
     if(!raw||raw.version!==VERSION||!Array.isArray(raw.employees)||raw.employees.length!==50||!raw.records||typeof raw.records!=="object"||!raw.settings||!Number.isInteger(raw.settings.cutoff)||raw.settings.cutoff<0||raw.settings.cutoff>31)return null;
-    const expected=seed().employees;
+    const fresh=seed(),expected=fresh.employees;
     if(expected.some((e,i)=>raw.employees[i]?.id!==e.id))return null;
     if(raw.settings.pending!=null&&(!Number.isInteger(raw.settings.pending)||raw.settings.pending<0||raw.settings.pending>31))return null;
     for(const [k,r] of Object.entries(raw.records)){
@@ -149,7 +157,13 @@ window.AttendanceCore = (function createAttendanceCore(){
       if(!expected.some(e=>e.id===id)||!/^\d{4}-\d{2}-\d{2}$/.test(d)||!r||!["work","holiday","leave"].includes(r.kind)||typeof r.note!=="string"||!Number.isInteger(r.breakMinutes)||r.breakMinutes<0||r.breakMinutes>1440||r.openBreak!=null&&(!Number.isInteger(r.openBreak)||r.openBreak<0||r.openBreak>=1440))return null;
       if(r.kind==="work"&&(timeToMin(r.start)==null||r.end&&timeToMin(r.end)==null))return null;
     }
-    return {...raw,employees:expected};
+    const through=/^\d{4}-\d{2}-\d{2}$/.test(raw.seededThrough||"")?raw.seededThrough:"2026-10-23";
+    let records=raw.records;
+    if(through<TODAY){
+      records={...raw.records};
+      for(const [k,record] of Object.entries(fresh.records))if(k.split("|")[1]>through&&!(k in records))records[k]=record;
+    }
+    return {...raw,seededThrough:through>TODAY?through:TODAY,employees:expected,records};
   }
   const xml=s=>String(s??"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));
   function utf8(text){
@@ -210,5 +224,6 @@ window.AttendanceCore = (function createAttendanceCore(){
       {name:"日別明細",rows:[["社員ID","氏名","所属","日付","曜日","区分","出勤","退勤","休憩（分）","実働","メモ"],...employees.flatMap(e=>exportRows(state,e,period,now).map(r=>[e.id,e.name,e.department,...r]))]}
     ]);
   }
-  return {TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,worked,status,statusText,summary,validate,punch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
-})();
+  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,worked,status,statusText,summary,validate,punch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
+});
+window.AttendanceCore = window.createAttendanceCore();
