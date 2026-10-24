@@ -84,8 +84,8 @@ function homeView(){
  const punchState=started?(finished?"退勤済み":breaking?"休憩中":"勤務中"):r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"出勤前";
  const month=C.monthFor(C.TODAY),missing=C.visibleDates(month).filter(day=>day<C.TODAY&&["missing","incomplete"].includes(C.status(state.records[C.key(e.id,day)],day)));
  const firstMissing=missing[0],firstStatus=firstMissing?C.status(state.records[C.key(e.id,firstMissing)],firstMissing):null;
- const buttons=action("punch",'<span>出勤</span>'+(!started?icon("arrow",20):""),'data-punch="start" '+(started?"disabled":""),"punch-button "+(!started?"is-primary":"is-secondary"))+
- action("punch",'<span>退勤</span>'+(started&&!finished&&!breaking?icon("arrow",20):""),'data-punch="end" '+(!started||finished?"disabled":""),"punch-button "+(started&&!finished&&!breaking?"is-primary":"is-secondary"));
+ const buttons=action("punch",'<span>'+(started?"出勤済み":"出勤")+'</span>'+(!started?icon("arrow",20):""),'data-punch="start" '+(started?"disabled":""),"punch-button "+(!started?"is-primary":"is-secondary"))+
+ action("punch",'<span>'+(finished?"退勤済み":"退勤")+'</span>'+(!started?'<small class="punch-state-note">出勤後に使えます</small>':"")+(started&&!finished&&!breaking?icon("arrow",20):""),'data-punch="end" '+(!started||finished?"disabled":""),"punch-button "+(started&&!finished&&!breaking?"is-primary":"is-secondary"));
  const breakButton=started&&!finished?'<div class="punch-secondary-row">'+action("punch",icon("pause",15)+(breaking?"休憩を終える":"休憩を開始"),'data-punch="'+(breaking?"resume":"break")+'"',"hero-break "+(breaking?"is-primary":"is-secondary"))+'</div>':"";
  const issue=firstMissing?'<button type="button" class="home-issue" data-action="edit" data-date="'+firstMissing+'" data-employee="'+e.id+'"><span><strong>未入力の勤怠が'+missing.length+'日あります</strong><small>'+stamp(firstMissing)+(firstStatus==="incomplete"?"・退勤時刻の確認":"・記録が未入力")+'</small></span><span class="issue-action">確認する '+icon("chevron",14)+'</span></button>':"";
  return '<div class="home-heading"><h1>今日の勤怠</h1><p id="homeDate" class="home-date">'+liveDateLabel(clock.day)+'</p></div>'+

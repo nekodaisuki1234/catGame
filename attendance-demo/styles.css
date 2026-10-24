@@ -70,7 +70,8 @@ button:not(:disabled):active{transform:translateY(1px)}
 .punch-button{display:flex;align-items:center;justify-content:center;gap:12px;min-height:54px;width:100%;padding:12px 15px;border:1px solid #96a193;border-radius:6px;background:transparent;color:var(--accent);font-size:17px;line-height:1.4;font-weight:650;letter-spacing:.04em}
 .punch-button.is-primary,.hero-break.is-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .punch-button.is-secondary{background:transparent;color:var(--accent);border-color:#96a193}
-.punch-button:disabled{opacity:1;color:var(--muted);border-color:var(--line);background:var(--beige)}
+.punch-button:disabled{opacity:1;flex-direction:column;gap:1px;padding:6px 12px;color:var(--muted);border-color:transparent;background:transparent}
+.punch-state-note{display:block;font-size:11px;line-height:1.5;font-weight:400;letter-spacing:0;color:var(--muted)}
 .punch-secondary-row{display:flex;justify-content:flex-end;margin-top:10px}
 .hero-break{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 13px;border:1px solid #96a193;border-radius:6px;background:transparent;color:var(--accent);font-size:13px;font-weight:600}
 .home-issue{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:0 0 0 11px;margin:0 0 24px;border:0;border-left:3px solid #9c7d2d;background:none;text-align:left}
