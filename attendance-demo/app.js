@@ -49,14 +49,6 @@ function nav(){
 }
 
 
-function dayIllustration(clock,phase){
- const night=clock.minutes<360||clock.minutes>=1080,done=phase==="finished",rest=phase==="break"||phase==="off";
- const scene=night?"night":"day",pose=done?"settled":rest?"resting":phase==="working"?"awake":"rising";
- const sky=night?'<circle cx="77" cy="61" r="43" fill="#ffa86b"/><circle cx="99" cy="40" r="36" fill="#2447df"/><path d="M116 12v14m-7-7h14" stroke="#fff" stroke-width="2.5"/><circle cx="24" cy="34" r="2.5" fill="#fff"/><circle cx="119" cy="82" r="2" fill="#fff"/>':
- '<circle cx="77" cy="61" r="35" fill="#ffa86b"/><g class="sun-rays" stroke="#ffa86b" stroke-width="3"><path d="M77 7v10m0 88v10M23 61h10m88 0h10M39 23l7 7m62 62 7 7M39 99l7-7m62-62 7-7"/></g>';
- const detail=done?'<path d="m64 126 5 5 10-11" stroke="#fff" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>':rest?'<path d="M67 121v10m7-10v10" stroke="#fff" stroke-width="2.5"/>':'<circle class="scene-step" cx="'+(phase==="working"?"96":"35")+'" cy="126" r="3" fill="#fff"/>';
- return '<svg class="day-illustration scene-'+scene+' pose-'+pose+'" data-scene="'+scene+'" data-phase="'+phase+'" viewBox="0 0 144 144" fill="none" aria-hidden="true"><path d="M13 126h112" stroke="#a6b9ff" stroke-width="1"/>'+sky+detail+'</svg>';
-}
 function timelineView(r,clock){
  const t=C.timeline(r,C.TODAY,clock.minutes),status=r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"まだ打刻がありません";
  if(!t)return '<section class="day-timeline is-empty" aria-labelledby="timelineHeading"><h2 id="timelineHeading">今日の流れ</h2><p class="timeline-empty-copy">'+status+'</p></section>';
@@ -90,7 +82,6 @@ function homeView(){
  const e=employee(),r=state.records[C.key(e.id,C.TODAY)],s=C.status(r,C.TODAY),clock=C.clockAt();
  const started=r?.kind==="work"&&C.timeToMin(r.start)!=null,finished=started&&!!r.end,breaking=s==="break";
  const punchState=started?(finished?"退勤済み":breaking?"休憩中":"勤務中"):r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"出勤前";
- const phase=finished?"finished":breaking?"break":started?"working":r?.kind==="leave"||r?.kind==="holiday"?"off":"before";
  const month=C.monthFor(C.TODAY),missing=C.visibleDates(month).filter(day=>day<C.TODAY&&["missing","incomplete"].includes(C.status(state.records[C.key(e.id,day)],day)));
  const firstMissing=missing[0],firstStatus=firstMissing?C.status(state.records[C.key(e.id,firstMissing)],firstMissing):null;
  const buttons=action("punch",'<span>出勤</span>'+(!started?icon("arrow",20):""),'data-punch="start" '+(started?"disabled":""),"punch-button "+(!started?"is-primary":"is-secondary"))+
@@ -98,7 +89,7 @@ function homeView(){
  const breakButton=started&&!finished?'<div class="punch-secondary-row">'+action("punch",icon("pause",15)+(breaking?"休憩を終える":"休憩を開始"),'data-punch="'+(breaking?"resume":"break")+'"',"hero-break "+(breaking?"is-primary":"is-secondary"))+'</div>':"";
  const issue=firstMissing?'<button type="button" class="home-issue" data-action="edit" data-date="'+firstMissing+'" data-employee="'+e.id+'"><span><strong>未入力の勤怠が'+missing.length+'日あります</strong><small>'+stamp(firstMissing)+(firstStatus==="incomplete"?"・退勤時刻の確認":"・記録が未入力")+'</small></span><span class="issue-action">確認する '+icon("chevron",14)+'</span></button>':"";
  return '<div class="home-heading"><h1>今日の勤怠</h1><p id="homeDate" class="home-date">'+liveDateLabel(clock.day)+'</p></div>'+
- '<section class="punch-box" aria-label="今日の打刻"><div class="punch-topline"><h2>今日の打刻</h2><strong id="todayPunchState" class="punch-state">'+h(punchState)+'</strong></div><div class="clock-scene-row"><div class="clock-copy"><time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+clock.time+'（日本時間）"><span id="clockMain" class="clock-main">'+clock.time+'</span></time><p class="punch-clock-label">現在時刻・日本時間</p></div><span id="dayScene">'+dayIllustration(clock,phase)+'</span></div><div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakButton+'</section>'+
+ '<section class="punch-box" aria-label="今日の打刻"><div class="punch-topline"><h2>今日の打刻</h2><strong id="todayPunchState" class="punch-state">'+h(punchState)+'</strong></div><div class="clock-layout"><time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+clock.time+'（日本時間）"><span id="clockMain" class="clock-main">'+clock.time+'</span></time><p class="punch-clock-label">現在時刻・日本時間</p></div><div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakButton+'</section>'+
  issue+'<div id="todayTimeline">'+timelineView(r,clock)+'</div><div id="homeWeek">'+weekGraphic(e.id,clock)+'</div>'+
  '<section class="home-records"><h2>記録の確認・修正</h2>'+action("records-all",'<span><strong>今月の勤怠を開く</strong><small>リスト／カレンダー</small></span>'+icon("chevron",17),"","home-record-link")+'</section>';
 }
@@ -226,7 +217,7 @@ function refreshClock(clock=C.clockAt()){
  if(day)day.textContent=liveDateLabel(clock.day);
  if(main&&main.dataset.graphicMinute!==clock.day+"T"+clock.time){
   main.dataset.graphicMinute=clock.day+"T"+clock.time;
-  const r=state.records[C.key(ui.employee,C.TODAY)],s=C.status(r,C.TODAY),phase=r?.kind==="work"&&r.start?(r.end?"finished":s==="break"?"break":"working"):r?.kind==="leave"||r?.kind==="holiday"?"off":"before";
+  const r=state.records[C.key(ui.employee,C.TODAY)];
   if($("todayTimeline"))$("todayTimeline").innerHTML=timelineView(r,clock);
   // Restore focus after updating live work totals.
   if($("homeWeek")){
@@ -234,7 +225,6 @@ function refreshClock(clock=C.clockAt()){
    $("homeWeek").innerHTML=weekGraphic(ui.employee,clock);
    if(activeDay)document.querySelector('.week-graphic-day[data-date="'+activeDay+'"]')?.focus?.({preventScroll:true});
   }
-  if($("dayScene"))$("dayScene").innerHTML=dayIllustration(clock,phase);
  }
 }
 
@@ -244,7 +234,7 @@ function render(){
  if(admin)content=ui.tab==="people"?peopleView():ui.tab==="settings"?settingsView():adminSummary();
  else content=ui.tab==="records"?recordsView():ui.tab==="menu"?employeeMenu():homeView();
  $("app").innerHTML='<div class="shell '+(admin?"admin":ui.tab==="home"?"home-shell":"")+'"><header class="app-header"><div class="header-row">'+action("brand-home",'day<span>.</span>',"","brand")+'<div class="mode-switch" aria-label="表示モード">'+action("role","社員",'data-role="employee" aria-pressed="'+(!admin)+'"',!admin?"selected":"")+action("role","管理者",'data-role="admin" aria-pressed="'+admin+'"',admin?"selected":"")+'</div></div><div class="demo-strip"><span><i></i>操作モック · サンプルデータ</span>'+action("about","このモックについて","","text-button")+'</div></header><main class="main-content">'+content+'</main>'+nav()+'</div>';
- $("browserTheme")?.setAttribute("content",!admin&&ui.tab==="home"?"#2447df":"#f5f6fa");
+ $("browserTheme")?.setAttribute("content","#f5f1e8");
  if(admin&&ui.tab==="settings")updatePreview();
 }
 function fillEditor(id,day,forceWork=false){
