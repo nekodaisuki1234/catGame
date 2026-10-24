@@ -73,6 +73,35 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     const extra=record.openBreak!=null&&day===TODAY?Math.max(0,now-record.openBreak):0;
     return Math.max(0,end-start-(Number(record.breakMinutes)||0)-extra);
   }
+  // Only positioned breaks come from recorded punches; manual totals stay unpositioned.
+  function timeline(record,day,now=BASE_NOW){
+    const start=record?.kind==="work"?timeToMin(record.start):null;
+    if(start==null||day>TODAY)return null;
+    const ended=timeToMin(record.end),live=ended==null&&day===TODAY;
+    if(ended==null&&!live)return null;
+    const end=ended==null?now:ended+(record.overnight?1440:0);
+    if(end<start)return null;
+    const ranges=(Array.isArray(record.breaks)?record.breaks:[]).filter(b=>Number.isInteger(b?.start)&&Number.isInteger(b?.end)&&b.end>b.start).map(b=>({start:Math.max(start,b.start),end:Math.min(end,b.end)}));
+    if(live&&Number.isInteger(record.openBreak))ranges.push({start:Math.max(start,record.openBreak),end});
+    ranges.sort((a,b)=>a.start-b.start);
+    const breaks=[];
+    for(const b of ranges){
+      if(b.end<=b.start)continue;
+      const previous=breaks[breaks.length-1];
+      if(previous&&b.start<=previous.end)previous.end=Math.max(previous.end,b.end);
+      else breaks.push({...b});
+    }
+    const positioned=breaks.reduce((total,b)=>total+b.end-b.start,0);
+    const rest=Math.max(0,Number(record.breakMinutes)||0)+(live&&record.openBreak!=null?Math.max(0,now-record.openBreak):0);
+    const unknownRest=Math.max(0,rest-positioned),segments=[];
+    let cursor=start;
+    for(const b of breaks){
+      if(cursor<b.start)segments.push({kind:unknownRest?"unlocated":"work",start:cursor,end:b.start});
+      segments.push({kind:"break",...b});cursor=b.end;
+    }
+    if(cursor<end)segments.push({kind:unknownRest?"unlocated":"work",start:cursor,end});
+    return {start,end,live,breaks,segments,rest,unknownRest,minutes:worked(record,day,now)};
+  }
   function status(record,day){
     if(day>TODAY)return "upcoming";
     if(!record)return isWorkday(day)?"missing":"holiday";
@@ -119,7 +148,7 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     const error=message=>({ok:false,error:message});
     if(action==="start"){
       if(r&&r.kind==="work"&&r.start)return error("本日の出勤は記録済みです。修正画面で変更できます。");
-      return {ok:true,value:{kind:"work",start:time(now),end:"",breakMinutes:0,overnight:false,openBreak:null,note:""}};
+      return {ok:true,value:{kind:"work",start:time(now),end:"",breakMinutes:0,overnight:false,openBreak:null,breaks:[],note:""}};
     }
     if(!r||r.kind!=="work"||timeToMin(r.start)==null)return error("出勤を記録してから操作してください。");
     if(r.end)return error("本日は退勤済みです。修正画面で変更できます。");
@@ -129,9 +158,9 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
       r.openBreak=now;
     }else if(action==="resume"){
       if(r.openBreak==null)return error("開始中の休憩はありません。");
-      r.breakMinutes+=Math.max(0,now-r.openBreak);r.openBreak=null;
+      r.breaks=[...(Array.isArray(r.breaks)?r.breaks:[]),{start:r.openBreak,end:now}];r.breakMinutes+=Math.max(0,now-r.openBreak);r.openBreak=null;
     }else if(action==="end"){
-      if(r.openBreak!=null){r.breakMinutes+=Math.max(0,now-r.openBreak);r.openBreak=null;}
+      if(r.openBreak!=null){r.breaks=[...(Array.isArray(r.breaks)?r.breaks:[]),{start:r.openBreak,end:now}];r.breakMinutes+=Math.max(0,now-r.openBreak);r.openBreak=null;}
       r.end=time(now);r.overnight=false;
     }else return error("操作を選んでください。");
     return {ok:true,value:r};
@@ -235,6 +264,6 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
       {name:"日別明細",rows:[["社員ID","氏名","所属","日付","曜日","区分","出勤","退勤","休憩（分）","実働","メモ"],...employees.flatMap(e=>exportRows(state,e,period,now).map(r=>[e.id,e.name,e.department,...r]))]}
     ]);
   }
-  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,monthFor,monthGrid,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,worked,status,statusText,summary,validate,punch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
+  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,monthFor,monthGrid,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,worked,timeline,status,statusText,summary,validate,punch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
 });
 window.AttendanceCore = window.createAttendanceCore();

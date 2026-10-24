@@ -192,3 +192,99 @@ dialog{border-radius:12px}
 .form-error{border-left:3px solid #b94d55;border-radius:4px;background:#fff8f8;color:#a43b46}
 @media(min-width:420px){.clock-main{font-size:52px}}
 @media(max-width:350px){.punch-box{padding:16px}.clock-main{font-size:44px}.punch-button{min-height:50px;font-size:15px}.home-heading h1{font-size:24px}.home-issue{gap:8px}.home-issue strong{font-size:11px}.home-issue small{font-size:9px}.issue-action{font-size:10px}}
+
+
+/* A compact daily journal: punch first, then graphics made from real records. */
+:root{--ink:#20324b;--blue:#285bb8;--muted:#596a7f;--line:#e4e8ed;--orange:#cc7439}
+.home-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:18px}
+.home-heading h1{font-size:25px;line-height:1.4;margin-bottom:5px;letter-spacing:-.55px}
+.home-date{font-size:13px;line-height:1.6;color:#526277;margin:0}
+.home-greeting{max-width:145px;margin:0 0 2px;font-size:12px;line-height:1.7;color:#596a7f;text-align:right}
+.punch-box{padding:17px 18px 18px;margin-bottom:18px;border:1px solid #dbe2ec;border-radius:10px;box-shadow:none}
+.punch-topline{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.punch-topline h2{font-size:13px;font-weight:500;color:#53647b}
+.punch-state{font-size:16px;line-height:1.5;font-weight:650;color:var(--ink)}
+.clock-scene-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0 19px}
+.clock-scene-row>div{min-width:0}
+.punch-clock-label{font-size:12px;color:#526277;line-height:1.5;margin:0}
+.punch-clock-label>span{font-size:11px;color:#596a7f;margin-left:7px}
+.home-clock{margin:6px 0 0;line-height:1.1}
+.clock-main{font-size:50px;font-weight:550;letter-spacing:-.045em}
+#dayScene{display:block;width:74px;height:68px;flex:0 0 74px}
+.day-illustration{display:block;width:100%;height:100%}
+.pose-settled .sun-rays{opacity:.5}
+.pose-resting .sun-rays{opacity:.7}
+.punch-button{min-height:54px;border-radius:8px;font-size:17px;transition:transform .12s ease,background-color .12s ease}
+.punch-button.is-primary,.hero-break.is-primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.punch-button.is-secondary,.hero-break.is-secondary{color:#53647b;background:#fff;border-color:#d9e0e9}
+.punch-button:disabled{opacity:1;background:#f6f7f9;border-color:#e5e8ed;color:#737f90}
+.punch-button:enabled:active,.hero-break:enabled:active{transform:scale(.98)}
+.punch-secondary-row{margin-top:10px}
+.hero-break{min-height:44px;padding:9px 12px;font-size:13px;border-radius:6px}
+.home-issue{margin:0 0 20px;padding:10px 0 10px 12px;gap:10px;border-left-color:#b89b2c}
+.home-issue strong{font-size:13px;line-height:1.6;color:#705d14;font-weight:600}
+.home-issue small{font-size:12px;line-height:1.65;color:#58677a;margin-top:2px}
+.issue-action{font-size:12px}
+.graphic-heading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:13px}
+.graphic-heading h2{font-size:15px;line-height:1.5;letter-spacing:0;font-weight:650}
+.graphic-total{font-size:12px;color:#53647b;white-space:nowrap}
+.graphic-total strong{font-size:16px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;margin-left:4px}
+.day-timeline{padding:0 0 20px;margin:0 0 20px;border-bottom:1px solid var(--line)}
+.timeline-empty{display:flex;align-items:center;gap:10px;min-height:35px;color:#667489;font-size:12px}
+.timeline-empty i{display:block;flex:1;border-top:1px dashed #adb8c7}
+.graphic-note{display:flex;justify-content:space-between;gap:8px;margin:8px 0 0;color:#596a7f;font-size:12px;line-height:1.7}
+.timeline-boundaries{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:#53647b}
+.timeline-boundaries b{color:#263f61;font-size:13px;font-weight:550;font-variant-numeric:tabular-nums;margin-left:4px}
+.timeline-plot{padding:17px 6px 13px}
+.timeline-rail{position:relative;height:9px;background:#edf0f4;border-radius:2px}
+.timeline-span{position:absolute;top:0;height:9px;border-radius:1px}
+.span-work{background:var(--blue)}
+.span-break{background:#fff;border:1px solid #abb7c8;border-left-style:dashed;border-right-style:dashed}
+.span-unlocated{background:#fff;border:1px dashed #6484b8}
+.timeline-now{display:block;position:absolute;top:50%;width:12px;height:12px;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:50%;background:var(--blue);outline:1px solid var(--blue)}
+.timeline-now.is-break{background:#fff;outline-color:#526a8e;border-color:#526a8e}
+.timeline-now.is-break i{display:block;width:2px;height:5px;background:#526a8e;margin:1.5px auto}
+.timeline-legend{display:flex;align-items:center;flex-wrap:wrap;gap:16px;font-size:12px;color:#526277}
+.timeline-legend>span{display:inline-flex;align-items:center;gap:6px}
+.timeline-legend i{display:inline-block;width:14px;height:7px;border-radius:1px}
+.timeline-legend .legend-work{background:var(--blue)}
+.timeline-legend .legend-rest{border:1px solid #9eacbf;background:#fff}
+.timeline-legend .legend-unlocated{border:1px dashed #6484b8;background:#fff}
+.timeline-break-times{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:#526277;line-height:1.8;margin-top:7px;font-variant-numeric:tabular-nums}
+.timeline-caveat{font-size:12px;line-height:1.8;color:#596a7f;margin:8px 0 0}
+.home-week{margin:0 0 20px;padding:0 0 18px;border-bottom:1px solid var(--line)}
+.home-week .graphic-heading{margin-bottom:10px}
+.week-graphic{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.week-graphic-day{display:flex;align-items:center;flex-direction:column;min-width:0;min-height:112px;padding:6px 0 2px;border:0;border-radius:4px;background:transparent;color:#435671;font-variant-numeric:tabular-nums}
+.week-graphic-track{position:relative;display:flex;align-items:flex-end;justify-content:center;flex-shrink:0;height:60px;width:100%;border-bottom:1px solid #dbe2eb}
+.week-graphic-bar{display:block;width:19px;max-width:65%;min-height:0;background:var(--blue);border-radius:2px 2px 0 0}
+.week-graphic-bar[style="height:0.00px"]{width:19px;height:0!important;border-top:2px solid var(--blue)}
+.week-graphic-value{display:block;white-space:nowrap;font-size:12px;line-height:1.7;margin-top:6px;color:#314b71}
+.week-graphic-date{display:block;font-size:12px;line-height:1.7;margin-top:3px;color:#5b6b80;white-space:nowrap}
+.week-graphic-date b{font-weight:500}
+.week-graphic-day.is-today .week-graphic-date{color:var(--blue);font-weight:650;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
+.week-graphic-day.is-today .week-graphic-date b{font-weight:650}
+.week-graphic-mark{display:grid;place-items:center;min-width:20px;height:24px;line-height:1;font-size:17px;color:#718099;margin-bottom:2px}
+.kind-missing .week-graphic-mark{height:27px;border:1px dashed #9b8326;border-radius:2px;font-size:14px;color:#776212}
+.kind-missing .week-graphic-value{color:#776212}
+.kind-holiday .week-graphic-mark,.kind-leave .week-graphic-mark{font-size:20px;color:#77869b}
+.kind-future .week-graphic-mark{color:#718099;letter-spacing:1px}
+.week-graphic-day:disabled{opacity:1;background:none;color:#68768a}
+.kind-future .week-graphic-value,.kind-future .week-graphic-date{color:#68768a}
+.kind-unstarted .week-graphic-value,.kind-holiday .week-graphic-value,.kind-leave .week-graphic-value{color:#5b6b80}
+.week-graphic-day:enabled:hover{background:#f5f7fb}
+.home-records>h2{font-size:15px;line-height:1.5}
+.home-record-link{min-height:64px;padding:13px 0}
+.home-record-link strong{font-size:14px}
+.home-record-link small{font-size:12px;color:#596a7f;margin-top:3px}
+@media(min-width:420px){.clock-main{font-size:54px}}
+@media(max-width:350px){
+ .home-heading{align-items:flex-start;gap:10px}.home-heading h1{font-size:23px}
+ .home-greeting{max-width:112px;font-size:12px}.punch-box{padding:15px}
+ .clock-main{font-size:44px}#dayScene{width:62px;height:62px;flex-basis:62px}
+ .punch-button{min-height:52px;font-size:16px}.home-issue{flex-wrap:wrap}
+ .home-issue strong{font-size:13px}.home-issue small,.issue-action{font-size:12px}
+ .week-graphic{gap:2px}.week-graphic-value,.week-graphic-date{font-size:11px}
+ .graphic-note{font-size:12px;flex-wrap:wrap}
+}
+@media(prefers-reduced-motion:reduce){.punch-button,.hero-break{transition:none}.punch-button:enabled:active,.hero-break:enabled:active{transform:none}}
