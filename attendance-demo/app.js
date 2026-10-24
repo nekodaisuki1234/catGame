@@ -35,7 +35,7 @@ const cls=s=>["missing","incomplete"].includes(s)?"warning":["working","break"].
 const badge=s=>'<span class="badge '+cls(s)+'">'+h(C.statusText(s))+'</span>';
 const action=(name,text,extra="",className="button")=>'<button type="button" class="'+className+'" data-action="'+name+'" '+extra+'>'+text+'</button>';
 let toastTimer,confirmCallback=null,editContext=null,punchOperation=null,punchSequence=0,punchError=null;
-const PUNCH_FEEDBACK_MS=650;
+const PUNCH_FEEDBACK_MS=650,PUNCH_SWITCH_MS=140;
 function toast(message){$("toast").textContent=message;$("toast").classList.add("visible");clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("toast").classList.remove("visible"),3600);}
 function persist(message,candidate=state){try{localStorage.setItem(STORAGE,JSON.stringify(candidate));if(message)toast(message);return true;}catch{toast("保存できませんでした。空き容量やブラウザの保存設定を確認して、もう一度お試しください。");return false;}}
 function openDialog(dialog){if(!dialog.open)dialog.showModal();}
@@ -94,7 +94,7 @@ function punchButton(punch,record,clock){
  const attrs='id="'+id+'" data-punch="'+punch+'" data-date="'+clock.day+'" data-employee="'+ui.employee+'" '+(disabled?"disabled ":"")+(punchOperation?'aria-busy="true" ':"");
  const content=success?icon("check",18)+'<span class="punch-feedback-text">'+(punch==="start"?"出勤しました":"退勤しました")+'</span>':
  saving?'<span class="punch-label">保存中…</span>':'<span class="punch-label">'+label+'</span>'+(hint?'<small class="punch-state-note">'+hint+'</small>':"")+(!undo&&!disabled?icon("arrow",20):"");
- return action(undo?"cancel-punch":"punch",content,attrs,"punch-button "+(primary?"is-primary":"is-secondary")+(undo?" is-undo":"")+(success?" is-feedback":""));
+ return action(undo?"cancel-punch":"punch",content,attrs,"punch-button "+(primary?"is-primary":"is-secondary")+(undo?" is-undo":"")+(success?" is-feedback":"")+(active&&punchOperation.phase==="switching"?" is-switching":""));
 }
 function homeView(){
  const e=employee(),r=state.records[C.key(e.id,C.TODAY)],s=C.status(r,C.TODAY),clock=C.clockAt();
@@ -125,6 +125,11 @@ function storePunchRecord(id,day,value){
 function finishPunch(token){
  const op=punchOperation;
  if(!op||op.token!==token||op.phase==="saving")return;
+ if(op.phase==="success"&&Date.now()<op.releaseAt){
+  op.phase="switching";op.until=op.releaseAt;
+  if(ui.role==="employee"&&ui.tab==="home")render();
+  setTimeout(()=>finishPunch(token),Math.max(0,op.until-Date.now()));return;
+ }
  punchOperation=null;
  if(ui.role==="employee"&&ui.tab==="home"){
   render();
@@ -132,7 +137,7 @@ function finishPunch(token){
  }
 }
 function settlePunch(op,phase){
- op.phase=phase;op.until=Date.now()+PUNCH_FEEDBACK_MS;
+ op.phase=phase;op.until=Date.now()+PUNCH_FEEDBACK_MS;op.releaseAt=op.until+(phase==="success"?PUNCH_SWITCH_MS:0);
  render();
  setTimeout(()=>finishPunch(op.token),PUNCH_FEEDBACK_MS);
 }
