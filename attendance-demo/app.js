@@ -39,14 +39,6 @@ function toast(message){$("toast").textContent=message;$("toast").classList.add(
 function persist(message){try{localStorage.setItem(STORAGE,JSON.stringify(state));if(message)toast(message);}catch{toast("画面内で更新しました。このブラウザでは保存できません。");}}
 function openDialog(dialog){if(!dialog.open)dialog.showModal();}
 function ask(title,message,callback){$("confirmTitle").textContent=title;$("confirmText").textContent=message;confirmCallback=callback;openDialog($("confirmDialog"));}
-function weekChart(id){
- const monday=C.add(C.TODAY,-((C.weekday(C.TODAY)+6)%7)),days=Array.from({length:7},(_,i)=>C.add(monday,i));
- const values=days.map(d=>d>C.TODAY?0:C.worked(state.records[C.key(id,d)],d,now())),max=Math.max(60,...values);
- return '<div class="week-chart" aria-label="今週の実働時間">'+days.map((d,i)=>{
-  const s=C.status(state.records[C.key(id,d)],d),height=Math.max(4,values[i]/max*72);
-  return '<button type="button" class="week-day '+(d===C.TODAY?"selected":"")+'" data-action="edit" data-date="'+d+'" data-employee="'+id+'" '+(d>C.TODAY?"disabled":"")+' aria-label="'+stamp(d)+" "+(values[i]?C.duration(values[i]):C.statusText(s))+'"><span class="bar-track"><span class="bar '+(s==="missing"?"bar-empty":"")+'" style="height:'+height+'px"></span></span><span class="week-name">'+C.WEEK[C.weekday(d)]+'</span><span class="week-date">'+Number(d.slice(8,10))+'</span></button>';
- }).join("")+'</div>';
-}
 function periodControl(){
  const p=period(),prev=C.periodAt(C.TODAY,state.settings.cutoff,ui.offset-1);
  return '<section class="period-control"><div class="period-selector">'+action("period",icon("back",17),'data-direction="-1" '+(prev.start<C.FIRST?"disabled":""),"icon-button")+'<div><strong>'+periodLabel(p)+'</strong><small>'+p.start.slice(0,4)+'年・'+cutoffLabel(p.cutoff)+'締め</small></div>'+action("period",icon("chevron",17),'data-direction="1" '+(ui.offset>=0?"disabled":""),"icon-button")+'</div>'+(ui.offset!==0?action("current-period","今の期間へ","","text-button"):"")+'</section>';
@@ -58,23 +50,21 @@ function nav(){
 
 
 function homeView(){
- const e=employee(),p=current(),r=state.records[C.key(e.id,C.TODAY)],s=C.status(r,C.TODAY),sum=C.summary(state,e.id,p,now());
- const firstMissing=C.visibleDates(p).find(d=>["missing","incomplete"].includes(C.status(state.records[C.key(e.id,d)],d)));
- const clock=C.clockAt(),started=r?.kind==="work"&&C.timeToMin(r.start)!=null,finished=started&&!!r.end;
- const punchState=started?(finished?"退勤済み":s==="break"?"休憩中":"勤務中"):r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"出勤前";
- const buttons=action("punch","出勤",'data-punch="start" '+(started?"disabled":""),"punch-button clock-in")+action("punch","退勤",'data-punch="end" '+(!started||finished?"disabled":""),"punch-button clock-out");
- const breakButton=started&&!finished?'<div class="punch-secondary-row">'+action("punch",icon("pause",14)+(s==="break"?"休憩を終える":"休憩を開始"),'data-punch="'+(s==="break"?"resume":"break")+'"',"hero-break")+'</div>':"";
- const rest=r?(r.breakMinutes||0)+(r.openBreak!=null?Math.max(0,now()-r.openBreak):0):0;
- return '<div class="page-heading"><div><p id="homeDate" class="eyebrow">'+liveDateLabel(clock.day)+'</p><h1>'+h(e.name.split(" ")[0])+'さん、<br>おつかれさまです。</h1></div><span class="avatar">'+h(e.name[0])+'</span></div>'+
- '<section class="today-card"><div class="today-top"><span>現在の時刻</span><span class="hero-status">'+h(punchState)+'</span></div>'+
- '<time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+clock.time+':'+clock.secondsText+'（日本時間）"><span id="clockMain" class="clock-main">'+clock.time+'</span><span id="clockSeconds" class="clock-seconds" aria-hidden="true">'+clock.secondsText+'</span></time>'+
- '<div class="today-meta"><span>出勤 <b>'+(r?.start||"—")+'</b></span><span>退勤 <b>'+(r?.end||"—")+'</b></span><span>休憩 <b>'+rest+'分</b></span></div>'+
- '<div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakButton+'<div class="today-footer"><span>日本時間</span>'+action("edit","時刻を入力・修正",'data-date="'+C.TODAY+'" data-employee="'+e.id+'"',"hero-link")+'</div></section>'+
- (firstMissing?'<button type="button" class="notice" data-action="edit" data-date="'+firstMissing+'" data-employee="'+e.id+'"><span class="notice-dot"></span><span><strong>'+stamp(firstMissing)+'の記録が未入力です</strong><small>タップして入力できます</small></span>'+icon("chevron",17)+'</button>':'<div class="notice notice-good">'+icon("check",18)+'<span>今の期間に未入力の記録はありません</span></div>')+
- '<section class="panel"><div class="section-heading"><div><p class="eyebrow">今の締め期間</p><h2>'+periodLabel(p)+'</h2></div>'+action("records-all","月の一覧 "+icon("chevron",14),"","text-button")+'</div>'+
- '<div class="mini-stats"><div><span>実働</span><strong>'+C.shortDuration(sum.minutes)+'<small>時間</small></strong></div><div><span>出勤</span><strong>'+sum.days+'<small>日</small></strong></div><div><span>未入力</span><strong class="'+(sum.missing?"amber":"")+'">'+sum.missing+'<small>日</small></strong></div></div></section>'+
- '<section class="panel"><div class="section-heading"><h2>今週の記録</h2><span class="muted small">日付から修正できます</span></div>'+weekChart(e.id)+'</section>'+
- '<div class="quick-grid">'+action("edit",icon("edit",19)+'<span>勤怠を入力</span>','data-date="'+C.TODAY+'" data-employee="'+e.id+'"',"quick-button")+action("export-own",icon("download",19)+'<span>Excelを出力</span>',"","quick-button")+'</div>';
+ const e=employee(),r=state.records[C.key(e.id,C.TODAY)],s=C.status(r,C.TODAY),clock=C.clockAt();
+ const started=r?.kind==="work"&&C.timeToMin(r.start)!=null,finished=started&&!!r.end,breaking=s==="break";
+ const punchState=started?(finished?"退勤済み":breaking?"休憩中":"勤務中"):r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"出勤前";
+ const guidance=finished?"今日の打刻は完了しています。記録の確認・修正は勤怠タブから行えます。":breaking?"休憩を終えるときは「休憩を終える」を押してください。":started?"退勤するときに打刻してください。":r?.kind==="leave"||r?.kind==="holiday"?"勤務する場合は、出勤を打刻してください。":"出勤するときに打刻してください。";
+ const month=C.monthFor(C.TODAY),missing=C.visibleDates(month).filter(day=>day<C.TODAY&&["missing","incomplete"].includes(C.status(state.records[C.key(e.id,day)],day)));
+ const firstMissing=missing[0],firstStatus=firstMissing?C.status(state.records[C.key(e.id,firstMissing)],firstMissing):null;
+ const buttons=action("punch","出勤",'data-punch="start" '+(started?"disabled":""),"punch-button "+(!started?"is-primary":"is-secondary"))+
+ action("punch","退勤",'data-punch="end" '+(!started||finished?"disabled":""),"punch-button "+(started&&!finished&&!breaking?"is-primary":"is-secondary"));
+ const breakButton=started&&!finished?'<div class="punch-secondary-row">'+action("punch",icon("pause",14)+(breaking?"休憩を終える":"休憩を開始"),'data-punch="'+(breaking?"resume":"break")+'"',"hero-break "+(breaking?"is-primary":"is-secondary"))+'</div>':"";
+ const issue=firstMissing?'<button type="button" class="home-issue" data-action="edit" data-date="'+firstMissing+'" data-employee="'+e.id+'"><span><strong>未入力の勤怠が'+missing.length+'日あります</strong><small>'+stamp(firstMissing)+(firstStatus==="incomplete"?"の退勤時刻を確認してください":"の記録を入力してください")+'</small></span><span class="issue-action">確認する '+icon("chevron",14)+'</span></button>':"";
+ const stamps=started?'<dl class="punch-stamps"><div><dt>出勤</dt><dd>'+h(r.start)+'</dd></div><div><dt>退勤</dt><dd>'+h(r.end||"—")+'</dd></div><div><dt>休憩</dt><dd>'+(breaking?"休憩中":r.breakMinutes+"分")+'</dd></div></dl>':"";
+ return '<div class="home-heading"><h1>今日の勤怠</h1><p id="homeDate" class="home-date">'+liveDateLabel(clock.day)+'</p><p class="home-greeting">'+h(e.name.split(" ")[0])+'さん、おつかれさまです。</p></div>'+
+ '<section class="attendance-state" aria-label="今日の勤務状態"><strong id="todayPunchState">'+h(punchState)+'</strong><p>'+h(guidance)+'</p></section>'+issue+
+ '<section class="punch-box" aria-label="今日の打刻"><p class="punch-clock-label">現在の時刻 <span>日本時間</span></p><time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+clock.time+'（日本時間）"><span id="clockMain" class="clock-main">'+clock.time+'</span></time><div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakButton+stamps+'</section>'+
+ '<section class="home-records"><h2>記録の確認・修正</h2>'+action("records-all",'<span><strong>今月の勤怠を開く</strong><small>リスト／カレンダーで日付を選んで編集</small></span>'+icon("chevron",17),"","home-record-link")+'</section>';
 }
 
 function monthRange(offset=ui.monthOffset){return C.monthFor(C.TODAY,offset);}
@@ -123,7 +113,7 @@ function employeeMenu(){
  const e=employee();
  return '<div class="page-title"><div><p class="eyebrow">アカウント</p><h1>メニュー</h1></div></div>'+
  '<section class="panel profile"><span class="avatar">'+h(e.name[0])+'</span><div><h2>'+h(e.name)+'</h2><p>'+h(e.department)+' · '+e.id+'</p></div></section>'+
- '<section class="panel menu-list">'+action("records-all",icon("calendar",19)+'<span>勤怠の記録</span>'+icon("chevron",16),"","menu-row")+action("export-own",icon("download",19)+'<span>今の期間のExcel</span>'+icon("chevron",16),"","menu-row")+action("about",icon("info",19)+'<span>このモックについて</span>'+icon("chevron",16),"","menu-row")+'</section>'+
+ '<section class="panel menu-list">'+action("records-all",icon("calendar",19)+'<span>勤怠の記録</span>'+icon("chevron",16),"","menu-row")+action("export-own",icon("download",19)+'<span>締め期間のExcel</span>'+icon("chevron",16),"","menu-row")+action("about",icon("info",19)+'<span>このモックについて</span>'+icon("chevron",16),"","menu-row")+'</section>'+
  '<section class="panel"><h2>ほかの社員で試す</h2><p class="helper">サンプルの社員を切り替えられます。</p><label class="field-label" for="employeeSelect">表示する社員</label><select id="employeeSelect">'+state.employees.map(item=>'<option value="'+item.id+'" '+(item.id===ui.employee?"selected":"")+'>'+h(item.name)+'（'+h(item.department)+'）</option>').join("")+'</select></section>'+
  '<section class="panel"><h2>サンプルデータ</h2><p class="helper">変更はこのブラウザに保存されます。勤務先には送信されません。</p>'+action("reset-demo","初期状態に戻す","","button subtle")+'</section>';
 }
@@ -194,10 +184,9 @@ function refreshClock(clock=C.clockAt()){
   ui.offset=0;ui.monthOffset=0;ui.selectedDay=C.TODAY;$("editDate").min=C.FIRST;$("editDate").max=C.TODAY;
   render();if($("detailDialog").open&&ui.detail)detailView(ui.detail);persist();return;
  }
- const main=$("clockMain"),seconds=$("clockSeconds"),time=$("liveClock"),day=$("homeDate");
+ const main=$("clockMain"),time=$("liveClock"),day=$("homeDate");
  if(main&&main.textContent!==clock.time)main.textContent=clock.time;
- if(seconds&&seconds.textContent!==clock.secondsText)seconds.textContent=clock.secondsText;
- if(time){time.setAttribute("datetime",clock.iso);time.setAttribute("aria-label","現在の時刻 "+clock.time+":"+clock.secondsText+"（日本時間）");}
+ if(time){time.setAttribute("datetime",clock.iso);time.setAttribute("aria-label","現在の時刻 "+clock.time+"（日本時間）");}
  if(day)day.textContent=liveDateLabel(clock.day);
 }
 
