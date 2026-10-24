@@ -1,12 +1,12 @@
-/* day. — ivory paper, navy ink and quiet, useful graphics. */
+/* day. — cool paper, navy ink and quiet, useful graphics. */
 :root{
- --ink:#2c3745;--accent:#2c425b;--beige:#e5ddcf;--muted:#5c626c;
- --line:#c9c1b3;--paper:#f5f1e8;--amber:#786014;--radius:6px;--gutter:20px;
+ --ink:#2c3745;--accent:#2c425b;--surface:#e3e8ee;--muted:#5c626c;
+ --line:#c8d0da;--paper:#f3f5f7;--amber:#786014;--radius:6px;--gutter:20px;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{color-scheme:light}
-body{margin:0;background:#e5ddcf;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+body{margin:0;background:#e3e8ee;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer;touch-action:manipulation;color:inherit}
 button:disabled{cursor:default}
@@ -93,7 +93,7 @@ button:not(:disabled):active{transform:translateY(1px)}
 .timeline-boundaries{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--muted)}
 .timeline-boundaries b{color:var(--ink);font-size:13px;font-weight:600;margin-left:3px;font-variant-numeric:tabular-nums}
 .timeline-plot{padding:18px 6px 15px}
-.timeline-rail{position:relative;height:9px;background:#e5ddcf}
+.timeline-rail{position:relative;height:9px;background:#e3e8ee}
 .timeline-span{position:absolute;top:0;height:9px}
 .span-work{background:var(--accent)}
 .span-break{background:var(--paper);border:1px solid #9099a4;border-left-style:dashed;border-right-style:dashed}
@@ -112,7 +112,7 @@ button:not(:disabled):active{transform:translateY(1px)}
 .home-week{padding-bottom:20px;margin-bottom:23px;border-bottom:1px solid var(--line)}
 .week-graphic{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 .week-graphic-day{display:flex;flex-direction:column;align-items:center;min-width:0;min-height:116px;padding:7px 0 3px;border:0;border-radius:0;background:none;color:var(--ink);font-variant-numeric:tabular-nums}
-.week-graphic-track{position:relative;display:flex;align-items:flex-end;justify-content:center;flex-shrink:0;width:100%;height:60px;border-bottom:1px solid #b7b3a4}
+.week-graphic-track{position:relative;display:flex;align-items:flex-end;justify-content:center;flex-shrink:0;width:100%;height:60px;border-bottom:1px solid #bcc6d1}
 .week-graphic-bar{display:block;width:23px;max-width:72%;min-height:0;background:var(--accent)}
 .week-graphic-bar[style="height:0.00px"]{height:0!important;border-top:2px solid var(--accent)}
 .week-graphic-value{display:block;margin-top:7px;font-size:12px;line-height:1.6;font-weight:550;white-space:nowrap;color:#31465f}
@@ -128,7 +128,7 @@ button:not(:disabled):active{transform:translateY(1px)}
 .week-graphic-day:disabled{opacity:1}
 .kind-future .week-graphic-value,.kind-future .week-graphic-date{color:#636a75}
 .kind-unstarted .week-graphic-value,.kind-holiday .week-graphic-value,.kind-leave .week-graphic-value{color:var(--muted)}
-.week-graphic-day:enabled:hover{background:#e5ddcf}
+.week-graphic-day:enabled:hover{background:#e3e8ee}
 .graphic-note{display:flex;justify-content:space-between;gap:8px;margin:10px 0 0;color:var(--muted);font-size:12px;line-height:1.7}
 .home-records>h2{font-size:16px}
 .home-record-link{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:72px;padding:14px 0;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;color:var(--accent)}
@@ -237,7 +237,7 @@ button:not(:disabled):active{transform:translateY(1px)}
 .feature-icon{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin-bottom:11px;color:var(--accent)}
 .export-card h2{font-size:23px;letter-spacing:-.6px}
 .export-card>p:not(.fine){margin:10px 0 18px;color:var(--muted);font-size:13px;line-height:1.9}
-.completion-track{height:7px;overflow:hidden;margin:20px 0 0;background:#e5ddcf}
+.completion-track{height:7px;overflow:hidden;margin:20px 0 0;background:#e3e8ee}
 .completion-track>span{display:block;height:100%;background:var(--accent)}
 .no-padding{padding:0;border-top:1px solid var(--line)}
 .padded{padding:18px 0 0}
@@ -252,7 +252,7 @@ button:not(:disabled):active{transform:translateY(1px)}
 .staff-numbers small{display:block;margin-top:3px;color:var(--muted);font-size:11px}
 .staff-row>svg{color:var(--muted)}
 .filter-panel{margin-bottom:17px}
-.search-field{display:flex;align-items:center;gap:10px;padding:0 12px;border:1px solid #858f9d;border-radius:var(--radius);background:#fbf9f4;color:var(--muted)}
+.search-field{display:flex;align-items:center;gap:10px;padding:0 12px;border:1px solid #858f9d;border-radius:var(--radius);background:#fafbfc;color:var(--muted)}
 .search-field input{border:0!important;background:none!important;outline-offset:0!important;padding-left:0!important;min-height:48px!important}
 .filter-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:11px}
 .filter-row select{width:auto;flex:1}
@@ -265,7 +265,7 @@ button:not(:disabled):active{transform:translateY(1px)}
 .period-preview p{margin:9px 0 0;color:var(--muted);font-size:12px;line-height:1.8}
 .reserved{padding:10px 0;margin:12px 0 0;font-size:12px;color:var(--accent)}
 /* Forms and native sheets. No decorative cards around individual fields. */
-input:not([type=checkbox]),select,textarea{width:100%;min-width:0;min-height:46px;padding:10px 11px;border:1px solid #858f9d;border-radius:6px;background:#fbf9f4;color:var(--ink);font-size:16px;line-height:1.5}
+input:not([type=checkbox]),select,textarea{width:100%;min-width:0;min-height:46px;padding:10px 11px;border:1px solid #858f9d;border-radius:6px;background:#fafbfc;color:var(--ink);font-size:16px;line-height:1.5}
 textarea{min-height:88px;resize:vertical}
 input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--accent)}
 .field-label{display:block;margin:13px 0 7px;color:#414e60;font-size:13px;font-weight:600}
@@ -279,7 +279,7 @@ input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--acc
 .form-error:empty{display:none}
 .form-actions{display:flex;gap:10px;margin-top:20px}
 .form-actions>.primary{flex:1}
-dialog{width:min(520px,calc(100% - 24px));max-height:90dvh;padding:0;border:1px solid #c9c1b3;border-radius:12px;background:var(--paper);color:var(--ink);overflow:auto}
+dialog{width:min(520px,calc(100% - 24px));max-height:90dvh;padding:0;border:1px solid #c8d0da;border-radius:12px;background:var(--paper);color:var(--ink);overflow:auto}
 dialog::backdrop{background:#25364b80}
 .sheet-head{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:17px 20px 13px;background:var(--paper);border-bottom:1px solid var(--line)}
 .sheet-head h2{margin-top:4px;font-size:20px}

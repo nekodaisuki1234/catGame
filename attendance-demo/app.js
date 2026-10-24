@@ -257,7 +257,7 @@ function render(){
  if(admin)content=ui.tab==="people"?peopleView():ui.tab==="settings"?settingsView():adminSummary();
  else content=ui.tab==="records"?recordsView():ui.tab==="menu"?employeeMenu():homeView();
  $("app").innerHTML='<div class="shell '+(admin?"admin":ui.tab==="home"?"home-shell":"")+'"><header class="app-header"><div class="header-row">'+action("brand-home",'day<span>.</span>',"","brand")+'<div class="mode-switch" aria-label="表示モード">'+action("role","社員",'data-role="employee" aria-pressed="'+(!admin)+'"',!admin?"selected":"")+action("role","管理者",'data-role="admin" aria-pressed="'+admin+'"',admin?"selected":"")+'</div></div><div class="demo-strip"><span><i></i>操作モック · サンプルデータ</span>'+action("about","このモックについて","","text-button")+'</div></header><main class="main-content">'+content+'</main>'+nav()+'</div>';
- $("browserTheme")?.setAttribute("content","#f5f1e8");
+ $("browserTheme")?.setAttribute("content","#f3f5f7");
  if(admin&&ui.tab==="settings")updatePreview();
 }
 function fillEditor(id,day,forceWork=false){
