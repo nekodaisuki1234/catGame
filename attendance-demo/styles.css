@@ -69,7 +69,7 @@ button:not(:disabled):active{transform:translateY(1px)}
 .punch-clock-label{margin:7px 0 0;color:var(--muted);font-size:11px;line-height:1.6;letter-spacing:.04em}
 .hero-actions.clock-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .punch-button{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;min-height:56px;height:56px;width:100%;padding:8px 12px;border:1px solid #989faa;border-radius:6px;background:transparent;color:var(--accent);font-size:17px;line-height:1.4;font-weight:650;letter-spacing:.04em;transition:transform .1s ease,background-color .1s ease,color .1s ease}
-.punch-button.is-primary,.hero-break.is-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.punch-button.is-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .punch-button.is-secondary{background:transparent;color:var(--accent);border-color:#989faa}
 .punch-button:disabled{opacity:1;flex-direction:column;gap:1px;padding:6px 12px;color:var(--muted);border-color:transparent;background:transparent}
 .punch-button.is-undo{flex-direction:column;font-size:13px;gap:1px;padding:6px 8px;letter-spacing:0}
@@ -93,8 +93,6 @@ button:not(:disabled):active{transform:translateY(1px)}
 @keyframes punch-check{to{stroke-dashoffset:0}}
 @keyframes punch-label-in{from{opacity:.6;transform:translateY(1px)}to{opacity:1;transform:translateY(0)}}
 .punch-state-note{display:block;font-size:11px;line-height:1.5;font-weight:400;letter-spacing:0;color:var(--muted)}
-.punch-secondary-row{display:flex;justify-content:flex-end;margin-top:10px}
-.hero-break{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 13px;border:1px solid #989faa;border-radius:6px;background:transparent;color:var(--accent);font-size:13px;font-weight:600}
 .home-issue{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:0 0 0 11px;margin:0 0 24px;border:0;border-left:3px solid #91799a;background:none;text-align:left}
 .home-issue>span:first-child{flex:1;min-width:0}
 .home-issue strong{display:block;color:#735d78;font-size:13px;line-height:1.6}
@@ -291,6 +289,15 @@ input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--acc
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
 .field-block{margin-bottom:17px}
 .field-block .field-label{margin-top:0}
+.daily-break{margin-top:14px}
+.daily-break-row{display:flex;align-items:center;gap:8px}
+.daily-break-label{margin-right:auto;white-space:nowrap;color:var(--muted);font-size:12px;font-weight:600}
+.break-duration{display:flex;align-items:center;gap:5px;min-width:0}
+.break-duration>span{font-size:12px;color:var(--muted);white-space:nowrap}
+.break-duration input[type=number]{flex:none;width:46px;min-height:44px;padding:8px 4px;text-align:center;font-size:16px;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+.break-duration input::-webkit-inner-spin-button,.break-duration input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.break-duration input:disabled{opacity:.55}
+.break-save{flex:none;min-height:44px;padding:6px 10px;border:1px solid #989faa;border-radius:6px;background:transparent;color:var(--accent);font-size:12px;font-weight:600}
 .rest-presets{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
 .rest-presets button{min-width:47px;min-height:44px;padding:5px 10px;border:1px solid var(--line);border-radius:4px;background:none;color:var(--accent);font-size:12px}
 .form-error{padding:11px 12px;margin:15px 0;border-left:3px solid #a43145;background:#fff0f2;color:#942a3d;font-size:13px;line-height:1.8}

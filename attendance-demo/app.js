@@ -34,7 +34,7 @@ const stamp=d=>md(d)+"（"+C.WEEK[C.weekday(d)]+"）";
 const cls=s=>["missing","incomplete"].includes(s)?"warning":["working","break"].includes(s)?"active":s==="complete"?"good":"quiet";
 const badge=s=>'<span class="badge '+cls(s)+'">'+h(C.statusText(s))+'</span>';
 const action=(name,text,extra="",className="button")=>'<button type="button" class="'+className+'" data-action="'+name+'" '+extra+'>'+text+'</button>';
-let toastTimer,confirmCallback=null,editContext=null,punchOperation=null,punchSequence=0,punchError=null;
+let toastTimer,confirmCallback=null,editContext=null,punchOperation=null,punchSequence=0,punchError=null,breakEdit=null,breakError=null;
 const PUNCH_FEEDBACK_MS=650,PUNCH_SWITCH_MS=140;
 function toast(message){$("toast").textContent=message;$("toast").classList.add("visible");clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("toast").classList.remove("visible"),3600);}
 function persist(message,candidate=state){try{localStorage.setItem(STORAGE,JSON.stringify(candidate));if(message)toast(message);return true;}catch{toast("保存できませんでした。空き容量やブラウザの保存設定を確認して、もう一度お試しください。");return false;}}
@@ -58,11 +58,11 @@ function timelineView(r,clock){
  const position=n=>percent(n).toFixed(3);
  const label=n=>(n>=1440?"翌日 ":"")+C.time(n);
  const segments=t.segments.map(part=>'<span class="timeline-span span-'+part.kind+'" style="left:'+position(part.start)+'%;width:'+((part.end-part.start)/span*100).toFixed(3)+'%" aria-hidden="true"></span>').join("");
- const marker=t.live?'<span class="timeline-now '+(r.openBreak!=null?"is-break":"")+'" style="left:'+position(t.end)+'%" aria-hidden="true"><i></i></span>':"";
+ const marker=t.live?'<span class="timeline-now" style="left:'+position(t.end)+'%" aria-hidden="true"><i></i></span>':"";
  const restItems=t.breaks.map(b=>'<span>休憩 '+label(b.start)+'–'+label(b.end)+'</span>').join("");
  const unknown=t.unknownRest?'<p class="timeline-caveat">休憩'+t.unknownRest+'分は時刻の記録がないため、位置を表示していません。</p>':"";
  const aria="出勤 "+label(t.start)+"、"+(t.live?"現在 ":"退勤 ")+label(t.end)+"、実働 "+C.duration(t.minutes)+"、休憩 "+t.rest+"分";
- return '<section class="day-timeline" aria-labelledby="timelineHeading"><div class="graphic-heading"><h2 id="timelineHeading">今日の流れ</h2><span class="graphic-total">実働 <strong>'+C.shortDuration(t.minutes)+'</strong></span></div><div class="timeline-boundaries"><span>出勤 <b>'+label(t.start)+'</b></span><span>'+(t.live?(r.openBreak!=null?"休憩中・現在":"現在"):"退勤")+' <b>'+label(t.end)+'</b></span></div><div class="timeline-plot" role="img" aria-label="'+h(aria)+'"><div class="timeline-rail">'+segments+marker+'</div></div><div class="timeline-legend"><span><i class="'+(t.unknownRest?"legend-unlocated":"legend-work")+'"></i>'+(t.unknownRest?"時間帯":"勤務")+'</span><span><i class="legend-rest"></i>休憩 '+t.rest+'分</span></div>'+(restItems?'<div class="timeline-break-times">'+restItems+'</div>':"")+unknown+'</section>';
+ return '<section class="day-timeline" aria-labelledby="timelineHeading"><div class="graphic-heading"><h2 id="timelineHeading">今日の流れ</h2><span class="graphic-total">実働 <strong>'+C.shortDuration(t.minutes)+'</strong></span></div><div class="timeline-boundaries"><span>出勤 <b>'+label(t.start)+'</b></span><span>'+(t.live?"現在":"退勤")+' <b>'+label(t.end)+'</b></span></div><div class="timeline-plot" role="img" aria-label="'+h(aria)+'"><div class="timeline-rail">'+segments+marker+'</div></div><div class="timeline-legend"><span><i class="'+(t.unknownRest?"legend-unlocated":"legend-work")+'"></i>'+(t.unknownRest?"時間帯":"勤務")+'</span><span><i class="legend-rest"></i>休憩 '+t.rest+'分</span></div>'+(restItems?'<div class="timeline-break-times">'+restItems+'</div>':"")+unknown+'</section>';
 }
 function weekGraphic(id,clock){
  const monday=C.add(C.TODAY,-((C.weekday(C.TODAY)+6)%7)),days=Array.from({length:7},(_,i)=>C.add(monday,i));
@@ -87,10 +87,10 @@ function punchButton(punch,record,clock){
  let disabled=punch==="end"&&!started,hint=disabled?"出勤後に使えます":"";
  if(punch==="start"&&undo){
   const check=C.cancelPunch(record,"start",clock.day,clock.minutes);
-  if(!check.ok){disabled=true;hint=record.end?"先に退勤を取消":record.openBreak!=null||record.breakMinutes>0||record.breaks?.length?"休憩の記録あり":"メモの記録あり";}
+  if(!check.ok){disabled=true;hint=record.end?"先に退勤を取消":record.openBreak!=null||record.breaks?.length||record.breakMode!=="total"&&record.breakMinutes>0?"休憩の記録あり":"メモの記録あり";}
  }
  if(punchOperation)disabled=true;
- const primary=!undo&&(punch==="start"?!started:started&&!finished&&record.openBreak==null);
+ const primary=!undo&&(punch==="start"?!started:started&&!finished);
  const nextDay=punch==="end"&&record?.overnight;
  const successMessage=recorded+"に"+(punch==="start"?"出勤しました":"退勤しました");
  const accessible=undo?(success?successMessage:label+" "+(nextDay?"翌日 ":"")+recorded+"。"+(saving?"保存中":hint||"取り消す")):saving?"保存中":label;
@@ -100,29 +100,61 @@ function punchButton(punch,record,clock){
  saving?'<span class="punch-label">保存中…</span>':'<span class="punch-label">'+label+'</span>'+(hint?'<small class="punch-state-note">'+hint+'</small>':"")+(!disabled?icon("arrow",20):"");
  return action(undo?"cancel-punch":"punch",content,attrs,"punch-button "+(primary?"is-primary":"is-secondary")+(undo?" is-undo":"")+(success?" is-feedback":"")+(active&&punchOperation.phase==="switching"?" is-switching":""));
 }
+function homeBreakValue(id,day){
+ const form=$("breakForm");
+ if(form?.dataset.employee===id&&form.dataset.date===day)return C.parseBreakDuration($("breakHours").value,$("breakMinutes").value);
+ if(breakEdit?.id===id&&breakEdit.day===day)return C.parseBreakDuration(breakEdit.hours,breakEdit.minutes);
+ return {ok:true,value:C.breakTotal(state,id,day)};
+}
+function breakFields(prefix,total,disabled=false,draft=null){
+ const hours=draft?draft.hours:Math.floor(total/60),minutes=draft?draft.minutes:String(total%60).padStart(2,"0"),off=disabled?"disabled ":"";
+ return '<div class="break-duration" role="group" aria-label="休憩時間">'+
+ '<label class="sr-only" for="'+prefix+'Hours">休憩の時間</label><input id="'+prefix+'Hours" type="number" inputmode="numeric" min="0" max="24" step="1" value="'+h(hours)+'" '+off+'required><span aria-hidden="true">時間</span>'+
+ '<label class="sr-only" for="'+prefix+'Minutes">休憩の分</label><input id="'+prefix+'Minutes" type="number" inputmode="numeric" min="0" max="59" step="1" value="'+h(minutes)+'" '+off+'required><span aria-hidden="true">分</span></div>';
+}
+function dailyBreakEditor(id,clock){
+ const draft=breakEdit?.id===id&&breakEdit.day===clock.day?breakEdit:null,total=C.breakTotal(state,id,clock.day);
+ const error=breakError?.id===id&&breakError.day===clock.day?breakError.message:"";
+ return '<form id="breakForm" class="daily-break" data-employee="'+id+'" data-date="'+clock.day+'" novalidate><div class="daily-break-row"><span class="daily-break-label">休憩時間</span>'+breakFields("break",total,!!punchOperation,draft)+'<button type="submit" class="break-save" '+(punchOperation?"disabled":"")+'>保存</button></div><p id="breakError" class="punch-error" role="alert">'+h(error)+'</p></form>';
+}
+function reportBreakError(message){
+ const clock=C.clockAt();breakError={id:ui.employee,day:clock.day,message};render();toast(message);
+}
+function saveBreakInput(id,day){
+ if(punchOperation||$("confirmDialog").open||ui.role!=="employee"||ui.tab!=="home")return;
+ const input=homeBreakValue(id,day),clock=C.clockAt();refreshClock(clock);
+ if(id!==ui.employee||day!==clock.day)return reportBreakError("表示する社員か日付が変わりました。今日の休憩時間から操作してください。");
+ if(!input.ok)return reportBreakError(input.error);
+ const result=C.setBreakTotal(state.records[C.key(id,day)],input.value);
+ if(!result.ok)return reportBreakError(result.error);
+ if(!storePunchRecord(id,day,result.value,input.value))return reportBreakError("休憩時間を保存できませんでした。保存済みの時間は変更していません。もう一度お試しください。");
+ breakEdit=null;breakError=null;punchError=null;render();toast("休憩時間を"+C.duration(input.value)+"で保存しました");
+}
 function homeView(){
- const e=employee(),r=state.records[C.key(e.id,C.TODAY)],s=C.status(r,C.TODAY),clock=C.clockAt();
- const started=r?.kind==="work"&&C.timeToMin(r.start)!=null,finished=started&&!!r.end,breaking=s==="break";
- const punchState=started?(finished?"退勤済み":breaking?"休憩中":"勤務中"):r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"出勤前";
+ const e=employee(),r=state.records[C.key(e.id,C.TODAY)],clock=C.clockAt();
+ const started=r?.kind==="work"&&C.timeToMin(r.start)!=null,finished=started&&!!r.end;
+ const punchState=started?(finished?"退勤済み":"勤務中"):r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"出勤前";
  const month=C.monthFor(C.TODAY),missing=C.visibleDates(month).filter(day=>day<C.TODAY&&["missing","incomplete"].includes(C.status(state.records[C.key(e.id,day)],day)));
  const firstMissing=missing[0],firstStatus=firstMissing?C.status(state.records[C.key(e.id,firstMissing)],firstMissing):null;
  const buttons=punchButton("start",r,clock)+punchButton("end",r,clock);
- const breakButton=started&&!finished?'<div class="punch-secondary-row">'+action("punch",icon("pause",15)+(breaking?"休憩を終える":"休憩を開始"),'data-punch="'+(breaking?"resume":"break")+'" data-date="'+clock.day+'" data-employee="'+e.id+'" '+(punchOperation?'disabled aria-busy="true"':""),"hero-break "+(breaking?"is-primary":"is-secondary"))+'</div>':"";
+ const breakInput=dailyBreakEditor(e.id,clock);
  const issue=firstMissing?'<button type="button" class="home-issue" data-action="edit" data-date="'+firstMissing+'" data-employee="'+e.id+'"><span><strong>未入力の勤怠が'+missing.length+'日あります</strong><small>'+stamp(firstMissing)+(firstStatus==="incomplete"?"・退勤時刻の確認":"・記録が未入力")+'</small></span><span class="issue-action">確認する '+icon("chevron",14)+'</span></button>':"";
  const error=punchError&&punchError.id===e.id&&punchError.day===clock.day?punchError.message:"";
  const fullTime=clock.time+":"+clock.secondsText;
  return '<div class="home-heading"><h1>今日の勤怠</h1><p id="homeDate" class="home-date">'+liveDateLabel(clock.day)+'</p></div>'+
- '<section class="punch-box" aria-label="今日の打刻"><div class="punch-topline"><h2>今日の打刻</h2><strong id="todayPunchState" class="punch-state">'+h(punchState)+'</strong></div><div class="clock-layout"><time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+fullTime+'（日本時間）"><span id="clockMain" class="clock-main" aria-hidden="true">'+clock.time+'</span><span id="clockSeconds" class="clock-seconds" aria-hidden="true">:'+clock.secondsText+'</span></time><p class="punch-clock-label">現在時刻・日本時間</p></div><div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakButton+'<p id="punchError" class="punch-error" role="alert">'+h(error)+'</p></section>'+
+ '<section class="punch-box" aria-label="今日の打刻"><div class="punch-topline"><h2>今日の打刻</h2><strong id="todayPunchState" class="punch-state">'+h(punchState)+'</strong></div><div class="clock-layout"><time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+fullTime+'（日本時間）"><span id="clockMain" class="clock-main" aria-hidden="true">'+clock.time+'</span><span id="clockSeconds" class="clock-seconds" aria-hidden="true">:'+clock.secondsText+'</span></time><p class="punch-clock-label">現在時刻・日本時間</p></div><div class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+breakInput+'<p id="punchError" class="punch-error" role="alert">'+h(error)+'</p></section>'+
  issue+'<div id="todayTimeline">'+timelineView(r,clock)+'</div><div id="homeWeek">'+weekGraphic(e.id,clock)+'</div>'+
  '<section class="home-records"><h2>記録の確認・修正</h2>'+action("records-all",'<span><strong>今月の勤怠を開く</strong><small>リスト／カレンダー</small></span>'+icon("chevron",17),"","home-record-link")+'</section>';
 }
 function reportPunchError(message){
  const clock=C.clockAt();punchError={id:ui.employee,day:clock.day,message};render();toast(message);
 }
-function storePunchRecord(id,day,value){
+function storePunchRecord(id,day,value,draftMinutes){
  const records={...state.records},key=C.key(id,day);
  if(value==null)delete records[key];else records[key]=value;
- const candidate={...state,records};
+ const breakDrafts={...state.breakDrafts};
+ if(value?.kind==="work")delete breakDrafts[key];else if(draftMinutes!=null)breakDrafts[key]=draftMinutes;
+ const candidate={...state,records,breakDrafts};
  if(!persist(null,candidate))return false;
  state=candidate;return true;
 }
@@ -149,31 +181,33 @@ function beginPunch(punch,expectedDay,expectedEmployee){
  if(punchOperation||$("confirmDialog").open||ui.role!=="employee"||ui.tab!=="home")return;
  const clock=C.clockAt();refreshClock(clock);
  if(expectedDay&&expectedDay!==clock.day||expectedEmployee&&expectedEmployee!==ui.employee)return reportPunchError("表示する日付か社員が変わりました。現在の画面からもう一度操作してください。");
- const id=ui.employee,key=C.key(id,clock.day),result=C.punch(state.records[key],punch,clock.minutes);
+ if(!["start","end"].includes(punch))return;
+ const id=ui.employee,key=C.key(id,clock.day),input=homeBreakValue(id,clock.day);
+ if(!input.ok)return reportBreakError(input.error);
+ const source=punch==="end"?C.setBreakTotal(state.records[key],input.value):{ok:true,value:state.records[key]};
+ if(!source.ok)return reportBreakError(source.error);
+ const result=C.punch(source.value,punch,clock.minutes,input.value);
  if(!result.ok)return reportPunchError(result.error);
  if(punch==="start")result.value.startAt=clock.iso;
  if(punch==="end")result.value.endAt=clock.iso;
  const op={token:++punchSequence,id,day:clock.day,punch,phase:"saving",restoreFocus:document.activeElement?.id===(punch==="start"?"startPunch":"endPunch")};
- punchOperation=op;punchError=null;$("punchAnnouncement").textContent="";render();
+ punchOperation=op;punchError=null;breakError=null;$("punchAnnouncement").textContent="";render();
  if(!storePunchRecord(id,clock.day,result.value)){
   punchOperation=null;return reportPunchError("打刻を保存できませんでした。記録は変更していません。もう一度お試しください。");
  }
- if(punch==="start"||punch==="end"){
-  $("punchAnnouncement").textContent=(punch==="start"?result.value.start:result.value.end)+"に"+(punch==="start"?"出勤しました":"退勤しました");
-  settlePunch(op,"success");
- }else{
-  toast(punch==="break"?"休憩を開始しました":"休憩を終了しました");settlePunch(op,"cooldown");
- }
+ breakEdit=null;
+ $("punchAnnouncement").textContent=(punch==="start"?result.value.start:result.value.end)+"に"+(punch==="start"?"出勤しました":"退勤しました");
+ settlePunch(op,"success");
 }
 function requestPunchCancellation(id,day,punch){
  if(punchOperation||$("confirmDialog").open||ui.role!=="employee"||id!==ui.employee||ui.tab!=="home")return;
  const clock=C.clockAt();refreshClock(clock);
  if(day!==clock.day)return reportPunchError("日付が変わりました。今日の打刻から操作してください。");
- const key=C.key(id,day),result=C.cancelPunch(state.records[key],punch,day,clock.minutes);
+ const key=C.key(id,day),record=state.records[key],result=C.cancelPunch(record,punch,day,clock.minutes);
  if(!result.ok)return reportPunchError(result.error);
  const op={token:++punchSequence,id,day,punch,phase:"saving",restoreFocus:true};
  punchOperation=op;punchError=null;$("punchAnnouncement").textContent="";render();
- if(!storePunchRecord(id,day,result.value)){
+ if(!storePunchRecord(id,day,result.value,punch==="start"&&record.breakMode==="total"?record.breakMinutes:undefined)){
   punchOperation=null;return reportPunchError("取り消しを保存できませんでした。記録は変更していません。もう一度お試しください。");
  }
  const message=punch==="end"?"退勤を取り消し、勤務中に戻しました":"出勤を取り消しました";
@@ -335,12 +369,12 @@ function fillEditor(id,day,forceWork=false){
  $("editKind").value=forceWork?"work":r?.kind||(C.isWorkday(day)?"work":"holiday");
  $("editStart").value=isWork?r.start:"09:00";
  $("editEnd").value=isWork?r.end:day===C.TODAY?"":"18:00";
- $("editBreak").value=isWork?r.breakMinutes+(r.openBreak!=null?Math.max(0,now()-r.openBreak):0):60;
+ const total=C.breakTotal(state,id,day);
+ $("editBreakHours").value=Math.floor(total/60);$("editBreakMinutes").value=String(total%60).padStart(2,"0");
  $("editOvernight").checked=!!r?.overnight;
  $("editNote").value=r?.note||"";
  $("editorError").textContent="";
  $("deleteRecord").hidden=!r;
- $("editRunningBreak").hidden=r?.openBreak==null;
  toggleTimeFields();
 }
 function toggleTimeFields(){$("timeFields").hidden=$("editKind").value!=="work";}
@@ -353,25 +387,26 @@ function openEditor(id,day,forceWork=false){
 function saveEditor(){
  if(punchOperation||!editContext)return;
  const day=$("editDate").value,id=editContext.employeeId;
- const record={kind:$("editKind").value,start:$("editStart").value,end:$("editEnd").value,breakMinutes:$("editBreak").value,overnight:$("editOvernight").checked,note:$("editNote").value};
+ const input=C.parseBreakDuration($("editBreakHours").value,$("editBreakMinutes").value);
+ if($("editKind").value==="work"&&!input.ok){$("editorError").textContent=input.error;return;}
+ const record={kind:$("editKind").value,start:$("editStart").value,end:$("editEnd").value,breakMinutes:input.ok?input.value:0,overnight:$("editOvernight").checked,note:$("editNote").value};
  const result=C.validate(record,day,now());
  if(!result.ok){$("editorError").textContent=result.error;return;}
- let previous=state.records[C.key(id,day)];
- if(previous?.openBreak!=null){
-  const closed=C.punch(previous,"resume",now());
-  if(closed.ok)previous=closed.value;
- }
+ const previous=state.records[C.key(id,day)];
  if(previous?.kind==="work"&&result.value.kind==="work"&&Object.prototype.hasOwnProperty.call(previous,"beforeStart"))result.value.beforeStart=previous.beforeStart?{...previous.beforeStart}:null;
  if(previous?.kind==="work"&&result.value.kind==="work"&&["start","end","breakMinutes","overnight"].every(field=>previous[field]===result.value[field])){
   if(Array.isArray(previous.breaks))result.value.breaks=previous.breaks.map(b=>({...b}));
   if(previous.startAt)result.value.startAt=previous.startAt;
   if(previous.endAt)result.value.endAt=previous.endAt;
  }
- state.records[C.key(id,day)]=result.value;
+ if(!storePunchRecord(id,day,result.value)){
+  $("editorError").textContent="勤怠を保存できませんでした。記録は変更していません。もう一度お試しください。";return;
+ }
+ if(id===ui.employee&&day===C.TODAY){breakEdit=null;breakError=null;punchError=null;}
  if(ui.role==="employee"&&ui.tab==="records")alignRecordMonth(day);
  $("editDialog").close();render();
  if($("detailDialog").open&&ui.detail)detailView(ui.detail);
- persist("勤怠を保存しました");
+ toast("勤怠を保存しました");
 }
 function downloadBytes(bytes,filename){
  const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
@@ -436,7 +471,7 @@ document.addEventListener("click",event=>{
  if(a==="export-admin"){exportAdmin();return;}
  if(a==="about"){openDialog($("aboutDialog"));return;}
  if(a==="close"){const d=$(b.dataset.dialog);if(d?.open)d.close();return;}
- if(a==="rest-preset"){$("editBreak").value=b.dataset.minutes;return;}
+ if(a==="rest-preset"){const total=Number(b.dataset.minutes);$("editBreakHours").value=Math.floor(total/60);$("editBreakMinutes").value=String(total%60).padStart(2,"0");return;}
  if(a==="delete-record"){
   if(!editContext)return;
   const context={...editContext},day=$("editDate").value;
@@ -448,10 +483,15 @@ document.addEventListener("click",event=>{
  if(a==="confirm-yes"){b.disabled=true;const callback=confirmCallback;confirmCallback=null;$("confirmDialog").close();if(callback)callback();return;}
  if(a==="cancel-cutoff"){if(ui.role!=="admin")return;state.settings.pending=null;render();persist("締め日の変更予約を取り消しました");return;}
  if(a==="reset-demo"){
-  ask("初期状態に戻しますか？","入力したサンプルの記録と、締め日の変更予約を削除して初期状態に戻します。",()=>{state=C.seed();ui.employee="E001";ui.offset=0;ui.monthOffset=0;ui.selectedDay=C.TODAY;ui.query="";ui.department="all";ui.onlyMissing=false;render();persist("サンプルを初期状態に戻しました");});return;
+  ask("初期状態に戻しますか？","入力したサンプルの記録と、締め日の変更予約を削除して初期状態に戻します。",()=>{state=C.seed();breakEdit=null;breakError=null;ui.employee="E001";ui.offset=0;ui.monthOffset=0;ui.selectedDay=C.TODAY;ui.query="";ui.department="all";ui.onlyMissing=false;render();persist("サンプルを初期状態に戻しました");});return;
  }
 });
 document.addEventListener("input",event=>{
+ if(["breakHours","breakMinutes"].includes(event.target.id)){
+  const form=$("breakForm");if(!form||punchOperation)return;
+  breakEdit={id:form.dataset.employee,day:form.dataset.date,hours:$("breakHours").value,minutes:$("breakMinutes").value};
+  breakError=null;if($("breakError"))$("breakError").textContent="";
+ }
  if(event.target.id==="adminSearch"){ui.query=event.target.value;updateRoster();}
 });
 document.addEventListener("change",event=>{
@@ -464,6 +504,7 @@ document.addEventListener("change",event=>{
  if(el.id==="editDate"&&editContext&&/^\d{4}-\d{2}-\d{2}$/.test(el.value)&&el.value>=C.FIRST&&el.value<=C.TODAY)fillEditor(editContext.employeeId,el.value);
 });
 document.addEventListener("submit",event=>{
+ if(event.target.id==="breakForm"){event.preventDefault();saveBreakInput(event.target.dataset.employee,event.target.dataset.date);}
  if(event.target.id==="editorForm"){event.preventDefault();saveEditor();}
  if(event.target.id==="settingsForm"){
   event.preventDefault();if(ui.role!=="admin")return;

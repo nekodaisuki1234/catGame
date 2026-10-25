@@ -64,16 +64,41 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
   const time=n=>pad(Math.floor(Math.max(0,n)/60)%24)+":"+pad(Math.floor(Math.max(0,n))%60);
   const duration=n=>Math.floor(Math.max(0,n)/60)+"時間"+pad(Math.floor(Math.max(0,n))%60)+"分";
   const shortDuration=n=>Math.floor(Math.max(0,n)/60)+":"+pad(Math.floor(Math.max(0,n))%60);
+  const DEFAULT_BREAK=60;
+  function parseBreakDuration(hours,minutes){
+    if(!/^\d{1,2}$/.test(String(hours))||!/^\d{1,2}$/.test(String(minutes)))return {ok:false,error:"休憩時間は、時間と分を0以上の整数で入力してください。"};
+    const h=Number(hours),m=Number(minutes),value=h*60+m;
+    if(h>24||m>59||value>1440)return {ok:false,error:"休憩時間は24時間00分まで、分は0〜59で入力してください。"};
+    return {ok:true,value};
+  }
+  function breakTotal(state,id,day){
+    const record=state.records[key(id,day)];
+    if(record?.kind==="work"&&Number.isInteger(record.breakMinutes))return record.breakMinutes;
+    const saved=state.breakDrafts?.[key(id,day)];
+    return Number.isInteger(saved)?saved:DEFAULT_BREAK;
+  }
+  function checkBreakTotal(total,span=null){
+    if(!Number.isInteger(total)||total<0||total>1440)return {ok:false,error:"休憩時間は0時間00分〜24時間00分で入力してください。"};
+    if(span!=null&&total>span)return {ok:false,error:"休憩時間が勤務の時間幅を超えています。"};
+    return {ok:true,value:total};
+  }
+  function setBreakTotal(record,total){
+    const span=record?.kind==="work"&&timeToMin(record.start)!=null&&timeToMin(record.end)!=null?timeToMin(record.end)+(record.overnight?1440:0)-timeToMin(record.start):null;
+    const check=checkBreakTotal(total,span);if(!check.ok)return check;
+    if(record?.kind!=="work")return {ok:true,value:record||null};
+    const value={...record,breakMinutes:total,breakMode:"total",openBreak:null};
+    if(record.breakMinutes!==total||record.openBreak!=null)delete value.breaks;
+    return {ok:true,value};
+  }
   function worked(record,day,now=BASE_NOW){
     if(!record||record.kind!=="work")return 0;
     const start=timeToMin(record.start);
     if(start==null)return 0;
     let end=timeToMin(record.end);
     if(end==null){if(day!==TODAY)return 0;end=now;}else if(record.overnight)end+=1440;
-    const extra=record.openBreak!=null&&day===TODAY?Math.max(0,now-record.openBreak):0;
-    return Math.max(0,end-start-(Number(record.breakMinutes)||0)-extra);
+    return Math.max(0,end-start-(Number(record.breakMinutes)||0));
   }
-  // Only positioned breaks come from recorded punches; manual totals stay unpositioned.
+  // Keep historical positioned breaks; entered daily totals stay unpositioned.
   function timeline(record,day,now=BASE_NOW){
     const start=record?.kind==="work"?timeToMin(record.start):null;
     if(start==null||day>TODAY)return null;
@@ -82,7 +107,6 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     const end=ended==null?now:ended+(record.overnight?1440:0);
     if(end<start)return null;
     const ranges=(Array.isArray(record.breaks)?record.breaks:[]).filter(b=>Number.isInteger(b?.start)&&Number.isInteger(b?.end)&&b.end>b.start).map(b=>({start:Math.max(start,b.start),end:Math.min(end,b.end)}));
-    if(live&&Number.isInteger(record.openBreak))ranges.push({start:Math.max(start,record.openBreak),end});
     ranges.sort((a,b)=>a.start-b.start);
     const breaks=[];
     for(const b of ranges){
@@ -92,7 +116,7 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
       else breaks.push({...b});
     }
     const positioned=breaks.reduce((total,b)=>total+b.end-b.start,0);
-    const rest=Math.max(0,Number(record.breakMinutes)||0)+(live&&record.openBreak!=null?Math.max(0,now-record.openBreak):0);
+    const rest=Math.max(0,Number(record.breakMinutes)||0);
     const unknownRest=Math.max(0,rest-positioned),segments=[];
     let cursor=start;
     for(const b of breaks){
@@ -108,7 +132,7 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     if(record.kind==="leave")return "leave";
     if(record.kind==="holiday")return "holiday";
     if(record.kind!=="work"||timeToMin(record.start)==null)return "missing";
-    if(!record.end)return day===TODAY?(record.openBreak!=null?"break":"working"):"incomplete";
+    if(!record.end)return day===TODAY?"working":"incomplete";
     return "complete";
   }
   const statusText=s=>({missing:"未入力",holiday:"休み",leave:"有休",working:"勤務中",break:"休憩中",incomplete:"退勤未入力",complete:"入力済み",upcoming:"これから"}[s]||"未入力");
@@ -137,10 +161,9 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     if(end==null&&start>now)return {ok:false,error:"勤務中の出勤時刻は、現在時刻より前にしてください。"};
     const span=end==null?now-start:end+(record.overnight?1440:0)-start;
     if(span<0)return {ok:false,error:"退勤が翌日の場合は「翌日に退勤」を選んでください。"};
-    const rest=Number(record.breakMinutes);
-    if(!Number.isInteger(rest)||rest<0||rest>1440)return {ok:false,error:"休憩は0〜1440分の整数で入力してください。"};
-    if(rest>span)return {ok:false,error:"休憩時間が勤務の時間幅を超えています。"};
-    Object.assign(value,{start:record.start,end:record.end||"",breakMinutes:rest,overnight:!!record.overnight&&end!=null});
+    const rest=Number(record.breakMinutes),check=checkBreakTotal(rest,end==null?null:span);
+    if(!check.ok)return check;
+    Object.assign(value,{start:record.start,end:record.end||"",breakMinutes:rest,breakMode:"total",overnight:!!record.overnight&&end!=null});
     return {ok:true,value};
   }
   function beforeStartRecord(record){
@@ -153,14 +176,14 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     if(!record||record.kind!=="work"||timeToMin(record.start)==null)return error("取り消す出勤の記録がありません。");
     if(action==="start"){
       if(record.end)return error("退勤の記録があります。先に退勤を取り消してください。");
-      if(record.openBreak!=null||Number(record.breakMinutes)>0||(Array.isArray(record.breaks)&&record.breaks.length))return error("休憩の記録があるため、出勤だけを取り消せません。勤怠タブで記録を確認してください。");
+      if(record.openBreak!=null||(record.breakMode!=="total"&&Number(record.breakMinutes)>0)||(Array.isArray(record.breaks)&&record.breaks.length))return error("休憩の記録があるため、出勤だけを取り消せません。勤怠タブで記録を確認してください。");
       if(record.note)return error("メモがあるため、出勤だけを取り消せません。勤怠タブで記録を確認してください。");
       return {ok:true,value:beforeStartRecord(record.beforeStart)};
     }
     if(action!=="end")return error("取り消す打刻を選んでください。");
     if(timeToMin(record.end)==null)return error("取り消す退勤の記録がありません。");
     const start=timeToMin(record.start),rest=Number(record.breakMinutes),breaks=Array.isArray(record.breaks)?record.breaks:[];
-    if(!Number.isInteger(now)||now<0||now>=1440||start>now||!Number.isInteger(rest)||rest<0||rest>now-start||record.openBreak!=null||
+    if(!Number.isInteger(now)||now<0||now>=1440||start>now||!Number.isInteger(rest)||rest<0||(record.breakMode!=="total"&&rest>now-start)||record.openBreak!=null||
        breaks.some(b=>!Number.isInteger(b?.start)||!Number.isInteger(b?.end)||b.start<start||b.end<b.start||b.end>now)){
       return error("現在時刻と出勤・休憩の記録が合わないため、勤務中に戻せません。勤怠タブで時刻を確認してください。");
     }
@@ -168,27 +191,19 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     delete value.endAt;
     return {ok:true,value};
   }
-  function punch(record,action,now=BASE_NOW){
-    let r=record?{...record}:null;
+  function punch(record,action,now=BASE_NOW,total=DEFAULT_BREAK){
     const error=message=>({ok:false,error:message});
     if(action==="start"){
-      if(r&&r.kind==="work"&&r.start)return error("本日の出勤は記録済みです。修正画面で変更できます。");
-      return {ok:true,value:{kind:"work",start:time(now),end:"",breakMinutes:0,overnight:false,openBreak:null,breaks:[],note:"",beforeStart:beforeStartRecord(record)}};
+      if(record?.kind==="work"&&record.start)return error("本日の出勤は記録済みです。修正画面で変更できます。");
+      const check=checkBreakTotal(total);if(!check.ok)return check;
+      return {ok:true,value:{kind:"work",start:time(now),end:"",breakMinutes:total,breakMode:"total",overnight:false,openBreak:null,breaks:[],note:"",beforeStart:beforeStartRecord(record)}};
     }
-    if(!r||r.kind!=="work"||timeToMin(r.start)==null)return error("出勤を記録してから操作してください。");
-    if(r.end)return error("本日は退勤済みです。修正画面で変更できます。");
-    if(now<timeToMin(r.start))return error("出勤時刻より前の打刻はできません。修正画面をご利用ください。");
-    if(action==="break"){
-      if(r.openBreak!=null)return error("休憩はすでに開始しています。");
-      r.openBreak=now;
-    }else if(action==="resume"){
-      if(r.openBreak==null)return error("開始中の休憩はありません。");
-      r.breaks=[...(Array.isArray(r.breaks)?r.breaks:[]),{start:r.openBreak,end:now}];r.breakMinutes+=Math.max(0,now-r.openBreak);r.openBreak=null;
-    }else if(action==="end"){
-      if(r.openBreak!=null){r.breaks=[...(Array.isArray(r.breaks)?r.breaks:[]),{start:r.openBreak,end:now}];r.breakMinutes+=Math.max(0,now-r.openBreak);r.openBreak=null;}
-      r.end=time(now);r.overnight=false;
-    }else return error("操作を選んでください。");
-    return {ok:true,value:r};
+    if(action!=="end")return error("休憩は1日の合計時間を入力してください。");
+    if(!record||record.kind!=="work"||timeToMin(record.start)==null)return error("出勤を記録してから操作してください。");
+    if(record.end)return error("本日は退勤済みです。修正画面で変更できます。");
+    if(now<timeToMin(record.start))return error("出勤時刻より前の打刻はできません。修正画面をご利用ください。");
+    const check=checkBreakTotal(record.breakMinutes,now-timeToMin(record.start));if(!check.ok)return check;
+    return {ok:true,value:{...record,end:time(now),overnight:false,openBreak:null}};
   }
   function seed(){
     const surnames=["田中","佐藤","鈴木","高橋","伊藤","渡辺","山本","中村","小林","加藤"];
@@ -208,7 +223,7 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     let earlier=add(previous,-1);while(!isWorkday(earlier))earlier=add(earlier,-1);
     delete records[key("E001",earlier)];
     if(previous>=FIRST)records[key("E001",previous)]={kind:"work",start:"09:00",end:"18:00",breakMinutes:60,overnight:false,openBreak:null,note:""};
-    return {version:VERSION,seededThrough:TODAY,employees,records,settings:{cutoff:20,pending:null}};
+    return {version:VERSION,seededThrough:TODAY,employees,records,breakDrafts:{},settings:{cutoff:20,pending:null}};
   }
   function hydrate(raw){
     if(!raw||raw.version!==VERSION||!Array.isArray(raw.employees)||raw.employees.length!==50||!raw.records||typeof raw.records!=="object"||!raw.settings||!Number.isInteger(raw.settings.cutoff)||raw.settings.cutoff<0||raw.settings.cutoff>31)return null;
@@ -226,7 +241,16 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
       records={...raw.records};
       for(const [k,record] of Object.entries(fresh.records))if(k.split("|")[1]>through&&!(k in records))records[k]=record;
     }
-    return {...raw,seededThrough:through>TODAY?through:TODAY,employees:expected,records};
+    // Freeze legacy running breaks at the stored total; never invent an end time.
+    records=Object.fromEntries(Object.entries(records).map(([k,r])=>[k,r.kind==="work"?{...r,breakMode:"total",openBreak:null}:r]));
+    const breakDrafts={};
+    if(raw.breakDrafts&&typeof raw.breakDrafts==="object"&&!Array.isArray(raw.breakDrafts)){
+      for(const [k,total] of Object.entries(raw.breakDrafts)){
+        const [id,day]=k.split("|");
+        if(expected.some(e=>e.id===id)&&/^\d{4}-\d{2}-\d{2}$/.test(day||"")&&day>=FIRST&&day<=TODAY&&Number.isInteger(total)&&total>=0&&total<=1440)breakDrafts[k]=total;
+      }
+    }
+    return {...raw,seededThrough:through>TODAY?through:TODAY,employees:expected,records,breakDrafts};
   }
   const xml=s=>String(s??"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));
   function utf8(text){
@@ -289,6 +313,6 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
       {name:"日別明細",rows:[["社員ID","氏名","所属","日付","曜日","区分","出勤","退勤","休憩（分）","実働","メモ"],...employees.flatMap(e=>exportRows(state,e,period,now).map(r=>[e.id,e.name,e.department,...r]))]}
     ]);
   }
-  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,monthFor,monthGrid,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,worked,timeline,status,statusText,summary,validate,punch,cancelPunch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
+  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,monthFor,monthGrid,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,DEFAULT_BREAK,parseBreakDuration,breakTotal,setBreakTotal,worked,timeline,status,statusText,summary,validate,punch,cancelPunch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
 });
 window.AttendanceCore = window.createAttendanceCore();

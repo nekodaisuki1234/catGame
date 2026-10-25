@@ -6,9 +6,9 @@
 <meta id="browserTheme" name="theme-color" content="#f3f5f7">
 <meta name="description" content="スマートフォン向け勤怠アプリの操作モック。サンプルデータで入力・修正・集計・Excel出力を試せます。">
 <title>day.｜勤怠アプリのモック</title>
-<link rel="stylesheet" href="./styles.css?v=stamps1">
-<script src="./model.js?v=live2" defer></script>
-<script src="./app.js?v=stamps1" defer></script>
+<link rel="stylesheet" href="./styles.css?v=break-total1">
+<script src="./model.js?v=break-total1" defer></script>
+<script src="./app.js?v=break-total1" defer></script>
 </head>
 <body>
 <div id="app"></div>
@@ -21,11 +21,10 @@
   <div id="timeFields">
    <div class="form-grid"><div class="field-block"><label class="field-label" for="editStart">出勤</label><input id="editStart" type="time"></div><div class="field-block"><label class="field-label" for="editEnd">退勤</label><input id="editEnd" type="time"></div></div>
    <label class="check-label"><input id="editOvernight" type="checkbox">翌日に退勤</label>
-   <div class="field-block"><label class="field-label" for="editBreak">休憩時間（分）</label><input id="editBreak" type="number" inputmode="numeric" min="0" max="1440" step="1"><div class="rest-presets"><button type="button" data-action="rest-preset" data-minutes="0">0分</button><button type="button" data-action="rest-preset" data-minutes="30">30分</button><button type="button" data-action="rest-preset" data-minutes="45">45分</button><button type="button" data-action="rest-preset" data-minutes="60">60分</button></div></div>
+   <div class="field-block"><span class="field-label">休憩時間</span><div class="break-duration" role="group" aria-label="休憩時間"><label class="sr-only" for="editBreakHours">休憩の時間</label><input id="editBreakHours" type="number" inputmode="numeric" min="0" max="24" step="1" required><span aria-hidden="true">時間</span><label class="sr-only" for="editBreakMinutes">休憩の分</label><input id="editBreakMinutes" type="number" inputmode="numeric" min="0" max="59" step="1" required><span aria-hidden="true">分</span></div><div class="rest-presets"><button type="button" data-action="rest-preset" data-minutes="0">0分</button><button type="button" data-action="rest-preset" data-minutes="30">30分</button><button type="button" data-action="rest-preset" data-minutes="60">60分</button><button type="button" data-action="rest-preset" data-minutes="90">90分</button></div></div>
    <p class="helper">勤務中の今日の記録は、退勤を空欄で保存できます。</p>
   </div>
   <div class="field-block"><label class="field-label" for="editNote">メモ（任意）</label><textarea id="editNote" rows="3" maxlength="300" placeholder="連絡事項があれば入力"></textarea></div>
-  <p id="editRunningBreak" class="helper" hidden>保存すると、開始中の休憩を終了し、この内容で更新します。</p>
   <div id="editorError" class="form-error" role="alert"></div>
   <div class="form-actions"><button id="deleteRecord" type="button" class="button danger" data-action="delete-record">削除</button><button type="submit" class="button primary">保存する</button></div>
  </form>
@@ -42,7 +41,7 @@
  <div class="sheet-head"><h2 id="aboutTitle">このモックについて</h2><button type="button" class="icon-button" data-action="close" data-dialog="aboutDialog" aria-label="閉じる">×</button></div>
  <div class="sheet-content">
   <p class="dialog-copy">架空の社員50名のモックです。時計と打刻には、端末から取得した日本時間を使います。</p>
-  <ul class="about-list"><li>出退勤の記録・時刻の入力と修正</li><li>リスト／カレンダーで1ヶ月分の記録を確認</li><li>未入力の日付からの入力・修正</li><li>締め期間ごとの集計</li><li>社員の検索・所属や未入力での絞り込み</li><li>管理者の締め日変更予約</li><li>サンプル勤怠表のExcel出力</li></ul>
+  <ul class="about-list"><li>出退勤の記録・時刻の入力と修正、合計休憩時間の入力</li><li>リスト／カレンダーで1ヶ月分の記録を確認</li><li>未入力の日付からの入力・修正</li><li>締め期間ごとの集計</li><li>社員の検索・所属や未入力での絞り込み</li><li>管理者の締め日変更予約</li><li>サンプル勤怠表のExcel出力</li></ul>
   <p class="dialog-copy">変更はこのブラウザ内に保存されます。社員・管理者の切り替えは画面確認用で、本番の認証ではありません。Microsoftログインや勤務先のデータには接続していません。</p>
   <p class="dialog-copy">実働は休憩を引いた時間です。残業や有休残数などの就業ルールは未設定です。Excelの書式は仮のものです。</p>
   <button type="button" class="button primary full" data-action="close" data-dialog="aboutDialog">操作してみる</button>
