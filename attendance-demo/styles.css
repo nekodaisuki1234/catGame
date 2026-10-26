@@ -289,12 +289,18 @@ input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--acc
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
 .field-block{margin-bottom:17px}
 .field-block .field-label{margin-top:0}
-.home-time-editor{margin-top:12px}
-.home-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.home-time-field{display:block;min-width:0}
-.home-time-field>span{display:block;margin-bottom:4px;color:var(--muted);font-size:11px;line-height:1.6}
-.home-time-input[type=time]{min-height:44px;padding:7px 9px;border-color:var(--line);background:transparent;color:var(--accent);font-size:16px;font-variant-numeric:tabular-nums}
-.home-time-input:disabled{opacity:.5}
+/* Direct time edits share the punch area; only the active field gets a surface. */
+.home-time-editor{margin-top:14px;background:transparent}
+.home-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+.home-time-field{display:grid;grid-template-rows:auto 44px;gap:3px;min-width:0;margin:0}
+.home-time-field>span{display:block;min-width:0;margin:0;color:var(--muted);font-size:11px;line-height:1.6}
+.home-time-input[type=time]{display:block;width:100%;max-width:100%;min-width:0;min-inline-size:0;height:44px;min-height:44px;padding:6px 2px;-webkit-appearance:none;appearance:none;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none;color:var(--accent);font-size:16px;line-height:1.4;font-weight:500;font-variant-numeric:tabular-nums;transition:background-color .14s ease,border-color .14s ease}
+.home-time-input[type=time]:focus{border-bottom-color:var(--accent);background:var(--surface)}
+.home-time-input[type=time]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.home-time-input[type=time]:disabled{color:var(--muted);opacity:.6}
+.home-time-input::-webkit-date-and-time-value{min-height:1.4em;text-align:left}
+.home-time-input::-webkit-datetime-edit,.home-time-input::-webkit-datetime-edit-fields-wrapper{padding:0}
+.home-time-input::-webkit-calendar-picker-indicator{width:16px;height:16px;margin:0;padding:4px;opacity:.65}
 .home-nextday{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-height:36px;color:var(--muted);font-size:11px}
 .home-nextday input[type=checkbox]{width:16px;height:16px}
 .daily-break-total{color:var(--ink);font-size:14px;font-variant-numeric:tabular-nums}
@@ -377,6 +383,7 @@ dialog::backdrop{background:#25364b80}
  .clock-main{font-size:clamp(32px,22vw,62px)}
  .clock-seconds{font-size:clamp(14px,7.3vw,20px)}
  .hero-actions.clock-actions{grid-template-columns:minmax(0,1fr)}
+ .home-time-fields{grid-template-columns:minmax(0,1fr)}
  .punch-button{min-width:0}
  .mode-switch{gap:7px}
  .mode-switch button{font-size:11px}

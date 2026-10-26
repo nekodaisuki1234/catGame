@@ -153,11 +153,16 @@ function releaseHomeTimeGuard(guard=homeTimeGuard){
 function homeOvernightValue(id,day){
  return homeOvernight?.id===id&&homeOvernight.day===day?homeOvernight.value:!!state.records[C.key(id,day)]?.overnight;
 }
+function homeTimeLabel(punch,record){
+ const label=punch==="start"?"出勤時刻":"退勤時刻";
+ const recorded=record?.kind==="work"&&C.timeToMin(record[punch])!=null;
+ return label+"を"+(recorded?"編集":"入力");
+}
 function homeTimeEditor(id,record,clock){
  const started=record?.kind==="work"&&C.timeToMin(record.start)!=null;
- const fields=[["start","homeStartTime","出勤時刻"],["end","homeEndTime","退勤時刻"]].map(([punch,field,label])=>{
-  const value=started?(record[punch]||""):"",disabled=!!punchOperation||punch==="end"&&!started;
-  return '<label class="home-time-field" for="'+field+'"><span>'+label+'を編集</span><input id="'+field+'" class="home-time-input" type="time" step="60" value="'+h(value)+'" data-punch="'+punch+'" data-employee="'+id+'" data-date="'+clock.day+'" aria-label="今日の'+label+'を入力・編集" '+(disabled?"disabled":"")+'></label>';
+ const fields=[["start","homeStartTime"],["end","homeEndTime"]].map(([punch,field])=>{
+  const value=started?(record[punch]||""):"",disabled=!!punchOperation||punch==="end"&&!started,label=homeTimeLabel(punch,record);
+  return '<label class="home-time-field" for="'+field+'"><span id="'+field+'Label">'+label+'</span><input id="'+field+'" class="home-time-input" type="time" step="60" value="'+h(value)+'" data-punch="'+punch+'" data-employee="'+id+'" data-date="'+clock.day+'" aria-label="今日の'+label+'" '+(disabled?"disabled":"")+'></label>';
  }).join("");
  return '<div class="home-time-editor" aria-label="今日の時刻を直接編集"><div class="home-time-fields">'+fields+'</div><label class="home-nextday"><input id="homeOvernight" type="checkbox" data-employee="'+id+'" data-date="'+clock.day+'" '+(homeOvernightValue(id,clock.day)?"checked ":"")+(punchOperation||!started?"disabled":"")+'>翌日に退勤</label></div>';
 }
@@ -169,6 +174,9 @@ function refreshHomeAfterTimeEdit(clock){
   const input=$(field);if(!input)continue;
   const value=started?(r[punch]||""):"";
   if(input.value!==value)input.value=value;
+  const label=homeTimeLabel(punch,r);
+  if($(field+"Label"))$(field+"Label").textContent=label;
+  input.setAttribute("aria-label","今日の"+label);
   input.disabled=!!punchOperation||punch==="end"&&!started;
  }
  if($("homeOvernight")){$("homeOvernight").checked=homeOvernightValue(id,clock.day);$("homeOvernight").disabled=!!punchOperation||!started;}
