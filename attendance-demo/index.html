@@ -6,9 +6,9 @@
 <meta id="browserTheme" name="theme-color" content="#f3f5f7">
 <meta name="description" content="スマートフォン向け勤怠アプリの操作モック。サンプルデータで入力・修正・集計・Excel出力を試せます。">
 <title>day.｜勤怠アプリのモック</title>
-<link rel="stylesheet" href="./styles.css?v=punch-polish1">
-<script src="./model.js?v=break-total1" defer></script>
-<script src="./app.js?v=punch-polish1" defer></script>
+<link rel="stylesheet" href="./styles.css?v=quick-break1">
+<script src="./model.js?v=quick-break1" defer></script>
+<script src="./app.js?v=quick-break1" defer></script>
 </head>
 <body>
 <div id="app"></div>
@@ -21,7 +21,7 @@
   <div id="timeFields">
    <div class="form-grid"><div class="field-block"><label class="field-label" for="editStart">出勤</label><input id="editStart" type="time"></div><div class="field-block"><label class="field-label" for="editEnd">退勤</label><input id="editEnd" type="time"></div></div>
    <label class="check-label"><input id="editOvernight" type="checkbox">翌日に退勤</label>
-   <div class="field-block"><span class="field-label">休憩時間</span><div class="break-duration" role="group" aria-label="休憩時間"><label class="sr-only" for="editBreakHours">休憩の時間</label><input id="editBreakHours" type="number" inputmode="numeric" min="0" max="24" step="1" required><span aria-hidden="true">時間</span><label class="sr-only" for="editBreakMinutes">休憩の分</label><input id="editBreakMinutes" type="number" inputmode="numeric" min="0" max="59" step="1" required><span aria-hidden="true">分</span></div><div class="rest-presets"><button type="button" data-action="rest-preset" data-minutes="0">0分</button><button type="button" data-action="rest-preset" data-minutes="30">30分</button><button type="button" data-action="rest-preset" data-minutes="60">60分</button><button type="button" data-action="rest-preset" data-minutes="90">90分</button></div></div>
+   <div class="field-block"><span class="field-label">休憩時間</span><div class="break-duration" role="group" aria-label="休憩時間"><label class="sr-only" for="editBreakHours">休憩の時間</label><input id="editBreakHours" type="number" inputmode="numeric" min="0" max="24" step="1" required><span aria-hidden="true">時間</span><label class="sr-only" for="editBreakMinutes">休憩の分</label><input id="editBreakMinutes" type="number" inputmode="numeric" min="0" max="59" step="1" required><span aria-hidden="true">分</span></div><div id="editorBreakPresets"></div></div>
    <p class="helper">勤務中の今日の記録は、退勤を空欄で保存できます。</p>
   </div>
   <div class="field-block"><label class="field-label" for="editNote">メモ（任意）</label><textarea id="editNote" rows="3" maxlength="300" placeholder="連絡事項があれば入力"></textarea></div>

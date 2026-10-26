@@ -79,7 +79,7 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
   }
   function checkBreakTotal(total,span=null){
     if(!Number.isInteger(total)||total<0||total>1440)return {ok:false,error:"休憩時間は0時間00分〜24時間00分で入力してください。"};
-    if(span!=null&&total>span)return {ok:false,error:"休憩時間が勤務の時間幅を超えています。"};
+    if(span!=null&&total>span)return {ok:false,error:"休憩時間が勤務の時間幅を超えています。",code:"break-exceeds-span"};
     return {ok:true,value:total};
   }
   function setBreakTotal(record,total){
