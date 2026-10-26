@@ -59,20 +59,6 @@ function nav(){
 }
 
 
-function timelineView(r,clock){
- const t=C.timeline(r,C.TODAY,clock.minutes),status=r?.kind==="leave"?"有休":r?.kind==="holiday"?"休み":"まだ打刻がありません";
- if(!t)return '<section class="day-timeline is-empty" aria-labelledby="timelineHeading"><h2 id="timelineHeading">今日の流れ</h2><p class="timeline-empty-copy">'+status+'</p></section>';
- const lower=Math.floor(t.start/60)*60,upper=Math.max(lower+60,Math.ceil(t.end/60)*60),span=upper-lower;
- const percent=n=>Math.max(0,Math.min(100,(n-lower)/span*100));
- const position=n=>percent(n).toFixed(3);
- const label=n=>(n>=1440?"翌日 ":"")+C.time(n);
- const segments=t.segments.map(part=>'<span class="timeline-span span-'+part.kind+'" style="left:'+position(part.start)+'%;width:'+((part.end-part.start)/span*100).toFixed(3)+'%" aria-hidden="true"></span>').join("");
- const marker=t.live?'<span class="timeline-now" style="left:'+position(t.end)+'%" aria-hidden="true"><i></i></span>':"";
- const restItems=t.breaks.map(b=>'<span>休憩 '+label(b.start)+'–'+label(b.end)+'</span>').join("");
- const unknown=t.unknownRest?'<p class="timeline-caveat">休憩'+t.unknownRest+'分は時刻の記録がないため、位置を表示していません。</p>':"";
- const aria="出勤 "+label(t.start)+"、"+(t.live?"現在 ":"退勤 ")+label(t.end)+"、実働 "+C.duration(t.minutes)+"、休憩 "+t.rest+"分";
- return '<section class="day-timeline" aria-labelledby="timelineHeading"><div class="graphic-heading"><h2 id="timelineHeading">今日の流れ</h2><span class="graphic-total">実働 <strong>'+C.shortDuration(t.minutes)+'</strong></span></div><div class="timeline-boundaries"><span>出勤 <b>'+label(t.start)+'</b></span><span>'+(t.live?"現在":"退勤")+' <b>'+label(t.end)+'</b></span></div><div class="timeline-plot" role="img" aria-label="'+h(aria)+'"><div class="timeline-rail">'+segments+marker+'</div></div><div class="timeline-legend"><span><i class="'+(t.unknownRest?"legend-unlocated":"legend-work")+'"></i>'+(t.unknownRest?"時間帯":"勤務")+'</span><span><i class="legend-rest"></i>休憩 '+t.rest+'分</span></div>'+(restItems?'<div class="timeline-break-times">'+restItems+'</div>':"")+unknown+'</section>';
-}
 function weekGraphic(id,clock){
  const monday=C.add(C.TODAY,-((C.weekday(C.TODAY)+6)%7)),days=Array.from({length:7},(_,i)=>C.add(monday,i));
  const items=days.map(day=>{
@@ -107,7 +93,7 @@ function punchButton(punch,record,clock){
  const stamp=undo?'<span class="punch-stamp">'+(success?icon("check",13):"")+'<span>'+label+'</span><time class="punch-record-time" datetime="'+h(recorded)+'">'+(nextDay?'<small>翌</small>':"")+h(recorded)+'</time></span>':"";
  const content=undo?stamp+(success?'<span class="punch-feedback-text">'+h(successMessage)+'</span>':saving?'<small class="punch-state-note">保存中…</small>':hint?'<small class="punch-state-note">'+hint+'</small>':'<span class="punch-label punch-undo-label">取り消す</span>'):
  saving?'<span class="punch-label">保存中…</span>':'<span class="punch-label">'+label+'</span>'+(hint?'<small class="punch-state-note">'+hint+'</small>':"")+(!disabled?icon("arrow",20):"");
- return action(undo?"cancel-punch":"punch",content,attrs,"punch-button "+(primary?"is-primary":"is-secondary")+(undo?" is-undo":"")+(success?" is-feedback":"")+(active&&punchOperation.phase==="switching"?" is-switching":""));
+ return action(undo?"cancel-punch":"punch",content,attrs,"punch-button "+(primary?"is-primary":"is-secondary")+(undo?" is-undo is-recorded":"")+(success?" is-feedback":"")+(active&&punchOperation.phase==="switching"?" is-switching":""));
 }
 function homeBreakValue(id,day){
  const form=$("breakForm");
@@ -194,9 +180,9 @@ function homeTimeEditor(id,record,clock){
  const started=record?.kind==="work"&&C.timeToMin(record.start)!=null;
  const fields=[["start","homeStartTime"],["end","homeEndTime"]].map(([punch,field])=>{
   const value=started?(record[punch]||""):"",disabled=recordIsSaving()||punch==="end"&&!started,label=homeTimeLabel(punch,record);
-  return '<label class="home-time-field" for="'+field+'"><span id="'+field+'Label">'+label+'</span><input id="'+field+'" class="home-time-input" type="time" step="60" value="'+h(value)+'" data-punch="'+punch+'" data-employee="'+id+'" data-date="'+clock.day+'" aria-label="今日の'+label+'" '+(disabled?"disabled":"")+'></label>';
+  return '<label class="home-time-field" for="'+field+'"><span id="'+field+'Label">'+label+'</span><input id="'+field+'" class="home-time-input" type="time" step="60" aria-describedby="homeTimeHelp" value="'+h(value)+'" data-punch="'+punch+'" data-employee="'+id+'" data-date="'+clock.day+'" aria-label="今日の'+label+'" '+(disabled?"disabled":"")+'></label>';
  }).join("");
- return '<div class="home-time-editor" aria-label="今日の時刻を直接編集"><div class="home-time-fields">'+fields+'</div><label class="home-nextday"><input id="homeOvernight" type="checkbox" data-employee="'+id+'" data-date="'+clock.day+'" '+(homeOvernightValue(id,clock.day)?"checked ":"")+(recordIsSaving()||!started?"disabled":"")+'>翌日に退勤</label></div>';
+ return '<div class="home-time-editor" aria-label="今日の時刻を直接編集"><p id="homeTimeHelp" class="home-time-help"><span>時刻は手入力・修正できます</span><small>自動保存</small></p><div class="home-time-fields">'+fields+'</div><label class="home-nextday"><input id="homeOvernight" type="checkbox" data-employee="'+id+'" data-date="'+clock.day+'" '+(homeOvernightValue(id,clock.day)?"checked ":"")+(recordIsSaving()||!started?"disabled":"")+'>翌日に退勤</label></div>';
 }
 function refreshHomeAfterTimeEdit(clock){
  const id=ui.employee,r=state.records[C.key(id,clock.day)],started=r?.kind==="work"&&C.timeToMin(r.start)!=null;
@@ -214,7 +200,6 @@ function refreshHomeAfterTimeEdit(clock){
  if($("homeOvernight")){$("homeOvernight").checked=homeOvernightValue(id,clock.day);$("homeOvernight").disabled=recordIsSaving()||!started;}
  if($("dailyBreak"))$("dailyBreak").innerHTML=dailyBreakEditor(id,clock);
  if($("punchError"))$("punchError").textContent="";
- if($("todayTimeline"))$("todayTimeline").innerHTML=timelineView(r,clock);
  if($("homeWeek"))$("homeWeek").innerHTML=weekGraphic(id,clock);
 }
 function saveHomeTime(punch,value,id,day,nextDay=homeOvernightValue(id,day)){
@@ -278,7 +263,7 @@ function homeView(){
  const fullTime=clock.time+":"+clock.secondsText;
  return '<div class="home-heading"><h1>今日の勤怠</h1><p id="homeDate" class="home-date">'+liveDateLabel(clock.day)+'</p></div>'+
  '<section class="punch-box" aria-label="今日の打刻"><div class="punch-topline"><h2>今日の打刻</h2><strong id="todayPunchState" class="punch-state">'+h(punchState)+'</strong></div><div class="clock-layout"><time id="liveClock" class="home-clock" role="timer" aria-live="off" datetime="'+clock.iso+'" aria-label="現在の時刻 '+fullTime+'（日本時間）"><span id="clockMain" class="clock-main" aria-hidden="true">'+clock.time+'</span><span id="clockSeconds" class="clock-seconds" aria-hidden="true">:'+clock.secondsText+'</span></time><p class="punch-clock-label">現在時刻・日本時間</p></div><div id="punchActions" class="hero-actions clock-actions" role="group" aria-label="出退勤の打刻">'+buttons+'</div>'+homeTimeEditor(e.id,r,clock)+'<div id="dailyBreak">'+breakInput+'</div><p id="punchError" class="punch-error" role="alert">'+errorContent+'</p></section>'+
- issue+'<div id="todayTimeline">'+timelineView(r,clock)+'</div><div id="homeWeek">'+weekGraphic(e.id,clock)+'</div>'+
+ issue+'<div id="homeWeek">'+weekGraphic(e.id,clock)+'</div>'+
  '<section class="home-records"><h2>記録の確認・修正</h2>'+action("records-all",'<span><strong>今月の勤怠を開く</strong><small>リスト／カレンダー</small></span>'+icon("chevron",17),"","home-record-link")+'</section>';
 }
 function reportPunchError(message,canEditBreak=false){
@@ -480,8 +465,6 @@ function refreshClock(clock=C.clockAt()){
  if(day)day.textContent=liveDateLabel(clock.day);
  if(main&&main.dataset.graphicMinute!==clock.day+"T"+clock.time){
   main.dataset.graphicMinute=clock.day+"T"+clock.time;
-  const r=state.records[C.key(ui.employee,C.TODAY)];
-  if($("todayTimeline"))$("todayTimeline").innerHTML=timelineView(r,clock);
   // Restore focus after updating live work totals.
   if($("homeWeek")){
    const active=document.activeElement,activeDay=active?.closest?.(".week-graphic-day")?.dataset.date;

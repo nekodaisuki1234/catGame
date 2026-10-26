@@ -83,6 +83,8 @@ button:not(:disabled):active{transform:translateY(1px)}
 .punch-button.is-switching:disabled{flex-direction:column;gap:1px;padding:6px 8px;background:transparent;color:var(--accent);border-color:#989faa}
 .punch-button:not(:disabled):active{transform:translateY(2px) scale(.985)}
 .punch-button.is-feedback:disabled{flex-direction:column;gap:1px;padding:6px 8px;border-color:var(--accent);background:var(--accent);color:#fff;font-size:13px;letter-spacing:0}
+.punch-button.is-recorded,.punch-button.is-recorded:disabled,.punch-button.is-primary:disabled{background:var(--accent);border-color:var(--accent);color:#fff}
+.punch-button.is-recorded .punch-state-note{color:inherit;opacity:.85}
 .punch-feedback-text{font-size:11px;line-height:1.5;font-weight:500;white-space:nowrap}
 .punch-button.is-feedback .punch-stamp>svg,.punch-feedback-text{animation:punch-feedback-in .18s ease-out both}
 .punch-button.is-feedback .punch-stamp>svg path{stroke-dasharray:24;stroke-dashoffset:24;animation:punch-check .24s ease-out forwards}
@@ -102,29 +104,6 @@ button:not(:disabled):active{transform:translateY(1px)}
 .graphic-heading h2{font-size:17px;font-weight:750}
 .graphic-total{font-size:12px;color:var(--muted);white-space:nowrap}
 .graphic-total strong{font-size:23px;line-height:1.2;letter-spacing:-.7px;color:var(--ink);margin-left:4px;font-weight:650;font-variant-numeric:tabular-nums}
-.day-timeline{padding:0 0 23px;margin:0 0 24px;border-bottom:1px solid var(--line)}
-.day-timeline.is-empty{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:15px;margin-bottom:22px}
-.day-timeline.is-empty h2{margin:0;font-size:14px;white-space:nowrap}
-.timeline-empty-copy{margin:0;color:var(--muted);font-size:12px;text-align:right}
-.timeline-boundaries{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--muted)}
-.timeline-boundaries b{color:var(--ink);font-size:13px;font-weight:600;margin-left:3px;font-variant-numeric:tabular-nums}
-.timeline-plot{padding:18px 6px 15px}
-.timeline-rail{position:relative;height:9px;background:#e3e8ee}
-.timeline-span{position:absolute;top:0;height:9px}
-.span-work{background:var(--accent)}
-.span-break{background:var(--paper);border:1px solid #9099a4;border-left-style:dashed;border-right-style:dashed}
-.span-unlocated{background:var(--paper);border:1px dashed #64758d}
-.timeline-now{position:absolute;top:50%;display:block;width:12px;height:12px;transform:translate(-50%,-50%);border:2px solid var(--paper);border-radius:50%;background:var(--accent);outline:1px solid var(--accent)}
-.timeline-now.is-break{background:var(--paper);border-color:#566a82;outline-color:#566a82}
-.timeline-now.is-break i{display:block;width:2px;height:5px;background:#566a82;margin:1.5px auto}
-.timeline-legend{display:flex;align-items:center;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--muted)}
-.timeline-legend>span{display:inline-flex;align-items:center;gap:6px}
-.timeline-legend i{display:inline-block;width:14px;height:7px}
-.legend-work{background:var(--accent)}
-.legend-rest{border:1px solid #9099a4;background:var(--paper)}
-.legend-unlocated{border:1px dashed #64758d;background:var(--paper)}
-.timeline-break-times{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;color:var(--muted);font-size:12px;line-height:1.8;font-variant-numeric:tabular-nums}
-.timeline-caveat{color:var(--muted);font-size:12px;line-height:1.8;margin:8px 0 0}
 .home-week{padding-bottom:20px;margin-bottom:23px;border-bottom:1px solid var(--line)}
 .week-graphic{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 .week-graphic-day{display:flex;flex-direction:column;align-items:center;min-width:0;min-height:116px;padding:7px 0 3px;border:0;border-radius:0;background:none;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -291,6 +270,8 @@ input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--acc
 .field-block .field-label{margin-top:0}
 /* Direct time edits share the punch area; only the active field gets a surface. */
 .home-time-editor{margin-top:14px;background:transparent}
+.home-time-help{display:flex;align-items:baseline;justify-content:space-between;gap:6px 10px;flex-wrap:wrap;margin:0 0 8px;color:var(--accent);font-size:12px;line-height:1.6;font-weight:500}
+.home-time-help small{color:var(--muted);font-size:11px;font-weight:400;white-space:nowrap}
 .home-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
 .home-time-field{display:grid;grid-template-rows:auto 44px;gap:3px;min-width:0;margin:0}
 .home-time-field>span{display:block;min-width:0;margin:0;color:var(--muted);font-size:11px;line-height:1.6}
