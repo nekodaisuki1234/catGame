@@ -289,6 +289,18 @@ input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--acc
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
 .field-block{margin-bottom:17px}
 .field-block .field-label{margin-top:0}
+.home-time-editor{margin-top:12px}
+.home-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.home-time-field{display:block;min-width:0}
+.home-time-field>span{display:block;margin-bottom:4px;color:var(--muted);font-size:11px;line-height:1.6}
+.home-time-input[type=time]{min-height:44px;padding:7px 9px;border-color:var(--line);background:transparent;color:var(--accent);font-size:16px;font-variant-numeric:tabular-nums}
+.home-time-input:disabled{opacity:.5}
+.home-nextday{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-height:36px;color:var(--muted);font-size:11px}
+.home-nextday input[type=checkbox]{width:16px;height:16px}
+.daily-break-total{color:var(--ink);font-size:14px;font-variant-numeric:tabular-nums}
+.daily-break-form{margin-top:7px}
+.daily-break-form .daily-break-row{justify-content:flex-end}
+.break-toggle{min-width:44px;margin-left:8px}
 .daily-break{margin-top:14px}
 .daily-break-row{display:flex;align-items:center;gap:8px}
 .daily-break-label{margin-right:auto;white-space:nowrap;color:var(--muted);font-size:12px;font-weight:600}
