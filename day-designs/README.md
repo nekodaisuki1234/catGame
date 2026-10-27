@@ -8,16 +8,16 @@
 - B. Studio: 文字が主役のエディトリアル（b-studio.html）
 - C. Soft: やわらかな北欧調（c-soft.html）
 - D. Grid: 白とコバルトのグリッド（d-grid.html）
-- E. Night: 静かなダークモード（e-night.html）
+- E. Night: 円と半円のナイトポスター（e-night.html）
 
 既存のattendance-demoのコードや保存データには触れません。サンプル編集は専用のsessionStorageキー day-design-studies-v1 に保存し、比較ページ内だけで引き継ぎます。実際の現在時刻・社員・勤務実績ではありません。
 
-候補は共通の studies.css / studies.js を使用。色だけでなく、時計と日付の構図、書体、角丸、区切り、余白を切り替えています。外部フォント・画像・ライブラリは不要です。
+候補は共通の studies.css / studies.js を使用。Nightの幾何学アートは同梱の night-art.svg です。色だけでなく、時計と日付の構図、書体、角丸、区切り、余白を切り替えています。外部フォント・画像・ライブラリは不要です。
 
 実際のJavaScriptを軽量DOM上で実行し、5案の共通データ、状態切り替え、手入力、休憩プリセット、取消、別案への引き継ぎ、サンプル保存の分離を確認しました。ブラウザ・実機での目視確認は未実施です。
 
 ## 独立配置
 
-このフォルダは単独で配置できます。index.html と5つの候補HTML、studies.css、studies.js を同じ階層に置いてください。アプリ本体へのリンクは絶対URLを使用しています。
+このフォルダは単独で配置できます。index.html と5つの候補HTML、studies.css、studies.js、night-art.svg を同じ階層に置いてください。アプリ本体へのリンクは絶対URLを使用しています。
 
 元の候補一覧（attendance-demo/designs/）も引き続き利用できます。catGameを含まないホスト名への切り替えには、別のGitHub Pagesリポジトリ等の公開先設定が必要です。

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="208" viewBox="0 0 240 208">
+  <title>円と半円のナイトポスター</title>
+  <circle cx="143" cy="87" r="76" fill="#a5bfdc"/>
+  <path d="M143 87h76a76 76 0 0 1-76 76Z" fill="#8cbaac"/>
+  <path d="M143 87v76a76 76 0 0 1-76-76Z" fill="#152230"/>
+  <circle cx="143" cy="87" r="31" fill="#152230"/>
+  <circle cx="111" cy="130" r="18" fill="#e9e3da"/>
+  <circle cx="31" cy="27" r="8" fill="#e9e3da"/>
+  <circle cx="31" cy="93" r="16" fill="none" stroke="#8cbaac" stroke-width="1.5"/>
+  <path d="M187 185h43" fill="none" stroke="#8cbaac" stroke-width="3"/>
+</svg>
