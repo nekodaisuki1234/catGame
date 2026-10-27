@@ -5,6 +5,15 @@ const context={window:{},Intl,Date};vm.createContext(context);vm.runInContext(so
 const C=context.window.PaperAttendance,now={day:"2026-10-27",minutes:21*60};
 const data=C.seed(now),fresh=()=>C.empty(data),check=(r,day=now.day)=>C.validateRecord(r,day,now,data.settings);
 assert.ok(C.hydrate(data,now),"seed must round-trip");
+for(const day of ["2026-04-02","2026-10-02"]){
+ const reference={day,minutes:now.minutes},seed=C.seed(reference);
+ assert.ok(C.hydrate(seed,reference),"early-month seed must round-trip: "+day);
+ for(const [d,r] of Object.entries(seed.records)){
+  if(!r.start)continue;
+  assert.ok(C.timeToMin(r.end)>=C.timeToMin(r.start),"seed times must not wrap: "+d);
+  assert.ok(C.worked(r,d,reference)<=839,"seed cannot pack a full month into one day");
+ }
+}
 assert.equal(C.clock(new Date("2026-10-26T15:00:01Z")).day,"2026-10-27");
 assert.equal(C.clock(new Date("2026-10-26T15:00:01Z")).full,"00:00:01");
 assert.equal(C.add("2028-02-28",1),"2028-02-29");
@@ -50,7 +59,17 @@ const signedState={...C.clone(data),records:{[now.day]:negative}};
 assert.ok(C.hydrate(signedState,now),"negative records survive reload");
 assert.equal(C.summary(signedState,C.month(now.day),now).minutes,-60);
 assert.match(Buffer.from(C.workbook(signedState,C.month(now.day),now)).toString(),/−1:00/);
-assert.equal(check({...assigned,allocation:{...assigned.allocation,P2:.25}}).ok,false);
+assert.equal(check({...assigned,allocation:{...assigned.allocation,P2:.25}}).ok,true);
+assert.match(check({...assigned,allocation:{...assigned.allocation,P2:.25}}).warnings.join(),/工数合計/);
+for(const change of [{end:"18:15"},{breakMinutes:30}]){
+ const corrected={...assigned,...change},result=check(corrected);
+ assert.equal(result.ok,true,"time and rest corrections must preserve assigned work");
+ assert.equal(result.value.allocation.P1,6);
+ assert.match(result.warnings.join(),/工数の振り分けを確認/);
+ const saved={...C.clone(data),records:{[now.day]:result.value}};
+ assert.ok(C.hydrate(saved,now),"corrected allocation mismatch must survive reload");
+}
+assert.equal(check(normal).warnings.length,0,"unallocated time is not an allocation mismatch warning");
 assert.equal(check({...assigned,end:""}).ok,false);
 assert.equal(check({...normal,end:"17:01",allocation:{P1:7.01666667,P2:0,P3:0,P4:0,SET:0}}).ok,true);
 assert.equal(check({...normal,allocation:{P1:7.123,P2:0,P3:0,P4:0,SET:0}}).ok,false);
@@ -95,6 +114,17 @@ assert.match(entries["xl/worksheets/sheet1.xml"],/退勤未入力/);
 assert.match(entries["xl/worksheets/sheet1.xml"],/これから/);
 assert.match(entries["xl/worksheets/sheet1.xml"],/SET（時間）/);
 assert.match(entries["xl/worksheets/sheet2.xml"],/大阪堂北ビル/);
+const leaveState=C.clone(data);leaveState.records["2026-10-20"]={...fresh(),leave:"paid",note:"通院のため有給"};
+const leaveBuffer=Buffer.from(C.workbook(leaveState,{start:"2026-10-20",end:"2026-10-20"},now));
+let leaveCursor=0,leaveXml="";
+while(leaveBuffer.readUInt32LE(leaveCursor)===0x04034b50){
+ const size=leaveBuffer.readUInt32LE(leaveCursor+18),nameLength=leaveBuffer.readUInt16LE(leaveCursor+26),extra=leaveBuffer.readUInt16LE(leaveCursor+28),start=leaveCursor+30+nameLength+extra;
+ if(leaveBuffer.subarray(leaveCursor+30,leaveCursor+30+nameLength).toString()==="xl/worksheets/sheet1.xml")leaveXml=leaveBuffer.subarray(start,start+size).toString();
+ leaveCursor=start+size;
+}
+const leaveRow=leaveXml.match(/<row r="8">.*?<\/row>/)[0];
+assert.match(leaveRow,/有給休暇/);assert.match(leaveRow,/通院のため有給/);
+assert.doesNotMatch(leaveRow,/<v>60<\/v>|クロノス/,"full-day leave must not export default rest or place");
 const escaped=C.clone(data);escaped.settings.workSummary='A&B<test>"';
 const xml=Buffer.from(C.workbook(escaped,C.month(now.day),now)).toString();
 assert.match(xml,/A&amp;B&lt;test&gt;&quot;/);
