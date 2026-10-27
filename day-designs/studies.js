@@ -8,6 +8,12 @@ const SAMPLES={
  working:{clock:"14:35:08",start:"09:10",end:"",breakMinutes:60,overnight:false},
  after:{clock:"18:04:12",start:"09:10",end:"18:02",breakMinutes:60,overnight:false}
 };
+const SOFT_SCENES={morning:SAMPLES.before,day:SAMPLES.working,evening:SAMPLES.after,night:{...SAMPLES.after,clock:"21:12:06"}};
+function clockPeriod(clock){
+ const hour=Number(clock.slice(0,2));
+ const id=hour>=5&&hour<11?"morning":hour>=11&&hour<16?"day":hour>=16&&hour<19?"evening":"night";
+ return {id,name:{morning:"朝",day:"昼",evening:"夕方",night:"夜"}[id],meridiem:hour<12?"午前":"午後",hour:hour%12||12};
+}
 const clone=value=>JSON.parse(JSON.stringify(value));
 const h=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const pad=n=>String(n).padStart(2,"0");
@@ -73,8 +79,15 @@ function dial(){
   const a=i*Math.PI/30,r1=i%5===0?101:107,r2=113;
   return '<line class="tick '+(i%5===0?"hour-tick":"")+'" x1="'+(128+Math.sin(a)*r1).toFixed(2)+'" y1="'+(128-Math.cos(a)*r1).toFixed(2)+'" x2="'+(128+Math.sin(a)*r2).toFixed(2)+'" y2="'+(128-Math.cos(a)*r2).toFixed(2)+'"/>';
  }).join("");
- const angle=Number(state.clock.slice(3,5))*Math.PI/30;
- return '<svg class="clock-dial" viewBox="0 0 256 256" aria-hidden="true">'+lines+'<circle class="dial-dot" cx="'+(128+Math.sin(angle)*113).toFixed(2)+'" cy="'+(128-Math.cos(angle)*113).toFixed(2)+'" r="4.5"/></svg>';
+ return '<svg class="clock-dial" viewBox="0 0 256 256" aria-hidden="true">'+lines+'</svg>';
+}
+function clockWrap(){
+ const soft=document.documentElement.dataset.theme==="soft",period=clockPeriod(state.clock),mm=state.clock.slice(3,5),ss=state.clock.slice(-2);
+ const digits=soft?'<span class="clock-digits">'+period.hour+':'+mm+'</span>':state.clock.slice(0,5);
+ const context=soft?'<span class="clock-period">'+period.meridiem+'</span>':"";
+ const accessible=soft?' aria-label="'+period.name+'、'+period.meridiem+period.hour+'時'+Number(mm)+'分'+Number(ss)+'秒、日本時間"':"";
+ const caption=soft?'<span class="clock-daypart">'+period.name+'</span><span>'+state.clock.slice(0,5)+'・日本時間</span>':'現在時刻・日本時間';
+ return '<div class="clock-wrap"'+(soft?' data-daypart="'+period.id+'"':"")+'>'+dial()+context+'<time class="digital-clock" datetime="'+DATE+'T'+state.clock+'+09:00"'+accessible+'>'+digits+'<span class="seconds">:'+ss+'</span></time><p class="clock-caption">'+caption+'</p></div>';
 }
 function timeFields(){
  return '<div class="time-area"><p id="timeHelp" class="time-help"><strong>時刻は手入力・修正できます</strong><span>自動保存</span></p><div class="time-fields">'+["start","end"].map(kind=>'<label for="'+kind+'Time"><span id="'+kind+'Label">'+label(kind)+'</span><input id="'+kind+'Time" class="time-input" type="time" step="60" value="'+h(state[kind])+'" data-time="'+kind+'" aria-label="'+label(kind)+'" aria-describedby="timeHelp" '+(kind==="end"&&!state.start?"disabled":"")+'></label>').join("")+'</div><label class="nextday"><input id="nextday" type="checkbox" '+(state.overnight?"checked ":"")+(!state.start?"disabled":"")+'>翌日に退勤</label></div>';
@@ -97,7 +110,7 @@ function week(){
 function errorHtml(){return error?h(error)+(error.includes("休憩時間が勤務")?'<button type="button" class="text-button" data-action="fix-rest">休憩時間を変更</button>':""):"";}
 function home(){
  const status=state.end?"退勤済み":state.start?"勤務中":"出勤前";
- return '<section class="punch-pane"><div class="dayline"><h1>今日の勤怠</h1><strong id="punchState" class="state-tag">'+status+'</strong></div><div class="hero-composition"><time class="hero-date" datetime="'+DATE+'" aria-label="2026年10月27日、火曜日"><span class="date-short">10月27日（火）</span><span class="date-poster" aria-hidden="true"><b>27</b><small>OCT<br>TUESDAY</small></span></time><div class="clock-wrap">'+dial()+'<time class="digital-clock" datetime="'+DATE+'T'+state.clock+'+09:00">'+state.clock.slice(0,5)+'<span class="seconds">:'+state.clock.slice(-2)+'</span></time><p class="clock-caption">現在時刻・日本時間</p></div></div><div id="punchActions" class="punch-actions" role="group" aria-label="出退勤の打刻">'+punches()+'</div>'+timeFields()+'<div id="restEditor">'+restEditor()+'</div><div id="previewError" class="preview-error" role="alert">'+errorHtml()+'</div></section><div id="weekArea">'+week()+'</div>';
+ return '<section class="punch-pane"><div class="dayline"><h1>今日の勤怠</h1><strong id="punchState" class="state-tag">'+status+'</strong></div><div class="hero-composition"><time class="hero-date" datetime="'+DATE+'" aria-label="2026年10月27日、火曜日"><span class="date-short">10月27日（火）</span><span class="date-poster" aria-hidden="true"><b>27</b><small>OCT<br>TUESDAY</small></span></time>'+clockWrap()+'</div><div id="punchActions" class="punch-actions" role="group" aria-label="出退勤の打刻">'+punches()+'</div>'+timeFields()+'<div id="restEditor">'+restEditor()+'</div><div id="previewError" class="preview-error" role="alert">'+errorHtml()+'</div></section><div id="weekArea">'+week()+'</div>';
 }
 function records(){
  const rows=[{day:"26",weekday:"月",value:HISTORY,today:false},{day:"27",weekday:"火",value:state,today:true}].map(item=>{
@@ -109,7 +122,7 @@ function records(){
 }
 function menu(){return '<section class="subpage"><h1>メニュー</h1><p class="subpage-lede">あなたのアカウント</p><div class="profile-panel"><h2>'+EMPLOYEE.name+'</h2><p>'+EMPLOYEE.department+' / '+EMPLOYEE.id+'</p></div><a class="menu-link" href="./"><span>デザイン候補を比べる</span><span aria-hidden="true">↗</span></a><a class="menu-link" href="https://nekodaisuki1234.github.io/catGame/attendance-demo/"><span>現在のアプリを開く</span><span aria-hidden="true">↗</span></a></section>';}
 function nav(){return '<nav class="app-nav" aria-label="メインナビゲーション">'+[["home","home","ホーム"],["records","calendar","勤怠"],["menu","menu","メニュー"]].map(([tab,ic,text])=>'<button id="nav-'+tab+'" type="button" class="nav-button" data-action="tab" data-tab="'+tab+'" '+(view===tab?'aria-current="page"':"")+'>'+icon(ic)+'<span>'+text+'</span></button>').join("")+'</nav>';}
-function syncControls(){document.querySelectorAll("[data-state]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.state===mode(state))));}
+function syncControls(){document.querySelectorAll("[data-state]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.state===mode(state))));document.querySelectorAll("[data-scene]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.scene===clockPeriod(state.clock).id)));}
 function render(){
  root.innerHTML='<header class="app-masthead"><button type="button" class="wordmark" data-action="home" aria-label="day. ホーム">day.</button><div class="employee"><b>'+EMPLOYEE.name+'</b>'+EMPLOYEE.department+' / '+EMPLOYEE.id+'</div></header><main class="preview-main">'+(view==="records"?records():view==="menu"?menu():home())+'</main>'+nav();
  if(embed)root.inert=true;
@@ -160,8 +173,8 @@ function punch(kind){
 document.addEventListener("click",event=>{
  if(embed)return;
  const time=event.target;if(time.matches?.(".time-input")&&!time.disabled){try{time.showPicker?.();}catch{}return;}
- const button=event.target.closest?.("[data-state],[data-action]");if(!button||button.disabled)return;
- if(button.dataset.state){const chosen=SAMPLES[button.dataset.state];if(!chosen)return;state=clone(chosen);view="home";error="";restOpen=false;guard={kind:"",until:0};guardToken++;try{sessionStorage.setItem(KEY,JSON.stringify(state));}catch{}render();return;}
+ const button=event.target.closest?.("[data-state],[data-action],[data-scene]");if(!button||button.disabled)return;
+ if(button.dataset.state||button.dataset.scene){const chosen=button.dataset.scene?(document.documentElement.dataset.theme==="soft"?SOFT_SCENES[button.dataset.scene]:null):SAMPLES[button.dataset.state];if(!chosen)return;state=clone(chosen);view="home";error="";restOpen=false;guard={kind:"",until:0};guardToken++;try{sessionStorage.setItem(KEY,JSON.stringify(state));}catch{}render();return;}
  const action=button.dataset.action;
  if(action==="reset"){state=clone(SAMPLES.working);view="home";restOpen=false;error="";guard={kind:"",until:0};guardToken++;try{sessionStorage.setItem(KEY,JSON.stringify(state));}catch{}render();toast("共通サンプルに戻しました");return;}
  if(action==="punch"){punch(button.dataset.punch);return;}
