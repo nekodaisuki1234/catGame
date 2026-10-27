@@ -65,7 +65,20 @@ function lock(kind,ms){
  const token=++guardToken;guard={kind,until:Date.now()+ms};
  setTimeout(()=>{if(token!==guardToken)return;guard={kind:"",until:0};if($("punchActions"))$("punchActions").innerHTML=punches();},ms);
 }
+function hasPunchReset(){return ["paper","soft"].includes(document.documentElement.dataset.theme);}
+function resetPunchButtons(){
+ const buttons=["start","end"].map(kind=>{
+  const record=state[kind],name=kind==="start"?"出勤":"退勤",caption=name+"打刻",blocked=kind==="end"&&!state.start||isGuarded(kind);
+  const nextDay=kind==="end"&&state.overnight;
+  const accessible=caption+(record?"、"+(nextDay?"翌日 ":"")+record+"。現在時刻で打刻を上書き":kind==="end"&&!state.start?"。出勤後に使えます":"");
+  const body='<span class="punch-caption">'+caption+'</span>'+(record?'<time class="punch-time" datetime="'+record+'">'+(nextDay?"翌 ":"")+record+'</time>':"");
+  return '<button id="'+kind+'Punch" type="button" class="punch-button'+(record?" is-recorded":"")+'" data-action="punch" data-punch="'+kind+'" aria-label="'+accessible+'" '+(blocked?"disabled":"")+'>'+body+'</button>';
+ }).join("");
+ const disabled=!state.start&&!state.end||isGuarded("reset");
+ return buttons+'<button id="resetPunch" type="button" class="punch-button punch-reset" data-action="reset-punches" aria-label="今日の出勤と退勤の打刻を取り消す" title="出勤・退勤の打刻を未打刻に戻します" '+(disabled?"disabled":"")+'><span class="punch-caption">取消</span></button>';
+}
 function punches(){
+ if(hasPunchReset())return resetPunchButtons();
  return ["start","end"].map(kind=>{
   const record=state[kind],name=kind==="start"?"出勤":"退勤",blocked=kind==="end"&&!state.start||isGuarded(kind);
   const hint=kind==="end"&&!state.start?"出勤後に使えます":"";
@@ -128,7 +141,7 @@ function render(){
  if(embed)root.inert=true;
  syncControls();
 }
-function syncHome(){
+function syncHome(preserveRest=false){
  if(view!=="home"){render();return;}
  if($("punchActions"))$("punchActions").innerHTML=punches();
  $("punchState").textContent=state.end?"退勤済み":state.start?"勤務中":"出勤前";
@@ -137,7 +150,7 @@ function syncHome(){
   input.disabled=kind==="end"&&!state.start;input.setAttribute("aria-label",label(kind));$(kind+"Label").textContent=label(kind);
  }
  $("nextday").disabled=!state.start;$("nextday").checked=state.overnight;
- $("restEditor").innerHTML=restEditor();$("weekArea").innerHTML=week();$("previewError").innerHTML=errorHtml();syncControls();
+ if(!preserveRest)$("restEditor").innerHTML=restEditor();$("weekArea").innerHTML=week();$("previewError").innerHTML=errorHtml();syncControls();
 }
 function showError(message){error=message;if($("previewError"))$("previewError").innerHTML=errorHtml();toast(message);}
 function breakInput(){
@@ -154,6 +167,12 @@ function editTime(kind,value,nextDay=$("nextday")?.checked){
  if(!candidate.end)candidate.overnight=false;
  if(!persist(candidate,(kind==="start"?"出勤":"退勤")+"時刻を"+value+"で保存しました")){restoreTimeInput(kind);return;}
  restOpen=false;lock("all",250);syncHome();
+}
+function resetPunches(){
+ if(!hasPunchReset()||view!=="home"||isGuarded("reset")||!state.start&&!state.end)return;
+ const next={...state,start:"",end:"",overnight:false};
+ if(!persist(next,"出勤・退勤の打刻を取り消しました"))return;
+ lock("reset",500);syncHome(true);
 }
 function punch(kind){
  if(!["start","end"].includes(kind)||isGuarded(kind))return;
@@ -172,6 +191,7 @@ document.addEventListener("click",event=>{
  if(button.dataset.state||button.dataset.scene){const chosen=button.dataset.scene?(document.documentElement.dataset.theme==="soft"?SOFT_SCENES[button.dataset.scene]:null):SAMPLES[button.dataset.state];if(!chosen)return;state=clone(chosen);view="home";error="";restOpen=false;guard={kind:"",until:0};guardToken++;try{sessionStorage.setItem(KEY,JSON.stringify(state));}catch{}render();return;}
  const action=button.dataset.action;
  if(action==="reset"){state=clone(SAMPLES.working);view="home";restOpen=false;error="";guard={kind:"",until:0};guardToken++;try{sessionStorage.setItem(KEY,JSON.stringify(state));}catch{}render();toast("共通サンプルに戻しました");return;}
+ if(action==="reset-punches"){resetPunches();return;}
  if(action==="punch"){punch(button.dataset.punch);return;}
  if(action==="home"||action==="today"){view="home";render();if(action==="today")$("startTime")?.focus({preventScroll:true});return;}
  if(action==="tab"||action==="records"){view=action==="records"?"records":["home","records","menu"].includes(button.dataset.tab)?button.dataset.tab:"home";render();$("nav-"+view)?.focus({preventScroll:true});return;}

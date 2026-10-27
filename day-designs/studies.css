@@ -261,6 +261,19 @@ h1,h2,h3,p{margin:0}
 [data-theme=night] .week-bar{width:20px}
 [data-theme=night] .preview-error{background:#442d3b;color:#f2cbd0;border-color:#d08e9d}
 [data-theme=night] .rest-inputs input{color-scheme:dark}
+/* A and C: three punch controls, a short pressed response and centered time fields. */
+:where([data-theme=paper],[data-theme=soft]) .punch-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+:where([data-theme=paper],[data-theme=soft]) .punch-button{transition:transform .08s ease,box-shadow .08s ease}
+:where([data-theme=paper],[data-theme=soft]) .punch-button:not(:disabled):active{transform:translateY(2px) scale(.98);box-shadow:inset 0 2px 5px #00000036}
+:where([data-theme=paper],[data-theme=soft]) .punch-caption{display:block;font-size:13px;line-height:1.3;white-space:nowrap}
+:where([data-theme=paper],[data-theme=soft]) .punch-time{display:block;font-size:14px;line-height:1.3;font-weight:650;letter-spacing:.02em;white-space:nowrap}
+:where([data-theme=paper],[data-theme=soft]) .punch-button.punch-reset{background:transparent;border-color:var(--line);color:var(--ink)}
+:where([data-theme=paper],[data-theme=soft]) .punch-button.punch-reset:disabled{background:transparent;border-color:var(--line);color:var(--muted);opacity:.55}
+:is([data-theme=paper],[data-theme=soft]) .time-input{position:relative;text-align:center;padding-inline:24px}
+:is([data-theme=paper],[data-theme=soft]) .time-input::-webkit-date-and-time-value{text-align:center}
+:is([data-theme=paper],[data-theme=soft]) .time-input::-webkit-datetime-edit{display:block;width:100%;padding:0;text-align:center}
+:is([data-theme=paper],[data-theme=soft]) .time-input::-webkit-datetime-edit-fields-wrapper{display:flex;align-items:center;justify-content:center;width:100%;padding:0}
+:is([data-theme=paper],[data-theme=soft]) .time-input::-webkit-calendar-picker-indicator{position:absolute;right:6px;top:50%;transform:translateY(-50%);margin:0;padding:0}
 /* Small screens and isolated gallery embeds. */
 @media(max-width:1000px){.study-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.gallery-heading,.study-grid,.gallery-footer{width:calc(100% - 36px)}.study-grid{grid-template-columns:1fr;gap:24px}.gallery-heading{padding-top:22px}.gallery-top{margin-bottom:32px}.gallery-facts{gap:9px 15px}.card-preview{height:430px}.card-info>p{min-height:0}.gallery-footer{display:block}.gallery-footer a{display:inline-block;margin-top:17px}}
