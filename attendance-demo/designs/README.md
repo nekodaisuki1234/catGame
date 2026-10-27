@@ -8,7 +8,7 @@
 - B. Studio: 文字が主役のエディトリアル（b-studio.html）
 - C. Soft: やわらかな北欧調（c-soft.html）
 - D. Grid: 白とコバルトのグリッド（d-grid.html）
-- E. Night: 円と半円のナイトポスター（e-night.html）
+- E. Night: 半円と四分円のナイトポスター（e-night.html）
 
 既存のattendance-demoのコードや保存データには触れません。サンプル編集は専用のsessionStorageキー day-design-studies-v1 に保存し、比較ページ内だけで引き継ぎます。実際の現在時刻・社員・勤務実績ではありません。
 
