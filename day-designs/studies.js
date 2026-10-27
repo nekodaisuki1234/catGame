@@ -56,7 +56,7 @@ function icon(name){return '<svg width="21" height="21" viewBox="0 0 24 24" fill
 function toast(message){if(embed)return;$("studyToast").textContent=message;$("studyToast").classList.add("visible");clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("studyToast").classList.remove("visible"),2600);}
 function persist(next,message){
  const issue=validate(next);if(issue){showError(issue);return false;}
- try{sessionStorage.setItem(KEY,JSON.stringify(next));}catch{toast("この画面のサンプルだけを変更しました");}
+ try{sessionStorage.setItem(KEY,JSON.stringify(next));}catch{showError("保存できませんでした。記録は変更していません。もう一度お試しください。");return false;}
  state=next;error="";if(message)toast(message);return true;
 }
 function label(kind){return(kind==="start"?"出勤時刻":"退勤時刻")+"を"+(state[kind]?"編集":"入力");}
@@ -67,10 +67,10 @@ function lock(kind,ms){
 }
 function punches(){
  return ["start","end"].map(kind=>{
-  const record=state[kind],name=kind==="start"?"出勤":"退勤",blocked=kind==="end"&&!state.start||kind==="start"&&!!state.end||isGuarded(kind);
-  const hint=kind==="end"&&!state.start?"出勤後に使えます":kind==="start"&&state.end?"先に退勤を取消":"";
-  const body=record?'<span class="stamp"><span>'+name+'</span><time datetime="'+record+'">'+(kind==="end"&&state.overnight?"翌 ":"")+record+'</time></span><span class="'+(hint?"hint":"undo")+'">'+(hint||"取り消す")+'</span>':name+(hint?'<span class="hint">'+hint+'</span>':"");
-  return '<button id="'+kind+'Punch" type="button" class="punch-button'+(record?" is-recorded":"")+'" data-action="punch" data-punch="'+kind+'" aria-label="'+name+(record?" "+record+"。"+(hint||"取り消す"):"")+'" '+(blocked?"disabled":"")+'>'+body+'</button>';
+  const record=state[kind],name=kind==="start"?"出勤":"退勤",blocked=kind==="end"&&!state.start||isGuarded(kind);
+  const hint=kind==="end"&&!state.start?"出勤後に使えます":"";
+  const body=record?'<span class="stamp"><span>'+name+'</span><time datetime="'+record+'">'+(kind==="end"&&state.overnight?"翌 ":"")+record+'</time></span><span class="overwrite">打刻を上書き</span>':name+(hint?'<span class="hint">'+hint+'</span>':"");
+  return '<button id="'+kind+'Punch" type="button" class="punch-button'+(record?" is-recorded":"")+'" data-action="punch" data-punch="'+kind+'" aria-label="'+name+(record?" "+record+"。現在時刻で打刻を上書き":"")+'" '+(blocked?"disabled":"")+'>'+body+'</button>';
  }).join("");
 }
 function dial(){
@@ -120,7 +120,7 @@ function records(){
  }).join("");
  return '<section class="subpage"><h1>10月の勤怠</h1><p class="subpage-lede">'+EMPLOYEE.name+'さんの記録<br>2日分の共通サンプルです。</p>'+rows+'<p class="week-note">今日の記録を選ぶと、ホームで時刻を編集できます。</p></section>';
 }
-function menu(){return '<section class="subpage"><h1>メニュー</h1><p class="subpage-lede">あなたのアカウント</p><div class="profile-panel"><h2>'+EMPLOYEE.name+'</h2><p>'+EMPLOYEE.department+' / '+EMPLOYEE.id+'</p></div><a class="menu-link" href="./"><span>デザイン候補を比べる</span><span aria-hidden="true">↗</span></a><a class="menu-link" href="https://nekodaisuki1234.github.io/catGame/attendance-demo/"><span>現在のアプリを開く</span><span aria-hidden="true">↗</span></a></section>';}
+function menu(){return '<section class="subpage"><h1>メニュー</h1><p class="subpage-lede">あなたのアカウント</p><div class="profile-panel"><h2>'+EMPLOYEE.name+'</h2><p>'+EMPLOYEE.department+' / '+EMPLOYEE.id+'</p></div><a class="menu-link" href="./?v=overwrite1"><span>デザイン候補を比べる</span><span aria-hidden="true">↗</span></a><a class="menu-link" href="https://nekodaisuki1234.github.io/catGame/attendance-demo/?v=overwrite1"><span>現在のアプリを開く</span><span aria-hidden="true">↗</span></a></section>';}
 function nav(){return '<nav class="app-nav" aria-label="メインナビゲーション">'+[["home","home","ホーム"],["records","calendar","勤怠"],["menu","menu","メニュー"]].map(([tab,ic,text])=>'<button id="nav-'+tab+'" type="button" class="nav-button" data-action="tab" data-tab="'+tab+'" '+(view===tab?'aria-current="page"':"")+'>'+icon(ic)+'<span>'+text+'</span></button>').join("")+'</nav>';}
 function syncControls(){document.querySelectorAll("[data-state]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.state===mode(state))));document.querySelectorAll("[data-scene]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.scene===clockPeriod(state.clock).id)));}
 function render(){
@@ -148,7 +148,7 @@ function breakInput(){
 }
 function restoreTimeInput(kind){if($(kind+"Time"))$(kind+"Time").value=state[kind];if(state.end&&$("nextday"))$("nextday").checked=state.overnight;}
 function editTime(kind,value,nextDay=$("nextday")?.checked){
- if(!value){showError("時刻を入力してください。消すときは打刻ボタンの「取り消す」を使えます。");restoreTimeInput(kind);return;}
+ if(!value){showError("時刻を入力してください。");restoreTimeInput(kind);return;}
  const rest=breakInput();if(!rest.ok){restoreTimeInput(kind);return showError(rest.error);}
  const candidate={...state,[kind]:value,breakMinutes:rest.value,overnight:kind==="end"?!!nextDay:state.overnight};
  if(!candidate.end)candidate.overnight=false;
@@ -156,18 +156,13 @@ function editTime(kind,value,nextDay=$("nextday")?.checked){
  restOpen=false;lock("all",250);syncHome();
 }
 function punch(kind){
- if(isGuarded(kind))return;
- const next={...state},name=kind==="start"?"出勤":"退勤",recorded=state[kind];
- if(kind==="start"&&recorded){
-  if(next.end)return showError("退勤を先に取り消してください。");
-  next.start="";next.overnight=false;
- }else if(kind==="end"&&recorded){next.end="";next.overnight=false;}
- else{
-  if(kind==="end"&&!next.start)return showError("先に出勤を記録してください。");
-  const rest=breakInput();if(!rest.ok)return showError(rest.error);
-  next.breakMinutes=rest.value;next[kind]=state.clock.slice(0,5);next.overnight=false;
- }
- if(!persist(next,recorded?name+"を取り消しました":next[kind]+"に"+name+"しました"))return;
+ if(!["start","end"].includes(kind)||isGuarded(kind))return;
+ if(kind==="end"&&!state.start)return showError("先に出勤を記録してください。");
+ const rest=breakInput();if(!rest.ok)return showError(rest.error);
+ const name=kind==="start"?"出勤":"退勤",recorded=!!state[kind];
+ const next={...state,[kind]:state.clock.slice(0,5),breakMinutes:rest.value};
+ if(kind==="end"||!next.end)next.overnight=false;
+ if(!persist(next,next[kind]+"に"+name+(recorded?"を上書きしました":"しました")))return;
  restOpen=false;lock(kind,500);syncHome();
 }
 document.addEventListener("click",event=>{

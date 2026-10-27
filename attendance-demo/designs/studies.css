@@ -90,7 +90,7 @@ h1,h2,h3,p{margin:0}
 .punch-button:disabled{background:var(--surface);border-color:var(--line);color:var(--muted)}
 .punch-button .stamp{display:flex;align-items:baseline;gap:5px;font-size:13px;white-space:nowrap}
 .punch-button .stamp time{font-size:17px;font-weight:650}
-.punch-button .undo{font-size:10px;text-decoration:underline;text-underline-offset:2px;font-weight:400}
+.punch-button .overwrite{font-size:10px;font-weight:400}
 .punch-button .hint{font-size:10px;font-weight:400}
 .punch-button:not(:disabled):active{transform:translateY(2px)}
 .punch-button.is-recorded:disabled{background:var(--button-ink);border-color:var(--button-ink);color:var(--paper)}

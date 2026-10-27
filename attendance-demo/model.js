@@ -170,40 +170,22 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
     if(!record||!["holiday","leave"].includes(record.kind))return null;
     return {kind:record.kind,start:"",end:"",breakMinutes:0,overnight:false,openBreak:null,note:String(record.note||"").slice(0,300)};
   }
-  function cancelPunch(record,action,day=TODAY,now=BASE_NOW){
+  function punch(record,action,now=BASE_NOW,total=record?.kind==="work"?record.breakMinutes:DEFAULT_BREAK){
     const error=message=>({ok:false,error:message});
-    if(day!==TODAY)return error("取り消せるのは今日の打刻だけです。過去の記録は勤怠タブから修正してください。");
-    if(!record||record.kind!=="work"||timeToMin(record.start)==null)return error("取り消す出勤の記録がありません。");
-    if(action==="start"){
-      if(record.end)return error("退勤の記録があります。先に退勤を取り消してください。");
-      if(record.openBreak!=null||(record.breakMode!=="total"&&Number(record.breakMinutes)>0)||(Array.isArray(record.breaks)&&record.breaks.length))return error("休憩の記録があるため、出勤だけを取り消せません。勤怠タブで記録を確認してください。");
-      if(record.note)return error("メモがあるため、出勤だけを取り消せません。勤怠タブで記録を確認してください。");
-      return {ok:true,value:beforeStartRecord(record.beforeStart)};
-    }
-    if(action!=="end")return error("取り消す打刻を選んでください。");
-    if(timeToMin(record.end)==null)return error("取り消す退勤の記録がありません。");
-    const start=timeToMin(record.start),rest=Number(record.breakMinutes),breaks=Array.isArray(record.breaks)?record.breaks:[];
-    if(!Number.isInteger(now)||now<0||now>=1440||start>now||!Number.isInteger(rest)||rest<0||(record.breakMode!=="total"&&rest>now-start)||record.openBreak!=null||
-       breaks.some(b=>!Number.isInteger(b?.start)||!Number.isInteger(b?.end)||b.start<start||b.end<b.start||b.end>now)){
-      return error("現在時刻と出勤・休憩の記録が合わないため、勤務中に戻せません。勤怠タブで時刻を確認してください。");
-    }
-    const value={...record,end:"",overnight:false,openBreak:null};
-    delete value.endAt;
-    return {ok:true,value};
-  }
-  function punch(record,action,now=BASE_NOW,total=DEFAULT_BREAK){
-    const error=message=>({ok:false,error:message});
-    if(action==="start"){
-      if(record?.kind==="work"&&record.start)return error("本日の出勤は記録済みです。修正画面で変更できます。");
-      const check=checkBreakTotal(total);if(!check.ok)return check;
-      return {ok:true,value:{kind:"work",start:time(now),end:"",breakMinutes:total,breakMode:"total",overnight:false,openBreak:null,breaks:[],note:"",beforeStart:beforeStartRecord(record)}};
-    }
-    if(action!=="end")return error("休憩は1日の合計時間を入力してください。");
-    if(!record||record.kind!=="work"||timeToMin(record.start)==null)return error("出勤を記録してから操作してください。");
-    if(record.end)return error("本日は退勤済みです。修正画面で変更できます。");
-    if(now<timeToMin(record.start))return error("出勤時刻より前の打刻はできません。修正画面をご利用ください。");
-    const check=checkBreakTotal(record.breakMinutes,now-timeToMin(record.start));if(!check.ok)return check;
-    return {ok:true,value:{...record,end:time(now),overnight:false,openBreak:null}};
+    if(!["start","end"].includes(action))return error("出勤か退勤を選んでください。");
+    if(!Number.isInteger(now)||now<0||now>=1440)return error("現在時刻を確認してください。");
+    const started=record?.kind==="work"&&timeToMin(record.start)!=null;
+    if(action==="end"&&!started)return error("出勤を記録してから操作してください。");
+    const check=checkBreakTotal(total);if(!check.ok)return check;
+    const value=started?{...record,breakMinutes:total,breakMode:"total",openBreak:null}:
+      {kind:"work",start:"",end:"",breakMinutes:total,breakMode:"total",overnight:false,openBreak:null,breaks:[],note:"",beforeStart:beforeStartRecord(record)};
+    value[action]=time(now);
+    if(action==="end")value.overnight=false;
+    const result=validate(value,TODAY,now);if(!result.ok)return result;
+    const updated={...value,overnight:result.value.overnight};
+    if(started&&(record.start!==updated.start||record.end!==updated.end||!!record.overnight!==updated.overnight||record.breakMinutes!==updated.breakMinutes))delete updated.breaks;
+    delete updated[action+"At"];
+    return {ok:true,value:updated};
   }
   function seed(){
     const surnames=["田中","佐藤","鈴木","高橋","伊藤","渡辺","山本","中村","小林","加藤"];
@@ -313,6 +295,6 @@ window.createAttendanceCore = (function createAttendanceCore(referenceTime){
       {name:"日別明細",rows:[["社員ID","氏名","所属","日付","曜日","区分","出勤","退勤","休憩（分）","実働","メモ"],...employees.flatMap(e=>exportRows(state,e,period,now).map(r=>[e.id,e.name,e.department,...r]))]}
     ]);
   }
-  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,monthFor,monthGrid,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,DEFAULT_BREAK,parseBreakDuration,breakTotal,setBreakTotal,worked,timeline,status,statusText,summary,validate,punch,cancelPunch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
+  return {clockAt,TODAY,FIRST,BASE_NOW,VERSION,WEEK,iso,date,add,weekday,isWorkday,key,dates,visibleDates,monthFor,monthGrid,periodFor,periodAt,nextPeriod,timeToMin,time,duration,shortDuration,DEFAULT_BREAK,parseBreakDuration,breakTotal,setBreakTotal,worked,timeline,status,statusText,summary,validate,punch,seed,hydrate,xml,utf8,crc32,zip,xlsx,employeeWorkbook,adminWorkbook};
 });
 window.AttendanceCore = window.createAttendanceCore();
