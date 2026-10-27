@@ -2,6 +2,7 @@
 "use strict";
 const C=window.PaperAttendance,root=document.getElementById("previewApp"),dialog=document.getElementById("paperDialog");
 if(!C||!root||!dialog)return;
+const warningDialog=document.createElement("dialog");warningDialog.id="paperWarning";warningDialog.className="paper-dialog paper-warning";warningDialog.setAttribute("aria-labelledby","warningTitle");warningDialog.setAttribute("role","alertdialog");document.body.appendChild(warningDialog);
 const $=id=>document.getElementById(id),h=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const embed=new URLSearchParams(location.search).get("embed")==="1";
 if(embed)document.documentElement.setAttribute("data-embed","");
@@ -10,6 +11,7 @@ const EMPLOYEE={name:"田中 花子",department:"営業",id:"E001"},PRESETS=[0,3
 let now=C.clock(),renderedDay=now.day,sampleClock="",view="home",detail="summary",restOpen=false,error="",toastTimer,lockUntil=0;
 let selectedMonth=C.month(now.day).start,settingsTab="defaults",projectIndex=0,placeIndex=0,settingsDraft=null,editDay="",submitPeriod=null,testSubmission=true;
 let lastSaved=null,storageProblem="",data;
+let punchFeedback=null,feedbackTimer,warningTimer;
 try{
  lastSaved=localStorage.getItem(C.KEY);
  data=lastSaved?C.hydrate(JSON.parse(lastSaved),now):C.seed(now);
@@ -29,6 +31,10 @@ const paths={home:"M12 8v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0",calendar:"M5
 function icon(name){return '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+paths[name]+'"/></svg>';}
 function toast(message){if(embed)return;const node=$("studyToast");node.textContent=message;node.classList.add("visible");clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove("visible"),3600);}
 function showError(message){error=message;const box=dialog.open?$("dialogError"):$("previewError");if(box)box.textContent=message;toast(message);}
+function showWarning(message){
+ warningDialog.innerHTML='<div class="warning-symbol" aria-hidden="true">!</div><h2 id="warningTitle">保存しました・勤務時間を確認</h2><p>'+h(message)+'</p><button type="button" class="paper-button full-width" data-action="close-warning" autofocus>確認しました</button>';
+ if(!warningDialog.open)warningDialog.showModal();
+}
 function commit(next,message){
  if(storageProblem){showError(storageProblem);return false;}
  try{
@@ -40,8 +46,11 @@ function commit(next,message){
 }
 function saveRecord(day,next,message){
  const check=C.validateRecord(next,day,now,data.settings);if(!check.ok){showError(check.error);return false;}
+ const previous=data.records[day],changed=["start","end","overnight","breakMinutes"].some(k=>previous?.[k]!==next[k]);
  const candidate=C.clone(data);candidate.records[day]=check.value;C.invalidateSubmissions(candidate,day);
- return commit(candidate,message);
+ const saved=commit(candidate,message);
+ if(saved&&changed){clearTimeout(warningTimer);if(check.warnings?.length)warningTimer=setTimeout(()=>showWarning(check.warnings.join(" ")),0);}
+ return saved;
 }
 function updateToday(change,message){
  now=clockNow();
@@ -53,10 +62,16 @@ function punches(){
  const r=record(now.day),locked=Date.now()<lockUntil;
  return ["start","end"].map(kind=>{
   const name=kind==="start"?"出勤":"退勤",value=r[kind],disabled=locked||C.fullLeave(r)||kind==="end"&&!r.start;
-  return '<button id="'+kind+'Punch" type="button" class="punch-button'+(value?' is-recorded':'')+'" data-action="punch" data-kind="'+kind+'" aria-label="'+name+'打刻'+(value?'、'+value+'。現在時刻で上書き':'')+'" '+(disabled?'disabled':'')+'><span class="punch-caption">'+name+'打刻</span>'+(value?'<time class="punch-time">'+(kind==="end"&&r.overnight?'翌 ':'')+value+'</time>':'')+'</button>';
+  const success=!!value&&punchFeedback?.time===value&&punchFeedback?.kind===kind&&punchFeedback.day===now.day&&Date.now()<punchFeedback.until;
+  const caption=success?'<span class="punch-success"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>'+name+'完了</span>':'<span class="punch-caption">'+name+'打刻</span>';
+  return '<button id="'+kind+'Punch" type="button" class="punch-button'+(value?' is-recorded':'')+(success?' is-success':'')+'" data-action="punch" data-kind="'+kind+'" aria-label="'+name+'打刻'+(value?'、'+value+'。現在時刻で上書き':'')+'" '+(disabled?'disabled':'')+'>'+caption+(value?'<time class="punch-time">'+(kind==="end"&&r.overnight?'翌 ':'')+value+'</time>':'')+'</button>';
  }).join("")+'<button id="resetPunch" type="button" class="punch-button punch-reset" data-action="reset-punches" '+(locked||!r.start&&!r.end?'disabled':'')+'><span class="punch-caption">取消</span></button>';
 }
 function lockPunches(ms=500){lockUntil=Date.now()+ms;if($("punchActions"))$("punchActions").innerHTML=punches();setTimeout(()=>{if($("punchActions"))$("punchActions").innerHTML=punches();},ms+10);}
+function animatePunch(kind){
+ const feedback={kind,time:record(now.day)[kind],day:now.day,until:Date.now()+850};punchFeedback=feedback;clearTimeout(feedbackTimer);
+ feedbackTimer=setTimeout(()=>{if(punchFeedback!==feedback)return;punchFeedback=null;if($("punchActions"))$("punchActions").innerHTML=punches();},850);
+}
 function restEditor(){
  const r=record(now.day);
  return '<div class="rest-row"><span>休憩時間</span><strong>'+C.duration(r.breakMinutes)+'</strong><button class="text-button" type="button" data-action="rest">'+(restOpen?'やめる':'変更')+'</button></div>'+(restOpen?'<form id="restForm" class="rest-form"><div class="rest-inputs"><label class="sr-only" for="restHours">休憩の時間</label><input id="restHours" type="number" min="0" max="24" value="'+Math.floor(r.breakMinutes/60)+'"><span>時間</span><label class="sr-only" for="restMinutes">休憩の分</label><input id="restMinutes" type="number" min="0" max="59" value="'+r.breakMinutes%60+'"><span>分</span><button type="submit" class="small-save">保存</button></div><div class="rest-presets" aria-label="休憩時間の候補">'+PRESETS.map(n=>'<button type="button" data-action="preset" data-minutes="'+n+'">'+n+'分</button>').join("")+'</div></form>':'');
@@ -70,20 +85,32 @@ function readRest(){
 function summaryPanel(){
  const fiscalYear=Number(now.day.slice(0,4))-(Number(now.day.slice(5,7))<4?1:0);
  const r=record(now.day),month=C.summary(data,C.month(now.day),now),annual=C.summary(data,{start:fiscalYear+"-04-01",end:(fiscalYear+1)+"-03-31"},now);
- return '<section class="detail-panel" aria-labelledby="detailTitle"><h2 id="detailTitle">勤務実績</h2><dl class="summary-lines"><div><dt>本日の勤務時間</dt><dd id="todayWorked">'+C.duration(C.worked(r,now.day,now))+'</dd></div><div><dt>今月の勤務実績</dt><dd id="monthWorked">'+C.hours(month.minutes)+'時間</dd></div><div><dt>今月の勤務予定</dt><dd>'+data.settings.plannedHours+'時間</dd></div></dl><dl class="project-totals">'+C.PROJECTS.map(k=>'<div><dt>'+k+'</dt><dd>'+Number(month.allocation[k].toFixed(2))+'時間</dd></div>').join("")+'</dl><p class="panel-note">'+(Number(now.day.slice(5,7))<4?Number(now.day.slice(0,4))-1:now.day.slice(0,4))+'年度の有給取得：'+annual.leave+'日</p></section>';
+ const planned=data.settings.plannedHours,ratio=planned>0?Math.max(0,month.minutes/(planned*60)):0,percent=planned>0?Math.round(ratio*100):null,totalAllocation=C.PROJECTS.reduce((sum,k)=>sum+month.allocation[k],0),today=C.worked(r,now.day,now);
+ const remaining=planned-C.hours(month.minutes),leftText=planned<=0?'予定未設定':remaining>=0?'予定まで '+Number(remaining.toFixed(2))+'時間':Number((-remaining).toFixed(2))+'時間 予定を達成';
+ return '<section class="detail-panel performance-panel" aria-labelledby="detailTitle"><div class="performance-heading"><h2 id="detailTitle">勤務実績</h2><span>'+now.day.slice(0,4)+' / '+now.day.slice(5,7)+'</span></div><div class="performance-overview"><div class="progress-ring" role="img" aria-label="今月の勤務予定に対して'+(percent==null?'予定未設定':percent+'パーセント')+'"><svg viewBox="0 0 160 160" aria-hidden="true"><circle class="ring-track" cx="80" cy="80" r="64"/><circle id="progressArc" class="ring-progress" cx="80" cy="80" r="64" pathLength="100" stroke-dasharray="100" stroke-dashoffset="'+(100-Math.min(1,ratio)*100)+'"/></svg><div class="ring-label"><span id="monthlyPercent">'+(percent==null?'—':percent)+'<small>'+(percent==null?'':'%')+'</small></span><span>予定に対して</span></div></div><div class="monthly-figure"><span class="performance-eyebrow">今月の勤務時間</span><strong id="monthWorked">'+C.hours(month.minutes)+'<small>時間</small></strong><span class="planned-caption">勤務予定 '+planned+'時間</span><span class="remaining-caption" id="remainingHours">'+leftText+'</span></div></div><dl class="performance-facts"><div><dt>本日の勤務</dt><dd id="todayWorked"'+(today<0?' class="negative-value"':'')+'>'+C.short(today)+'</dd></div><div><dt>今月の勤務日</dt><dd>'+month.days+'<small>日</small></dd></div><div><dt>年度の有給</dt><dd>'+annual.leave+'<small>日</small></dd></div></dl><div class="project-chart-heading"><h3>工数の内訳</h3><span>計 '+Number(totalAllocation.toFixed(2))+'時間</span></div><div class="allocation-strip" aria-hidden="true">'+C.PROJECTS.map((k,i)=>'<span class="project-color-'+i+'" style="width:'+(totalAllocation>0?month.allocation[k]/totalAllocation*100:0)+'%"></span>').join("")+'</div><dl class="project-breakdown">'+C.PROJECTS.map((k,i)=>'<div><dt><i class="project-color-'+i+'" aria-hidden="true"></i>'+k+'</dt><dd>'+Number(month.allocation[k].toFixed(2))+'<small>時間</small></dd><span class="project-mini-track" aria-hidden="true"><i class="project-color-'+i+'" style="width:'+(totalAllocation>0?month.allocation[k]/totalAllocation*100:0)+'%"></i></span></div>').join("")+'</dl></section>';
+}
+function syncPerformance(){
+ if(!$("monthWorked"))return;
+ const sum=C.summary(data,C.month(now.day),now),planned=data.settings.plannedHours,ratio=planned>0?Math.max(0,sum.minutes/(planned*60)):0,percent=planned>0?Math.round(ratio*100):null,today=C.worked(record(now.day),now.day,now),remaining=planned-C.hours(sum.minutes);
+ $("todayWorked").textContent=C.short(today);$("todayWorked").classList.toggle("negative-value",today<0);
+ $("monthWorked").innerHTML=C.hours(sum.minutes)+'<small>時間</small>';
+ $("monthlyPercent").innerHTML=(percent==null?'—':percent)+'<small>'+(percent==null?'':'%')+'</small>';
+ $("progressArc").setAttribute("stroke-dashoffset",100-Math.min(1,ratio)*100);
+ $("progressArc").closest(".progress-ring").setAttribute("aria-label",'今月の勤務予定に対して'+(percent==null?'予定未設定':percent+'パーセント'));
+ $("remainingHours").textContent=planned<=0?'予定未設定':remaining>=0?'予定まで '+Number(remaining.toFixed(2))+'時間':Number((-remaining).toFixed(2))+'時間 予定を達成';
 }
 function leavePanel(){return '<section class="detail-panel" aria-labelledby="detailTitle"><h2 id="detailTitle">休暇の設定</h2><form id="leaveForm"><label class="paper-label" for="leaveType">今日の休暇</label><select id="leaveType" class="paper-input">'+leaveOptions(record(now.day).leave)+'</select><p class="panel-note">全日休暇は打刻を取り消してから設定します。半休は勤務時間と併せて記録できます。</p><button type="submit" class="paper-button">更新</button></form></section>';}
 function allocationFields(r,prefix){return '<div class="allocation-grid">'+C.PROJECTS.map(k=>'<label for="'+prefix+k+'"><span>'+k+'</span><input class="paper-input" id="'+prefix+k+'" name="'+k+'" type="number" min="0" max="24" step="any" inputmode="decimal" value="'+r.allocation[k]+'"></label>').join("")+'</div>';}
 function allocationPanel(){
  const r=record(now.day),total=C.worked(r,now.day,now);
- return '<section class="detail-panel" aria-labelledby="detailTitle"><h2 id="detailTitle">工数の設定</h2><p class="panel-note">'+(r.start&&r.end?'勤務時間に合わせて、時間単位で配分してください。':'出勤・退勤を入力してから工数を設定してください。')+'</p><form id="allocationForm">'+allocationFields(r,"alloc")+'<div class="allocation-sum"><span>工数合計 <strong id="allocationTotal">'+C.short(allocationTotal(r))+'</strong></span><span>勤務時間 <strong>'+C.short(total)+'</strong></span></div><div class="paper-actions"><button type="button" class="paper-button secondary" data-action="allocate-rest" '+(!r.end?'disabled':'')+'>残りをP1へ</button><button type="submit" class="paper-button" '+(!r.end?'disabled':'')+'>更新</button></div></form></section>';
+ return '<section class="detail-panel" aria-labelledby="detailTitle"><h2 id="detailTitle">工数の設定</h2><p class="panel-note">'+(total<0?'入力済みの工数は保持しています。出退勤と休憩時間を確認してください。':r.start&&r.end?'勤務時間に合わせて、時間単位で配分してください。':'出勤・退勤を入力してから工数を設定してください。')+'</p><form id="allocationForm">'+allocationFields(r,"alloc")+'<div class="allocation-sum"><span>工数合計 <strong id="allocationTotal">'+C.short(allocationTotal(r))+'</strong></span><span>勤務時間 <strong>'+C.short(total)+'</strong></span></div><div class="paper-actions"><button type="button" class="paper-button secondary" data-action="allocate-rest" '+(!r.end||total<0?'disabled':'')+'>残りをP1へ</button><button type="submit" class="paper-button" '+(!r.end?'disabled':'')+'>更新</button></div></form></section>';
 }
 function detailPanel(){return detail==="leave"?leavePanel():detail==="allocation"?allocationPanel():summaryPanel();}
 function week(){
- const start=C.add(now.day,-((C.weekday(now.day)+6)%7)),days=C.dates(start,C.add(start,6)),values=days.map(d=>C.worked(data.records[d],d,now)),max=Math.max(480,...values),total=values.reduce((a,b)=>a+b,0);
+ const start=C.add(now.day,-((C.weekday(now.day)+6)%7)),days=C.dates(start,C.add(start,6)),values=days.map(d=>C.worked(data.records[d],d,now)),max=Math.max(480,...values.map(Math.abs)),total=values.reduce((a,b)=>a+b,0);
  return '<section class="week-section"><div class="week-heading"><h2>今週の記録</h2><span>計 <strong>'+C.short(total)+'</strong></span></div><div class="week-chart">'+days.map((d,i)=>{
   const r=data.records[d],n=values[i],future=d>now.day,label=future?'これから':C.fullLeave(r)?C.LEAVES[r.leave]:r?.start?C.short(n):C.workday(d)?'未入力':'休み';
-  return '<button type="button" class="week-day'+(d===now.day?' is-today':'')+'" data-action="edit-day" data-day="'+d+'" '+(future?'disabled':'')+' aria-label="'+dayLabel(d)+' '+label+'"><span class="week-track">'+(n?'<span class="week-bar" style="--bar:'+Math.round(n/max*57)+'px"></span>':'<span class="week-mark">'+(future?'·':C.fullLeave(r)||!C.workday(d)?'—':'○')+'</span>')+'</span><span class="week-value">'+label+'</span><span class="week-date">'+C.WEEK[C.weekday(d)]+' '+Number(d.slice(8))+'</span></button>';
+  return '<button type="button" class="week-day'+(d===now.day?' is-today':'')+'" data-action="edit-day" data-day="'+d+'" '+(future?'disabled':'')+' aria-label="'+dayLabel(d)+' '+label+'"><span class="week-track">'+(n?'<span class="week-bar'+(n<0?' is-negative':'')+'" style="--bar:'+Math.round(Math.abs(n)/max*57)+'px"></span>':'<span class="week-mark">'+(future?'·':C.fullLeave(r)||!C.workday(d)?'—':'○')+'</span>')+'</span><span class="week-value">'+label+'</span><span class="week-date">'+C.WEEK[C.weekday(d)]+' '+Number(d.slice(8))+'</span></button>';
  }).join("")+'</div><p class="week-note">実働・時間:分　日付を選んで記録を確認</p></section>';
 }
 function home(){
@@ -92,8 +119,8 @@ function home(){
 }
 function monthChooser(){return '<div class="month-chooser"><button type="button" class="month-arrow" data-action="month-prev" aria-label="前の月" '+(selectedMonth<=C.FIRST?'disabled':'')+'>←</button><label><span class="sr-only">表示する月</span><input class="month-input" id="monthInput" type="month" min="2026-04" max="'+now.day.slice(0,7)+'" value="'+selectedMonth.slice(0,7)+'"></label><button type="button" class="month-arrow" data-action="month-next" aria-label="次の月" '+(selectedMonth>=C.month(now.day).start?'disabled':'')+'>→</button></div>';}
 function monthChart(){
- const start=C.month(selectedMonth,-6).start<C.FIRST?C.FIRST:C.month(selectedMonth,-6).start,months=Array.from({length:10},(_,i)=>C.month(start,i)),totals=months.map(p=>C.summary(data,p,now).minutes),max=Math.max(60,...totals);
- return '<section class="annual-section" aria-labelledby="chartTitle"><h2 id="chartTitle">勤務時間集計</h2><div class="annual-scroll"><div class="annual-chart">'+months.map((p,i)=>'<button type="button" class="month-bar'+(p.start===selectedMonth?' selected':'')+'" data-action="chart-month" data-month="'+p.start+'" aria-label="'+p.start.slice(0,7)+' '+C.hours(totals[i])+'時間" '+(p.start>now.day?'disabled':'')+'><span class="month-bar-track"><span style="height:'+Math.round(totals[i]/max*98)+'px"></span></span><b>'+C.hours(totals[i])+'h</b><small>'+p.start.slice(0,7).replace("-","/")+'</small></button>').join("")+'</div></div><p class="week-note">実働時間・月を選択して一覧を表示</p></section>';
+ const start=C.month(selectedMonth,-6).start<C.FIRST?C.FIRST:C.month(selectedMonth,-6).start,months=Array.from({length:10},(_,i)=>C.month(start,i)),totals=months.map(p=>C.summary(data,p,now).minutes),max=Math.max(60,...totals.map(Math.abs));
+ return '<section class="annual-section" aria-labelledby="chartTitle"><h2 id="chartTitle">勤務時間集計</h2><div class="annual-scroll"><div class="annual-chart">'+months.map((p,i)=>'<button type="button" class="month-bar'+(p.start===selectedMonth?' selected':'')+(totals[i]<0?' is-negative':'')+'" data-action="chart-month" data-month="'+p.start+'" aria-label="'+p.start.slice(0,7)+' '+C.hours(totals[i])+'時間" '+(p.start>now.day?'disabled':'')+'><span class="month-bar-track"><span style="height:'+Math.round(Math.abs(totals[i])/max*98)+'px"></span></span><b>'+C.hours(totals[i])+'h</b><small>'+p.start.slice(0,7).replace("-","/")+'</small></button>').join("")+'</div></div><p class="week-note">実働時間・月を選択して一覧を表示</p></section>';
 }
 function records(){
  const p=C.month(selectedMonth),summary=C.summary(data,p,now);
@@ -185,6 +212,7 @@ document.addEventListener("click",event=>{
  const button=event.target.closest?.("[data-action],[data-state]");if(!button||button.disabled)return;
  if(button.dataset.state){sample(button.dataset.state);return;}
  const action=button.dataset.action;
+ if(action==="close-warning"){warningDialog.close();return;}
  if(action==="tab"||action==="home"){
   if(view==="settings")captureSettings();view=action==="home"?'home':button.dataset.tab;error="";restOpen=false;render();root.scrollIntoView({block:"start"});return;
  }
@@ -192,7 +220,7 @@ document.addEventListener("click",event=>{
   if(Date.now()<lockUntil)return;
   const kind=button.dataset.kind,r=record(now.day),rest=readRest();if(rest==null)return;
   if(kind==="end"&&!r.start)return showError("先に出勤を記録してください。");
-  const current=clockNow();if(updateToday({[kind]:current.time,breakMinutes:rest,overnight:kind==="end"?false:r.overnight},(kind==="start"?'出勤':'退勤')+'を'+current.time+'で記録しました')){restOpen=false;lockPunches();syncHome();}return;
+  const current=clockNow();if(updateToday({[kind]:current.time,breakMinutes:rest,overnight:kind==="end"?false:r.overnight},(kind==="start"?'出勤':'退勤')+'を'+current.time+'で記録しました')){restOpen=false;animatePunch(kind);lockPunches(850);syncHome();}return;
  }
  if(action==="reset-punches"){
   if(Date.now()<lockUntil)return;
@@ -293,7 +321,7 @@ function tick(){
  if(newDay){sampleClock="";if(!dialog.open&&view==="home")render();return;}
  if(view!=="home")return;
  const node=$("paperClock");if(node){node.innerHTML=now.time+'<span class="seconds">:'+now.full.slice(-2)+'</span>';node.dateTime=now.day+'T'+now.full+'+09:00';}
- if(detail==="summary"&&$("todayWorked")){$("todayWorked").textContent=C.duration(C.worked(record(now.day),now.day,now));$("monthWorked").textContent=C.hours(C.summary(data,C.month(now.day),now).minutes)+'時間';}
+ if(detail==="summary")syncPerformance();
 }
 setInterval(tick,1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)tick();});
 render();

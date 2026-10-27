@@ -23,14 +23,14 @@ function clock(instant=new Date()){
 }
 function timeToMin(v){if(!/^\d{2}:\d{2}$/.test(v||""))return null;const [h,m]=v.split(":").map(Number);return h<24&&m<60?h*60+m:null;}
 const time=n=>pad(Math.floor(n/60)%24)+":"+pad(n%60);
-const short=n=>Math.floor(Math.max(0,n)/60)+":"+pad(Math.round(Math.max(0,n))%60);
-const duration=n=>Math.floor(Math.max(0,n)/60)+"時間"+pad(Math.round(Math.max(0,n))%60)+"分";
+const short=n=>(n<0?"−":"")+Math.floor(Math.abs(n)/60)+":"+pad(Math.round(Math.abs(n))%60);
+const duration=n=>(n<0?"−":"")+Math.floor(Math.abs(n)/60)+"時間"+pad(Math.round(Math.abs(n))%60)+"分";
 const hours=n=>Number((n/60).toFixed(2));
 const fullLeave=r=>["paid","holiday","special"].includes(r?.leave);
 function worked(r,day,now){
  if(!r||fullLeave(r)||timeToMin(r.start)==null)return 0;
  const end=r.end?timeToMin(r.end)+(r.overnight?1440:0):day===now.day?now.minutes:null;
- return end==null?0:Math.max(0,end-timeToMin(r.start)-r.breakMinutes);
+ return end==null?0:end-timeToMin(r.start)-r.breakMinutes;
 }
 function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,leave:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
 function validateRecord(r,day,now,settings){
@@ -48,13 +48,14 @@ function validateRecord(r,day,now,settings){
  if(r.start&&r.end){
   const span=timeToMin(r.end)+(r.overnight?1440:0)-timeToMin(r.start);
   if(span<0)return bad("翌日の退勤は「翌日に退勤」を選んでください。");
-  if(r.breakMinutes>span)return bad("休憩時間が勤務の時間幅を超えています。");
  }
  if(!r.allocation||PROJECTS.some(k=>!Number.isFinite(r.allocation[k])||r.allocation[k]<0||r.allocation[k]>24||Math.abs(r.allocation[k]*60-Math.round(r.allocation[k]*60))>1e-5))return bad("工数は0〜24時間で、分単位で入力してください。");
  const allocated=PROJECTS.reduce((sum,k)=>sum+Math.round(r.allocation[k]*60),0);
  if(allocated&&(!r.start||!r.end))return bad("工数は出勤・退勤を入力してから設定してください。");
- if(allocated&&allocated!==worked(r,day,now))return bad("工数の合計を勤務時間（"+duration(worked(r,day,now))+"）に合わせてください。");
- return {ok:true,value:clone(r)};
+ const net=worked(r,day,now);
+ if(net>=0&&allocated&&allocated!==net)return bad("工数の合計を勤務時間（"+duration(net)+"）に合わせてください。");
+ const warnings=net<0?["休憩時間を引いた勤務時間が「"+duration(net)+"」になっています。記録は保存しました。出退勤と休憩時間を確認してください。"+(allocated?" 工数は入力済みの値を保持しています。":"")]:[];
+ return {ok:true,value:clone(r),warnings};
 }
 function validateSettings(s){
  if(!s||!Number.isFinite(s.minHours)||!Number.isFinite(s.maxHours)||s.minHours<0||s.maxHours>744||s.minHours>s.maxHours)return "基準時間は0〜744時間で、下限≦上限にしてください。";
@@ -111,15 +112,16 @@ function summary(state,period,now){
 }
 function submissionStatus(state,period){return state.submissions[periodKey(period)]?(state.submissions[periodKey(period)].test?"テスト提出済":"出力済"):"未提出";}
 function invalidateSubmissions(state,day){for(const key of Object.keys(state.submissions)){const [start,end]=key.split("|");if(day>=start&&day<=end)delete state.submissions[key];}}
+const durationCell=n=>n<0?short(n):{v:n/1440,duration:true};
 function workbook(state,period,now){
  const summaryData=summary(state,period,now);
  const rows=[["勤怠表（A. Paper 操作デモ）"],["氏名","田中 花子"],["対象期間",period.start+"〜"+period.end],["作業概要",state.settings.workSummary],["基準時間",state.settings.minHours+"〜"+state.settings.maxHours+"時間"],[],["日付","曜日","区分","出勤","退勤","休憩（分）","勤務時間","勤務場所","作業内容",...PROJECTS.map(k=>k+"（時間）")]];
  for(const d of dates(period.start,period.end)){
   const r=state.records[d],future=d>now.day,p=state.settings.places.find(p=>p.id===r?.locationId);
   const status=future?"これから":r?.leave?LEAVES[r.leave]:r?.end?"勤務":r?.start?"退勤未入力":workday(d)?"未入力":"休日";
-  rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[r.start,r.end+(r.end&&r.overnight?"（翌日）":""),r.breakMinutes,{v:worked(r,d,now)/1440,duration:true},p?.code||"",r.note,...PROJECTS.map(k=>r.allocation[k])]:["","","","","","",...PROJECTS.map(()=>"")])]);
+  rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[r.start,r.end+(r.end&&r.overnight?"（翌日）":""),r.breakMinutes,durationCell(worked(r,d,now)),p?.code||"",r.note,...PROJECTS.map(k=>r.allocation[k])]:["","","","","","",...PROJECTS.map(()=>"")])]);
  }
- rows.push([], ["合計","","","","","",{v:summaryData.minutes/1440,duration:true},"","",...PROJECTS.map(k=>Number(summaryData.allocation[k].toFixed(4)))]);
+ rows.push([], ["合計","","","","","",durationCell(summaryData.minutes),"","",...PROJECTS.map(k=>Number(summaryData.allocation[k].toFixed(4)))]);
  const config=[["勤務表設定"],["PJ","PJ略称","PJ概要"],...state.settings.projects.map(p=>[p.id,p.name,p.description]),[],["場所","作業場所","作業場所名称","作業場所住所"],...state.settings.places.map((p,i)=>["場所"+(i+1),p.code,p.name,p.address])];
  return xlsx([{name:"勤務表",headerRow:7,rows},{name:"設定",headerRow:2,rows:config}]);
 }
