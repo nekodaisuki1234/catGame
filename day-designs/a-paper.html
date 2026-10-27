@@ -4,20 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4f3f1">
-<meta name="description" content="day.のデザイン候補 A：余白のある手帳。架空の社員1人の共通サンプルです。">
-<title>A. Paper｜day. デザイン候補</title>
+<meta name="description" content="day. A. Paper：余白のある手帳のデザインで、打刻・勤務実績・休暇・工数・勤務表の出力と設定を確認できます。">
+<title>A. Paper｜day. 勤怠</title>
 <link rel="stylesheet" href="./studies.css?v=ac-punch1">
-<script src="./studies.js?v=ac-punch1" defer></script>
+<link rel="stylesheet" href="./paper.css?v=paper-renewal1">
+<script src="./paper-core.js?v=paper-renewal1" defer></script>
+<script src="./paper-app.js?v=paper-renewal1" defer></script>
 </head>
 <body class="preview-page">
 <header class="lab-toolbar">
  <div class="lab-title-row"><a class="lab-back" href="./?v=ac-punch1">← 候補一覧</a><h1>A. Paper<span>余白のある手帳</span></h1><a class="lab-open-screen" href="./a-paper.html?screen=1&amp;v=ac-punch1">画面だけ見る ↗</a></div>
  <nav class="theme-links" aria-label="デザイン候補"><a href="./a-paper.html?v=ac-punch1" aria-current="page">A<span>Paper</span></a><a href="./b-studio.html?v=overwrite1">B<span>Studio</span></a><a href="./c-soft.html?v=ac-punch1">C<span>Soft</span></a><a href="./d-grid.html?v=overwrite1">D<span>Grid</span></a><a href="./e-night.html?v=overwrite1">E<span>Night</span></a></nav>
  <div class="sample-controls"><div class="sample-states" role="group" aria-label="表示する勤務状態"><button type="button" data-state="before">出勤前</button><button type="button" data-state="working">勤務中</button><button type="button" data-state="after">退勤後</button></div><button type="button" class="sample-reset" data-action="reset">リセット</button></div>
- <p class="lab-note">架空の社員1人・固定時刻で比較。本体の打刻データには反映されません。</p>
+ <p class="lab-note">Aデザインの勤怠操作デモ。架空の社員の記録をこのブラウザに保存します。状態ボタンは今日のサンプルを上書きします。本体・他案のデータには反映されません。</p>
 </header>
 <div class="study-shell"><div id="previewApp" class="preview-app"></div></div>
+<dialog id="paperDialog" class="paper-dialog" aria-labelledby="dialogTitle"></dialog>
 <div id="studyToast" class="study-toast" role="status" aria-live="polite"></div>
 <noscript><p class="no-script">表示と操作の確認にはJavaScriptを有効にしてください。<a href="./?v=ac-punch1">候補一覧へ</a></p></noscript>
 </body>
 </html>
+
