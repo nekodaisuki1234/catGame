@@ -45,7 +45,7 @@ h1,h2,h3,p{margin:0}
 .gallery-footer a{font-size:12px;white-space:nowrap;text-underline-offset:4px}
 :root[data-theme]{--paper:#f4f3f1;--ink:#283a4c;--muted:#626d79;--line:#cbd0d4;--primary:#2c425b;--secondary:#50736a;--field:#edf0f2;--surface:#e7ebee;--radius:6px;--gutter:24px;--nav:#f4f3f1}
 :root[data-theme=studio]{--paper:#f0ede7;--ink:#222925;--muted:#62665e;--line:#c5c5b9;--primary:#222925;--secondary:#9c513a;--field:#e8e5dd;--surface:#e3e0d7;--radius:2px;--nav:#222925}
-:root[data-theme=soft]{--paper:#f5f7fc;--ink:#344362;--muted:#5c6880;--line:#d0d8e7;--primary:#526698;--secondary:#8b6254;--field:#fff;--surface:#e8edf8;--radius:16px;--gutter:20px;--nav:#fff}
+:root[data-theme=soft]{--paper:#fff;--ink:#344362;--muted:#5c6880;--line:#d0d8e7;--primary:#526698;--secondary:#8b6254;--field:#fff;--surface:#e8edf8;--radius:16px;--gutter:20px;--nav:#fff}
 :root[data-theme=grid]{--paper:#fff;--ink:#1e2935;--muted:#5c6774;--line:#b7c0cc;--primary:#2554b2;--secondary:#29333d;--field:#f0f3f7;--surface:#eef2f7;--radius:0px;--nav:#fff}
 :root[data-theme=night]{color-scheme:dark;--paper:#152230;--ink:#eef2ef;--muted:#b0bece;--line:#39495b;--primary:#a5bfdc;--secondary:#8cbaac;--field:#213346;--surface:#203144;--radius:10px;--nav:#182838}
 .preview-page{background:#e9edf1;color:var(--ink)}
@@ -181,8 +181,9 @@ h1,h2,h3,p{margin:0}
 [data-theme=studio] .app-nav .nav-button{color:#c7cbbf}
 [data-theme=studio] .app-nav .nav-button[aria-current=page]{color:#fff5e7}
 /* C — soft Nordic: a single rounded sheet and a real minute dial. */
+[data-theme=soft] .preview-page{background:var(--paper)}
 [data-theme=soft] .wordmark{font-family:"Avenir Next","Hiragino Maru Gothic ProN",sans-serif;font-weight:650;letter-spacing:-2.5px}
-[data-theme=soft] .punch-pane{background:var(--surface);padding:19px 17px 18px;border:0;border-radius:26px;margin-bottom:26px}
+[data-theme=soft] .punch-pane{background:var(--paper);padding:19px 17px 18px;border:0;border-radius:26px;margin-bottom:26px}
 [data-theme=soft] .hero-composition{display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:12px;padding-bottom:21px}
 [data-theme=soft] .clock-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;order:1;width:238px;max-width:100%;aspect-ratio:1;padding:0}
 [data-theme=soft] .clock-dial{position:absolute;inset:0;display:block;width:100%;height:100%;color:var(--primary)}
