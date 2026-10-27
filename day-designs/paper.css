@@ -258,3 +258,24 @@ html[data-theme=paper]{scroll-padding-bottom:calc(100px + env(safe-area-inset-bo
 [data-theme=paper] .missing-day-link small{font-size:10px;color:var(--muted)}
 [data-theme=paper] .missing-complete{padding-block:25px;font-size:12px;line-height:1.9;color:var(--secondary)}
 @media(max-width:360px){[data-theme=paper] .home-facts{gap:11px}[data-theme=paper] .home-facts>div+div{padding-left:11px}[data-theme=paper] .home-facts dt{font-size:9px}[data-theme=paper] .home-facts dd{font-size:23px}[data-theme=paper] .home-missing-notice{gap:6px;font-size:10px;padding-inline:8px}}
+[data-theme=paper] .submission-errors{margin:22px 0 18px}
+[data-theme=paper] .submission-errors>h3{font-size:14px;font-weight:600;line-height:1.8;color:#845968}
+[data-theme=paper] .submission-errors>h3 small{margin-left:5px;font-size:11px;font-weight:400}
+[data-theme=paper] .submission-errors>p{font-size:11px;line-height:1.8;color:var(--muted);margin:4px 0 12px}
+[data-theme=paper] .submission-issues{max-height:260px;overflow-y:auto;overscroll-behavior:contain;border-top:1px solid var(--line)}
+[data-theme=paper] .submission-issue{padding:11px 0 14px;border-bottom:1px solid var(--line)}
+[data-theme=paper] .submission-issue>button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:38px;padding:2px 0;border:0;background:none;color:var(--primary);font-size:13px;text-align:left}
+[data-theme=paper] .submission-issue strong{font-size:13px;font-weight:550}
+[data-theme=paper] .submission-issue ul{margin:5px 0 0;padding-left:17px;color:#845968;font-size:11px;line-height:1.9;overflow-wrap:anywhere}
+[data-theme=paper] .submission-issue li+li{margin-top:3px}
+[data-theme=paper] .performance-facts-four{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:18px}
+[data-theme=paper] .performance-facts-four>div:nth-child(odd){padding-left:0;border-left:0}
+[data-theme=paper] .performance-facts-four>div:nth-child(even){padding-right:0}
+[data-theme=paper] .performance-facts-four .performance-fact-note{display:block;margin-top:3px;font-size:9px;line-height:1.8;color:var(--muted)}
+[data-theme=paper] .month-holidays{display:grid;grid-template-columns:62px minmax(0,1fr);align-items:baseline;gap:8px;margin:-8px 0 23px;padding-bottom:16px;border-bottom:1px solid var(--line);font-size:11px;line-height:1.9}
+[data-theme=paper] .month-holidays-label{color:var(--muted);font-size:10px;white-space:nowrap}
+[data-theme=paper] .month-holiday-list{display:flex;flex-wrap:wrap;gap:5px 15px;list-style:none;margin:0;padding:0;min-width:0}
+[data-theme=paper] .month-holiday-list li{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+[data-theme=paper] .month-holiday-list time{color:#946774;white-space:nowrap;font-variant-numeric:tabular-nums}
+[data-theme=paper] .month-holiday-list span,[data-theme=paper] .month-holiday-empty{overflow-wrap:anywhere}
+[data-theme=paper] .month-holiday-empty{margin:0;color:var(--muted)}

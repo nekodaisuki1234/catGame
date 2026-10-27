@@ -57,6 +57,7 @@ async function run(){
    const small=await page.locator("#dayForm input,#dayForm select,#dayForm textarea").evaluateAll(nodes=>nodes.filter(n=>n.type!=="checkbox").filter(n=>parseFloat(getComputedStyle(n).fontSize)<16).map(n=>n.id));assert.deepEqual(small,[]);
   }
   // Download preparation failure must not mark the period as submitted.
+  await page.evaluate(()=>{const C=window.PaperAttendance,state=JSON.parse(localStorage.getItem(C.KEY)),now=C.clock(),p=C.month(now.day);for(const day of C.dates(p.start,now.day))if(C.workday(day))state.records[day]={...C.empty(state),leave:"holiday"};state.revision++;localStorage.setItem(C.KEY,JSON.stringify(state));});await page.reload();
   await page.locator("#nav-submit").click();await page.locator("[data-action=submit-period][data-index='2']").click();await page.evaluate(()=>{URL.createObjectURL=()=>{throw Error("download unavailable")};});await page.locator("[data-action=confirm-submission]").click();assert.equal(Object.keys((await state()).submissions).length,0);assert.match(await page.locator("#dialogError").innerText(),/出力できません/);
   assert.deepEqual(errors,[]);console.log("PASS live weekly graph, mobile fonts/touch targets/overflow and failed-export status safety");
  }finally{await browser.close();}

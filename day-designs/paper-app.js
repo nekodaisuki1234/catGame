@@ -50,8 +50,8 @@ function commit(next,message){
  }catch{showError("保存できませんでした。記録は変更していません。保存設定を確認して再操作してください。");return false;}
  data=next;error="";for(const id of ["previewError","dialogError"])if($(id))$(id).textContent="";if(message)toast(message);return true;
 }
-function saveRecord(day,next,message){
- const check=C.validateRecord(next,day,now,data.settings);if(!check.ok){showError(check.error);return false;}
+function saveRecord(day,next,message,options={}){
+ const check=C.validateRecord(next,day,now,data.settings,options);if(!check.ok){if(options.strictAllocation)toast("保存できません。"+check.error,{warning:true});else showError(check.error);return false;}
  const previous=data.records[day];
  if(previous&&Object.keys(check.value).every(k=>JSON.stringify(previous[k])===JSON.stringify(check.value[k]))){
   try{if(!storageProblem&&localStorage.getItem(C.KEY)===lastSaved){error="";if($("previewError"))$("previewError").textContent="";return true;}}catch{}
@@ -63,10 +63,10 @@ function saveRecord(day,next,message){
  if(saved&&changed){clearTimeout(warningTimer);if(check.warnings?.length)warningTimer=setTimeout(()=>showWarning(check.warnings.join(" ")),0);}
  return saved;
 }
-function updateToday(change,message){
+function updateToday(change,message,options={}){
  now=clockNow();
  if(now.day!==renderedDay){render();showError("日付が変わりました。今日の画面を確認して再操作してください。");return false;}
- return saveRecord(now.day,{...record(now.day),...change},message);
+ return saveRecord(now.day,{...record(now.day),...change},message,options);
 }
 function status(r){return C.fullLeave(r)?C.LEAVES[r.leave]:r.end?"退勤済み":r.start?"勤務中":"出勤前";}
 function punches(){
@@ -97,9 +97,9 @@ function readRest(){
 function summaryPanel(){
  const fiscalYear=Number(now.day.slice(0,4))-(Number(now.day.slice(5,7))<4?1:0);
  const r=record(now.day),month=C.summary(data,C.month(now.day),now),annual=C.summary(data,{start:fiscalYear+"-04-01",end:(fiscalYear+1)+"-03-31"},now);
- const planned=data.settings.plannedHours,ratio=planned>0?Math.max(0,month.minutes/(planned*60)):0,percent=planned>0?Math.round(ratio*100):null,totalAllocation=C.PROJECTS.reduce((sum,k)=>sum+month.allocation[k],0),today=C.worked(r,now.day,now);
+ const monthDays=C.monthWorkdays(now.day),planned=data.settings.plannedHours,ratio=planned>0?Math.max(0,month.minutes/(planned*60)):0,percent=planned>0?Math.round(ratio*100):null,totalAllocation=C.PROJECTS.reduce((sum,k)=>sum+month.allocation[k],0),today=C.worked(r,now.day,now);
  const remaining=planned-C.hours(month.minutes),leftText=planned<=0?'予定未設定':remaining>=0?'予定まで '+Number(remaining.toFixed(2))+'時間':Number((-remaining).toFixed(2))+'時間 予定を達成';
- return '<section class="detail-panel performance-panel" aria-labelledby="detailTitle"><div class="performance-heading"><h2 id="detailTitle">勤務実績</h2><span>'+now.day.slice(0,4)+' / '+now.day.slice(5,7)+'</span></div><div class="performance-overview"><div class="progress-ring" role="img" aria-label="今月の勤務予定に対して'+(percent==null?'予定未設定':percent+'パーセント')+'"><svg viewBox="0 0 160 160" aria-hidden="true"><circle class="ring-track" cx="80" cy="80" r="64"/><circle id="progressArc" class="ring-progress" cx="80" cy="80" r="64" pathLength="100" stroke-dasharray="100" stroke-dashoffset="'+(100-Math.min(1,ratio)*100)+'"/></svg><div class="ring-label"><span id="monthlyPercent">'+(percent==null?'—':percent)+'<small>'+(percent==null?'':'%')+'</small></span><span>予定に対して</span></div></div><div class="monthly-figure"><span class="performance-eyebrow">今月の勤務時間</span><strong id="monthWorked">'+C.hours(month.minutes)+'<small>時間</small></strong><span class="planned-caption">勤務予定 '+planned+'時間</span><span class="remaining-caption" id="remainingHours">'+leftText+'</span></div></div><dl class="performance-facts"><div><dt>本日の勤務</dt><dd id="todayWorked"'+(today<0?' class="negative-value"':'')+'>'+C.short(today)+'</dd></div><div><dt>今月の勤務日</dt><dd>'+month.days+'<small>日</small></dd></div><div><dt>年度の有給</dt><dd>'+annual.leave+'<small>日</small></dd></div></dl><div class="project-chart-heading"><h3>工数の内訳</h3><span>計 '+Number(totalAllocation.toFixed(2))+'時間</span></div><div class="allocation-strip" aria-hidden="true">'+C.PROJECTS.map((k,i)=>'<span class="project-color-'+i+'" style="width:'+(totalAllocation>0?month.allocation[k]/totalAllocation*100:0)+'%"></span>').join("")+'</div><dl class="project-breakdown">'+C.PROJECTS.map((k,i)=>'<div><dt><i class="project-color-'+i+'" aria-hidden="true"></i>'+k+'</dt><dd>'+Number(month.allocation[k].toFixed(2))+'<small>時間</small></dd><span class="project-mini-track" aria-hidden="true"><i class="project-color-'+i+'" style="width:'+(totalAllocation>0?month.allocation[k]/totalAllocation*100:0)+'%"></i></span></div>').join("")+'</dl></section>';
+ return '<section class="detail-panel performance-panel" aria-labelledby="detailTitle"><div class="performance-heading"><h2 id="detailTitle">勤務実績</h2><span>'+now.day.slice(0,4)+' / '+now.day.slice(5,7)+'</span></div><div class="performance-overview"><div class="progress-ring" role="img" aria-label="今月の勤務予定に対して'+(percent==null?'予定未設定':percent+'パーセント')+'"><svg viewBox="0 0 160 160" aria-hidden="true"><circle class="ring-track" cx="80" cy="80" r="64"/><circle id="progressArc" class="ring-progress" cx="80" cy="80" r="64" pathLength="100" stroke-dasharray="100" stroke-dashoffset="'+(100-Math.min(1,ratio)*100)+'"/></svg><div class="ring-label"><span id="monthlyPercent">'+(percent==null?'—':percent)+'<small>'+(percent==null?'':'%')+'</small></span><span>予定に対して</span></div></div><div class="monthly-figure"><span class="performance-eyebrow">今月の勤務時間</span><strong id="monthWorked">'+C.hours(month.minutes)+'<small>時間</small></strong><span class="planned-caption">勤務予定 '+planned+'時間</span><span class="remaining-caption" id="remainingHours">'+leftText+'</span></div></div><dl class="performance-facts performance-facts-four"><div><dt>本日の勤務</dt><dd id="todayWorked"'+(today<0?' class="negative-value"':'')+'>'+C.short(today)+'</dd></div><div><dt>今月の勤務日</dt><dd>'+month.days+'<small>日</small></dd></div><div><dt>有給取得</dt><dd id="homePaidLeave">'+annual.leave+'<small>日</small></dd><span class="performance-fact-note">'+fiscalYear+'/4〜'+(fiscalYear+1)+'/3</span></div><div><dt>今月の平日</dt><dd id="homeWorkdays">'+(monthDays==null?'—':monthDays)+'<small>日</small></dd><span class="performance-fact-note">'+(monthDays==null?'祝日データ未収録':'土日・祝日を除く')+'</span></div></dl><div class="project-chart-heading"><h3>工数の内訳</h3><span>計 '+Number(totalAllocation.toFixed(2))+'時間</span></div><div class="allocation-strip" aria-hidden="true">'+C.PROJECTS.map((k,i)=>'<span class="project-color-'+i+'" style="width:'+(totalAllocation>0?month.allocation[k]/totalAllocation*100:0)+'%"></span>').join("")+'</div><dl class="project-breakdown">'+C.PROJECTS.map((k,i)=>'<div><dt><i class="project-color-'+i+'" aria-hidden="true"></i>'+k+'</dt><dd>'+Number(month.allocation[k].toFixed(2))+'<small>時間</small></dd><span class="project-mini-track" aria-hidden="true"><i class="project-color-'+i+'" style="width:'+(totalAllocation>0?month.allocation[k]/totalAllocation*100:0)+'%"></i></span></div>').join("")+'</dl></section>';
 }
 function syncPerformance(){
  if(!$("monthWorked"))return;
@@ -119,8 +119,8 @@ function allocationPanel(){
 }
 function detailPanel(){return detail==="leave"?leavePanel():detail==="allocation"?allocationPanel():summaryPanel();}
 function homeOverview(){
- const fiscal=C.fiscalPeriod(now.day),annual=C.summary(data,fiscal,now),missingDays=C.pastMissing(data,now),monthDays=C.monthWorkdays(now.day);
- return '<dl class="home-facts"><div><dt>今期の有給取得</dt><dd id="homePaidLeave">'+annual.leave+'<small>日</small></dd><span>'+fiscal.start.slice(0,4)+'/4〜'+fiscal.end.slice(0,4)+'/3</span></div><div><dt>今月の平日</dt><dd id="homeWorkdays">'+(monthDays==null?'—':monthDays)+'<small>日</small></dd><span>'+(monthDays==null?'祝日データ未収録':'土日・祝日を除く')+'</span></div></dl><div id="homeMissingSlot" class="home-missing-slot" aria-live="polite"><button type="button" id="homeMissingNotice" class="home-missing-notice" data-action="missing-records" '+(missingDays.length?'':'hidden')+'><span class="missing-notice-mark" aria-hidden="true">!</span><span>過去の平日に未入力 <strong>'+missingDays.length+'日</strong></span><span class="missing-notice-link">確認 <span aria-hidden="true">›</span></span></button></div>';
+ const missingDays=C.pastMissing(data,now);
+ return '<div id="homeMissingSlot" class="home-missing-slot" aria-live="polite"><button type="button" id="homeMissingNotice" class="home-missing-notice" data-action="missing-records" '+(missingDays.length?'':'hidden')+'><span class="missing-notice-mark" aria-hidden="true">!</span><span>過去の平日に未入力 <strong>'+missingDays.length+'日</strong></span><span class="missing-notice-link">確認 <span aria-hidden="true">›</span></span></button></div>';
 }
 function missing(){
  const days=C.pastMissing(data,now),groups=new Map();
@@ -143,6 +143,11 @@ function monthChart(){
  const start=C.month(selectedMonth,-6).start<C.FIRST?C.FIRST:C.month(selectedMonth,-6).start,months=Array.from({length:10},(_,i)=>C.month(start,i)),totals=months.map(p=>C.summary(data,p,now).minutes),max=Math.max(60,...totals.map(Math.abs));
  return '<section class="annual-section" aria-labelledby="chartTitle"><h2 id="chartTitle">勤務時間集計</h2><div class="annual-scroll"><div class="annual-chart">'+months.map((p,i)=>'<button type="button" class="month-bar'+(p.start===selectedMonth?' selected':'')+(totals[i]<0?' is-negative':'')+'" data-action="chart-month" data-month="'+p.start+'" aria-label="'+p.start.slice(0,7)+' '+C.hours(totals[i])+'時間" '+(p.start>now.day?'disabled':'')+'><span class="month-bar-track"><span style="height:'+Math.round(Math.abs(totals[i])/max*98)+'px"></span></span><b>'+C.hours(totals[i])+'h</b><small>'+p.start.slice(0,7).replace("-","/")+'</small></button>').join("")+'</div></div><p class="week-note">実働時間・月を選択して一覧を表示</p></section>';
 }
+function monthHolidayNotice(period){
+ const label=period.start.slice(0,4)+'年'+Number(period.start.slice(5,7))+'月の祝日';
+ const known=C.holidayKnown(period.start)&&C.holidayKnown(period.end),days=known?C.dates(period.start,period.end).filter(day=>C.holiday(day)):[];
+ return '<aside class="month-holidays" aria-label="'+label+'"><span class="month-holidays-label">今月の祝日</span>'+(days.length?'<ul class="month-holiday-list">'+days.map(day=>'<li><time datetime="'+day+'">'+Number(day.slice(5,7))+'/'+Number(day.slice(8))+'</time><span>'+h(C.holiday(day))+'</span></li>').join('')+'</ul>':'<p class="month-holiday-empty">'+(known?'今月の祝日はありません':'この月の祝日データは未収録です')+'</p>')+'</aside>';
+}
 function records(){
  const p=C.month(selectedMonth),summary=C.summary(data,p,now);
  const rows=C.dates(p.start,p.end).map(d=>{
@@ -151,7 +156,7 @@ function records(){
   const caption=r?.start?[holiday,dayStatus,placeName(r.locationId)].filter(Boolean).join(' · '):holiday?(C.fullLeave(r)?holiday:'祝日'):'';
   return '<button type="button" class="record-item paper-record'+(d===now.day?' is-today':'')+(holiday?' is-holiday':'')+'" data-action="edit-day" data-day="'+d+'" '+(future?'disabled':'')+' aria-label="'+h(dayLabel(d)+' '+holiday+' '+range)+'"><span class="record-date weekday-'+C.weekday(d)+'"><b>'+Number(d.slice(8))+'</b><small>'+C.WEEK[C.weekday(d)]+'曜日</small></span><span class="record-times">'+h(range)+'<small>'+h(caption)+'</small></span><span class="record-hours">'+(r?.start?C.short(n):'—')+'<span class="row-chevron" aria-hidden="true">›</span></span></button>';
  }).join("");
- return '<section class="subpage"><h1>'+Number(selectedMonth.slice(5,7))+'月の勤怠</h1><p class="subpage-lede">日付を選んで、打刻・休暇・工数を確認・修正できます。</p>'+monthChooser()+monthChart()+'<div class="month-summary"><span>勤務 '+summary.days+'日</span><strong>計 '+C.short(summary.minutes)+'</strong><button type="button" class="text-button" data-action="export-month">Excel出力</button></div><div class="record-list" id="recordList" aria-label="日別の勤怠">'+rows+'</div><p class="week-note">出勤 → 退勤 ／ 実働時間　未来の日付は編集できません。</p></section>';
+ return '<section class="subpage"><h1>'+Number(selectedMonth.slice(5,7))+'月の勤怠</h1><p class="subpage-lede">日付を選んで、打刻・休暇・工数を確認・修正できます。</p>'+monthChooser()+monthHolidayNotice(p)+monthChart()+'<div class="month-summary"><span>勤務 '+summary.days+'日</span><strong>計 '+C.short(summary.minutes)+'</strong><button type="button" class="text-button" data-action="export-month">Excel出力</button></div><div class="record-list" id="recordList" aria-label="日別の勤怠">'+rows+'</div><p class="week-note">出勤 → 退勤 ／ 実働時間　未来の日付は編集できません。</p></section>';
 }
 function submit(){
  const periods=C.periods(selectedMonth);
@@ -167,7 +172,7 @@ function settings(){
 function nav(){return '<nav class="app-nav" aria-label="メインナビゲーション">'+[["home","home","ホーム"],["records","calendar","勤怠"],["submit","send","提出"],["settings","settings","設定"]].map(([id,ic,label])=>'<button id="nav-'+id+'" type="button" class="nav-button" data-action="tab" data-tab="'+id+'" '+(view===id||view==="editor"&&id==="records"||view==="missing"&&id==="home"?'aria-current="page"':'')+'>'+icon(ic)+'<span>'+label+'</span></button>').join("")+'</nav>';}
 function render(){
  now=clockNow();renderedDay=now.day;
- root.innerHTML='<header class="app-masthead"><button type="button" class="wordmark" data-action="home" aria-label="day. ホーム">day.</button><div class="employee"><b>'+EMPLOYEE.name+'</b>'+EMPLOYEE.department+' / '+EMPLOYEE.id+'</div></header><main class="preview-main"><div id="previewError" class="preview-error" role="alert">'+h(error||storageProblem)+'</div>'+({home,records,submit,settings,editor,missing}[view])()+'<p class="local-data-note">架空の社員の操作デモ · このブラウザに保存</p></main>'+nav();
+ root.innerHTML='<header class="app-masthead"><button type="button" class="wordmark" data-action="home" aria-label="SET ホーム">SET</button><div class="employee"><b>'+EMPLOYEE.name+'</b>'+EMPLOYEE.department+' / '+EMPLOYEE.id+'</div></header><main class="preview-main"><div id="previewError" class="preview-error" role="alert">'+h(error||storageProblem)+'</div>'+({home,records,submit,settings,editor,missing}[view])()+'<p class="local-data-note">架空の社員の操作デモ · このブラウザに保存</p></main>'+nav();
  if(view==="editor")syncEditor();
  if(embed)root.inert=true;
  if(view==="records"){
@@ -189,7 +194,7 @@ function syncHome(preserveRest=false){
  if(!preserveRest)$("restEditor").innerHTML=restEditor();$("detailArea").innerHTML=detailPanel();syncAllocationTotal();$("weekArea").innerHTML=week();$("previewError").textContent=error||storageProblem;
 }
 function openDialog(content){
- error="";dialog.innerHTML=content;dialog.showModal();
+ error="";dialog.innerHTML=content;if(!dialog.open)dialog.showModal();
 }
 function dialogError(){return '<p id="dialogError" class="preview-error" role="alert"></p>';}
 function closeDialog(){dialog.close();dialog.innerHTML="";error="";}
@@ -229,9 +234,9 @@ function syncWorkStatus(){
 }
 function syncAllocationTotal(){if(!$("allocationForm"))return;const inputs=C.PROJECTS.map(k=>$("alloc"+k)),total=inputs.reduce((n,input)=>n+Math.round(Number(input.value)*60),0);$("allocationTotal").textContent=inputs.every(input=>input.value.trim()!==""&&input.validity.valid)?C.short(total):'—';}
 function openSubmission(period){
- submitPeriod=period;now=clockNow();const missing=C.missing(data,period,now),summary=C.summary(data,period,now);
- const list=missing.length?'<h3 class="paper-heading">以下の勤怠が未入力です <small>'+missing.length+'日</small></h3><div class="missing-list">'+missing.map(day=>'<button type="button" data-action="missing-day" data-day="'+day+'"><span>'+day.replaceAll("-","/")+'（'+C.WEEK[C.weekday(day)]+'）</span><span aria-hidden="true">›</span></button>').join("")+'</div>':'<p class="complete-message">対象期間の勤怠はすべて入力済みです。</p>';
- openDialog(dialogHeader('勤務表の確認',periodLabel(period))+'<p class="submission-total">勤務 '+summary.days+'日 ／ '+C.duration(summary.minutes)+'</p>'+list+'<p class="panel-note">今日までの平日の未入力と、退勤の未入力を確認します。未入力のままでも出力できます。</p><div class="paper-notice"><strong>'+(testSubmission?'テスト提出です。':'Excelを出力します。')+'</strong><p>メールは送信されません。'+(testSubmission?'テスト提出の履歴をこの端末に保存します。':'出力の履歴をこの端末に保存します。')+'</p></div>'+dialogError()+'<div class="paper-actions"><button type="button" class="paper-button secondary" data-action="close-dialog">閉じる</button><button type="button" class="paper-button" data-action="confirm-submission">'+(testSubmission?'テスト提出':'Excel出力')+'</button></div>');
+ submitPeriod=period;now=clockNow();const check=C.submissionCheck(data,period,now),validPeriod=period&&C.validDay(period.start)&&C.validDay(period.end),summary=validPeriod?C.summary(data,period,now):{days:0,minutes:0};
+ const list=check.ok?'<p class="complete-message">✓ 提出前のチェックがすべて完了しました。</p>':'<section class="submission-errors" aria-labelledby="submissionIssuesTitle"><h3 id="submissionIssuesTitle">提出できない日があります <small>'+check.errors.filter(issue=>issue.day).length+'日</small></h3><p>日付を選んで修正してください。</p><div class="submission-issues">'+check.errors.map(issue=>'<div class="submission-issue">'+(issue.day?'<button type="button" data-action="missing-day" data-day="'+h(issue.day)+'"><strong>'+h(issue.day.replaceAll('-','/')+'（'+C.WEEK[C.weekday(issue.day)]+'）')+'</strong><span aria-hidden="true">›</span></button>':'<strong>対象期間・記録を確認してください</strong>')+'<ul>'+issue.messages.map(message=>'<li>'+h(message)+'</li>').join('')+'</ul></div>').join('')+'</div></section>';
+ openDialog(dialogHeader('勤務表の確認',validPeriod?periodLabel(period):'対象期間を確認してください')+'<p class="submission-total">勤務 '+summary.days+'日 ／ '+C.duration(summary.minutes)+'</p>'+list+'<p class="panel-note">4時間以下の勤務は有休登録を確認します（半休登録済みは対象外）。作業概要・工数・マイナス実働も確認し、エラーがある間は提出できません。</p><div class="paper-notice"><strong>'+(testSubmission?'テスト提出です。':'Excelを出力します。')+'</strong><p>メールは送信されません。'+(testSubmission?'テスト提出の履歴をこの端末に保存します。':'出力の履歴をこの端末に保存します。')+'</p></div>'+dialogError()+'<div class="paper-actions"><button type="button" class="paper-button secondary" data-action="close-dialog">閉じる</button><button type="button" class="paper-button" data-action="confirm-submission" '+(check.ok?'':'disabled aria-describedby="submissionIssuesTitle"')+'>'+(testSubmission?'テスト提出':'Excel出力')+'</button></div>');
 }
 function download(bytes,name){
  const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -240,7 +245,13 @@ function download(bytes,name){
 function exportPeriod(period,mark=false){
  now=clockNow();
  try{
-  const bytes=C.workbook(data,period,now),candidate=C.clone(data);
+  if(mark){
+   if(storageProblem)return showError(storageProblem);
+   if(localStorage.getItem(C.KEY)!==lastSaved)return showError("記録が別の画面で更新されています。再読み込みしてから提出してください。");
+  }
+  const prepared=mark?C.prepareSubmission(data,period,now):null;
+  if(prepared&&!prepared.ok){openSubmission(period);return;}
+  const bytes=mark?prepared.bytes:C.workbook(data,period,now),candidate=C.clone(data);
   download(bytes,'day_'+period.start+'_'+period.end+'.xlsx');
   if(mark){candidate.submissions[C.periodKey(period)]={at:new Date().toISOString(),test:testSubmission};if(!commit(candidate)){showError("Excelのダウンロードは開始しましたが、履歴を保存できませんでした。"+error);return;}}
   rememberList();
@@ -284,7 +295,8 @@ document.addEventListener("click",event=>{
   if(Date.now()<lockUntil)return;
   const kind=button.dataset.kind,r=record(now.day),rest=readRest();if(rest==null)return;
   if(kind==="end"&&!r.start)return showError("先に出勤を記録してください。");
-  const current=clockNow();if(updateToday({[kind]:current.time,breakMinutes:rest,overnight:kind==="end"?false:r.overnight},(kind==="start"?'出勤':'退勤')+'を'+current.time+'で記録しました')){clearHomeDraft("rest");restOpen=false;animatePunch(kind);lockPunches(850);syncHome();}return;
+  const current=clockNow(),stamped=C.allocateToP1({...r,[kind]:current.time,breakMinutes:rest,overnight:kind==="end"?false:r.overnight},current.day,current);
+  if(updateToday(stamped,(kind==="start"?'出勤':'退勤')+'を'+current.time+'で記録しました。工数はP1に配分しました')){clearHomeDraft("rest","allocation");restOpen=false;animatePunch(kind);lockPunches(850);syncHome();}return;
  }
  if(action==="reset-punches"){
   if(Date.now()<lockUntil)return;
@@ -366,12 +378,12 @@ document.addEventListener("submit",event=>{
  if(id==="leaveForm"){if(updateToday({leave:$("leaveType").value},'休暇設定を保存しました')){clearHomeDraft("leave");syncHome();}return;}
  if(id==="allocationForm"){
   const allocation=Object.fromEntries(C.PROJECTS.map(k=>[k,Number($("alloc"+k).value)]));
-  if(updateToday({allocation},'工数を保存しました')){clearHomeDraft("allocation");syncHome();}return;
+  if(updateToday({allocation},'工数を保存しました',{strictAllocation:true})){clearHomeDraft("allocation");syncHome();}return;
  }
  if(id==="dayForm"){
   now=clockNow();const r=readEditor().record;
   if(r.breakMinutes==null)return showError("休憩時間は 01:00 のように、0:00〜24:00で入力してください。");
-  if(saveRecord(editDay,r,'勤怠を更新しました')){editorDrafts.delete(editDay);homeDrafts.delete(editDay);render();}return;
+  if(saveRecord(editDay,r,'勤怠を更新しました',{strictAllocation:true})){editorDrafts.delete(editDay);homeDrafts.delete(editDay);render();}return;
  }
  if(id==="defaultsForm"){
   const next=C.clone(data),d={locationId:$("defaultPlace").value,note:$("defaultNote").value,breakMinutes:Number($("defaultBreak").value)};
