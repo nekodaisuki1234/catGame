@@ -2,7 +2,6 @@
 "use strict";
 const C=window.PaperAttendance,root=document.getElementById("previewApp"),dialog=document.getElementById("paperDialog");
 if(!C||!root||!dialog)return;
-const warningDialog=document.createElement("dialog");warningDialog.id="paperWarning";warningDialog.className="paper-dialog paper-warning";warningDialog.setAttribute("aria-labelledby","warningTitle");warningDialog.setAttribute("role","alertdialog");document.body.appendChild(warningDialog);
 const $=id=>document.getElementById(id),h=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const embed=new URLSearchParams(location.search).get("embed")==="1";
 if(embed)document.documentElement.setAttribute("data-embed","");
@@ -12,6 +11,7 @@ let now=C.clock(),renderedDay=now.day,sampleClock="",view="home",detail="summary
 let selectedMonth=C.month(now.day).start,settingsTab="defaults",projectIndex=0,placeIndex=0,settingsDraft=null,editDay="",submitPeriod=null,testSubmission=true;
 let lastSaved=null,storageProblem="",data;
 let punchFeedback=null,feedbackTimer,warningTimer;
+let editorReturn="records";const editorDrafts=new Map();
 try{
  lastSaved=localStorage.getItem(C.KEY);
  data=lastSaved?C.hydrate(JSON.parse(lastSaved),now):C.seed(now);
@@ -29,11 +29,10 @@ const placeOptions=id=>options(data.settings.places.map(p=>[p.id,p.code]),id);
 const leaveOptions=id=>options(Object.entries(C.LEAVES),id);
 const paths={home:"M12 8v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0",calendar:"M5 5h14v16H5zM8 3v4m8-4v4M5 10h14",send:"m3 3 19 9-19 9 4-9-4-9Zm4 9h15",settings:"M4 7h16M4 17h16M8 4v6m8 4v6",chart:"M4 19h17M5 15l5-5 4 3 6-8m-5 0h5v5",leave:"M9 3h6v7h7v5h-7v7H9v-7H2v-5h7V3",work:"M5 7h14v13H5zM9 7V4h6v3M5 12h14m-7-2v4"};
 function icon(name){return '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+paths[name]+'"/></svg>';}
-function toast(message){if(embed)return;const node=$("studyToast");node.textContent=message;node.classList.add("visible");clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove("visible"),3600);}
+function toast(message,{warning=false}={}){if(embed)return;const node=$("studyToast");node.textContent=message;node.classList.toggle("is-warning",warning);node.classList.add("visible");clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove("visible"),warning?7000:3600);}
 function showError(message){error=message;const box=dialog.open?$("dialogError"):$("previewError");if(box)box.textContent=message;toast(message);}
 function showWarning(message){
- warningDialog.innerHTML='<div class="warning-symbol" aria-hidden="true">!</div><h2 id="warningTitle">保存しました・勤務時間を確認</h2><p>'+h(message)+'</p><button type="button" class="paper-button full-width" data-action="close-warning" autofocus>確認しました</button>';
- if(!warningDialog.open)warningDialog.showModal();
+ toast(message,{warning:true});
 }
 function commit(next,message){
  if(storageProblem){showError(storageProblem);return false;}
@@ -49,6 +48,7 @@ function saveRecord(day,next,message){
  const previous=data.records[day],changed=["start","end","overnight","breakMinutes"].some(k=>previous?.[k]!==next[k]);
  const candidate=C.clone(data);candidate.records[day]=check.value;C.invalidateSubmissions(candidate,day);
  const saved=commit(candidate,message);
+ if(saved)editorDrafts.delete(day);
  if(saved&&changed){clearTimeout(warningTimer);if(check.warnings?.length)warningTimer=setTimeout(()=>showWarning(check.warnings.join(" ")),0);}
  return saved;
 }
@@ -141,10 +141,11 @@ function settings(){
  else body='<section class="settings-section"><form id="settingsForm"><div class="hours-range"><label for="minHours"><span>基準時間（下限）</span><input id="minHours" class="paper-input" type="number" min="0" max="744" step="any" value="'+s.minHours+'"></label><span>〜</span><label for="maxHours"><span>上限</span><input id="maxHours" class="paper-input" type="number" min="0" max="744" step="any" value="'+s.maxHours+'"></label></div><label class="paper-label" for="plannedHours">今月の勤務予定（時間）</label><input class="paper-input" type="number" id="plannedHours" min="0" max="744" step="any" value="'+s.plannedHours+'"><label class="paper-label" for="workSummary">作業概要</label><textarea class="paper-input" id="workSummary" maxlength="1000" rows="2">'+h(s.workSummary)+'</textarea><div class="master-heading"><label for="projectSelect">PJ選択</label><select class="paper-input" id="projectSelect">'+options(s.projects.map((p,i)=>[String(i),"PJ"+(i+1)]),String(projectIndex))+'</select></div><label class="paper-label" for="projectName">PJ略称</label><input class="paper-input" id="projectName" maxlength="80" required value="'+h(p.name)+'"><label class="paper-label" for="projectDescription">PJ概要</label><textarea class="paper-input" id="projectDescription" maxlength="1000" rows="3">'+h(p.description)+'</textarea><div class="master-heading"><label for="placeSelect">作業場所選択</label><select class="paper-input" id="placeSelect">'+options(s.places.map((p,i)=>[String(i),"場所"+(i+1)]),String(placeIndex))+'</select></div><div class="master-fields"><label for="placeCode"><span>作業場所</span><input class="paper-input" id="placeCode" required maxlength="80" value="'+h(place.code)+'"></label><label for="placeName"><span>作業場所名称</span><input class="paper-input" id="placeName" required maxlength="80" value="'+h(place.name)+'"></label></div><label class="paper-label" for="placeAddress">作業場所住所</label><textarea class="paper-input" id="placeAddress" maxlength="1000" rows="2">'+h(place.address)+'</textarea><button class="paper-button full-width" type="submit">更新</button></form></section>';
  return '<section class="subpage"><h1>設定</h1><p class="subpage-lede">日々の初期値と、勤務表に載せる情報。</p><div class="settings-tabs" aria-label="設定項目">'+[["defaults","アプリ初期値"],["sheet","勤務表設定値"]].map(([id,label])=>'<button type="button" data-action="settings-tab" data-tab="'+id+'" aria-pressed="'+(settingsTab===id)+'">'+label+'</button>').join("")+'</div>'+body+'</section>';
 }
-function nav(){return '<nav class="app-nav" aria-label="メインナビゲーション">'+[["home","home","ホーム"],["records","calendar","勤怠"],["submit","send","提出"],["settings","settings","設定"]].map(([id,ic,label])=>'<button id="nav-'+id+'" type="button" class="nav-button" data-action="tab" data-tab="'+id+'" '+(view===id?'aria-current="page"':'')+'>'+icon(ic)+'<span>'+label+'</span></button>').join("")+'</nav>';}
+function nav(){return '<nav class="app-nav" aria-label="メインナビゲーション">'+[["home","home","ホーム"],["records","calendar","勤怠"],["submit","send","提出"],["settings","settings","設定"]].map(([id,ic,label])=>'<button id="nav-'+id+'" type="button" class="nav-button" data-action="tab" data-tab="'+id+'" '+(view===id||view==="editor"&&id==="records"?'aria-current="page"':'')+'>'+icon(ic)+'<span>'+label+'</span></button>').join("")+'</nav>';}
 function render(){
  now=clockNow();renderedDay=now.day;
- root.innerHTML='<header class="app-masthead"><button type="button" class="wordmark" data-action="home" aria-label="day. ホーム">day.</button><div class="employee"><b>'+EMPLOYEE.name+'</b>'+EMPLOYEE.department+' / '+EMPLOYEE.id+'</div></header><main class="preview-main"><div id="previewError" class="preview-error" role="alert">'+h(error||storageProblem)+'</div>'+({home,records,submit,settings}[view])()+'<p class="local-data-note">架空の社員の操作デモ · このブラウザに保存</p></main>'+nav();
+ root.innerHTML='<header class="app-masthead"><button type="button" class="wordmark" data-action="home" aria-label="day. ホーム">day.</button><div class="employee"><b>'+EMPLOYEE.name+'</b>'+EMPLOYEE.department+' / '+EMPLOYEE.id+'</div></header><main class="preview-main"><div id="previewError" class="preview-error" role="alert">'+h(error||storageProblem)+'</div>'+({home,records,submit,settings,editor}[view])()+'<p class="local-data-note">架空の社員の操作デモ · このブラウザに保存</p></main>'+nav();
+ if(view==="editor")syncEditor();
  if(embed)root.inert=true;
  if(view==="records"){
   const list=$("recordList"),today=list.querySelector(".is-today");
@@ -164,12 +165,33 @@ function openDialog(content){
  error="";dialog.innerHTML=content;dialog.showModal();
 }
 function dialogError(){return '<p id="dialogError" class="preview-error" role="alert"></p>';}
-function closeDialog(){dialog.close();dialog.innerHTML="";error="";editDay="";}
+function closeDialog(){dialog.close();dialog.innerHTML="";error="";}
 function dialogHeader(title,caption=""){return '<div class="dialog-heading"><div><h2 id="dialogTitle">'+h(title)+'</h2>'+(caption?'<p>'+h(caption)+'</p>':'')+'</div><button type="button" data-action="close-dialog" class="dialog-close" aria-label="閉じる">×</button></div>';}
 function openEditor(day){
  now=clockNow();if(!C.validDay(day)||day<C.FIRST||day>now.day)return;
- editDay=day;const r=record(day);
- openDialog(dialogHeader(dayLabel(day),'勤怠の確認・修正')+'<form id="dayForm"><div class="time-fields"><label for="editStart"><span>出勤時刻</span><input class="time-input" id="editStart" type="time" value="'+r.start+'"></label><label for="editEnd"><span>退勤時刻</span><input class="time-input" id="editEnd" type="time" value="'+r.end+'"></label></div><label class="nextday"><input id="editOvernight" type="checkbox" '+(r.overnight?'checked':'')+'>翌日に退勤</label><label class="paper-label" for="editBreak">休憩時間（分）</label><input class="paper-input" id="editBreak" type="number" min="0" max="1440" step="1" value="'+r.breakMinutes+'"><label class="paper-label" for="editPlace">勤務場所</label><select class="paper-input" id="editPlace">'+placeOptions(r.locationId)+'</select><label class="paper-label" for="editNote">作業内容</label><textarea class="paper-input" id="editNote" maxlength="1000" rows="2">'+h(r.note)+'</textarea><label class="paper-label" for="editLeave">休暇</label><select class="paper-input" id="editLeave">'+leaveOptions(r.leave)+'</select><h3 class="paper-heading">工数（時間）</h3>'+allocationFields(r,"editAlloc")+dialogError()+'<div class="paper-actions"><button type="button" class="paper-button secondary" data-action="clear-day">未入力に戻す</button><button class="paper-button" type="submit">更新</button></div></form>');
+ if(view==="editor")captureEditor();else editorReturn=view;
+ editDay=day;view="editor";error="";render();root.scrollIntoView({block:"start"});
+}
+const breakText=n=>C.pad(Math.floor(n/60))+":"+C.pad(n%60);
+function parseEditorBreak(text){
+ const match=/^(\d{1,2}):([0-5]\d)$/.exec(text.trim());if(!match)return null;
+ const minutes=Number(match[1])*60+Number(match[2]);return minutes<=1440?minutes:null;
+}
+function readEditor(){return {record:{start:$("editStart").value,end:$("editEnd").value,overnight:$("editOvernight").checked,breakMinutes:parseEditorBreak($("editBreak").value),locationId:$("editPlace").value,note:$("editNote").value,leave:$("editLeave").value,allocation:Object.fromEntries(C.PROJECTS.map(k=>[k,Number($("editAlloc"+k).value)]))},breakText:$("editBreak").value};}
+function captureEditor(){if(view==="editor"&&$("dayForm"))editorDrafts.set(editDay,readEditor());}
+function editor(){
+ const draft=editorDrafts.get(editDay),r=draft?.record||record(editDay),rest=draft?.breakText??breakText(r.breakMinutes),backLabel={records:"勤怠一覧へ",home:"ホームへ",submit:"提出画面へ"}[editorReturn]||"勤怠一覧へ";
+ const fullDate=editDay.slice(0,4)+"年"+Number(editDay.slice(5,7))+"月"+Number(editDay.slice(8))+"日（"+C.WEEK[C.weekday(editDay)]+"）";
+ const presets=[0,15,30,45,60,75,90,105,120,150,180,240,300,360,480,720,1440];
+ return '<section class="subpage day-editor"><div class="editor-title"><button type="button" class="editor-back" data-action="editor-back">← '+backLabel+'</button><span>更新で保存</span></div><h1>勤怠の編集</h1><div class="editor-date-switcher"><button type="button" class="month-arrow" data-action="editor-prev" aria-label="前の日" '+(editDay<=C.FIRST?'disabled':'')+'>←</button><label class="editor-date-picker" for="editDate"><span>'+fullDate+'</span>'+icon('calendar')+'<input id="editDate" type="date" min="'+C.FIRST+'" max="'+now.day+'" value="'+editDay+'" aria-label="編集する日付"></label><button type="button" class="month-arrow" data-action="editor-next" aria-label="次の日" '+(editDay>=now.day?'disabled':'')+'>→</button></div><form id="dayForm"><div class="editor-fields"><label for="editStart">出社時間<small>hh:mm</small></label><input class="time-input" id="editStart" type="time" value="'+r.start+'"><label for="editEnd">退社時間<small>hh:mm</small></label><div><input class="time-input" id="editEnd" type="time" value="'+r.end+'"><label class="nextday"><input id="editOvernight" type="checkbox" '+(r.overnight?'checked':'')+'>翌日に退勤</label></div><label for="editBreak">休憩時間<small>hh:mm</small></label><div><input class="paper-input editor-break-input" id="editBreak" type="text" inputmode="text" value="'+h(rest)+'" list="editorBreaks" placeholder="01:00" maxlength="5" required aria-label="休憩時間、時間と分"><datalist id="editorBreaks">'+presets.map(n=>'<option value="'+breakText(n)+'"></option>').join('')+'</datalist></div><span class="editor-field-label" id="workedLabel">勤務時間</span><output id="editWorked" class="editor-worked" aria-labelledby="workedLabel">—</output><label for="editLeave">休日設定</label><select class="paper-input" id="editLeave">'+leaveOptions(r.leave)+'</select><label for="editPlace">勤務場所</label><select class="paper-input" id="editPlace">'+placeOptions(r.locationId)+'</select><label for="editNote">作業内容</label><textarea class="paper-input" id="editNote" maxlength="1000" rows="2">'+h(r.note)+'</textarea></div><div class="editor-allocation-heading"><h2>工数の振り分け</h2><span>時間単位</span></div><p id="allocationState" class="editor-allocation-state" role="status"></p><div class="editor-allocation">'+C.PROJECTS.map(k=>'<label for="editAlloc'+k+'"><span>'+k+'</span><input class="paper-input" id="editAlloc'+k+'" name="'+k+'" type="number" min="0" max="24" step="any" inputmode="decimal" value="'+r.allocation[k]+'"></label>').join('')+'<button class="paper-button editor-update" type="submit">更新</button></div><button type="button" class="editor-clear" data-action="clear-day">この日を未入力に戻す</button></form></section>';
+}
+function syncEditor(){
+ if(!$("dayForm"))return;
+ const r=readEditor().record,total=r.breakMinutes==null?null:C.worked(r,editDay,clockNow()),allocated=allocationTotal(r),complete=!!r.start&&!!r.end&&total!=null&&total>=0&&allocated===total;
+ $("editWorked").innerHTML=total==null?'—':C.hours(total)+'<small>時間</small>';
+ $("editWorked").classList.toggle("negative-value",total<0);
+ $("allocationState").textContent=r.breakMinutes==null?'休憩を hh:mm で入力してください':!r.start||!r.end?'出社・退社時間を入力してください':total<0?'入力済みの工数は保持します':complete?'✓ 振り分け完了':allocated<total?'あと '+C.duration(total-allocated)+'を振り分け':C.duration(allocated-total)+' 超過しています';
+ $("allocationState").classList.toggle("is-complete",complete);
 }
 function openSubmission(period){
  submitPeriod=period;now=clockNow();const missing=C.missing(data,period,now),summary=C.summary(data,period,now);
@@ -208,14 +230,15 @@ function sample(mode){
 function changeMonth(offset){selectedMonth=C.month(selectedMonth,offset).start;error="";render();}
 document.addEventListener("click",event=>{
  if(embed)return;
- if(event.target.matches?.(".time-input")&&!event.target.disabled){try{event.target.showPicker?.();}catch{}return;}
+ if((event.target.matches?.(".time-input")||event.target.id==="editDate")&&!event.target.disabled){try{event.target.showPicker?.();}catch{}return;}
  const button=event.target.closest?.("[data-action],[data-state]");if(!button||button.disabled)return;
  if(button.dataset.state){sample(button.dataset.state);return;}
  const action=button.dataset.action;
- if(action==="close-warning"){warningDialog.close();return;}
  if(action==="tab"||action==="home"){
-  if(view==="settings")captureSettings();view=action==="home"?'home':button.dataset.tab;error="";restOpen=false;render();root.scrollIntoView({block:"start"});return;
+  if(view==="settings")captureSettings();if(view==="editor"){captureEditor();if(button.dataset.tab==="records")selectedMonth=C.month(editDay).start;}view=action==="home"?'home':button.dataset.tab;error="";restOpen=false;render();root.scrollIntoView({block:"start"});return;
  }
+ if(action==="editor-prev"||action==="editor-next"){openEditor(C.add(editDay,action==="editor-prev"?-1:1));return;}
+ if(action==="editor-back"){captureEditor();view=editorReturn;if(view==="records")selectedMonth=C.month(editDay).start;error="";render();root.scrollIntoView({block:"start"});return;}
  if(action==="punch"){
   if(Date.now()<lockUntil)return;
   const kind=button.dataset.kind,r=record(now.day),rest=readRest();if(rest==null)return;
@@ -243,7 +266,7 @@ document.addEventListener("click",event=>{
  if(action==="close-dialog"){closeDialog();return;}
  if(action==="clear-day"){
   const next=C.clone(data);delete next.records[editDay];C.invalidateSubmissions(next,editDay);
-  if(commit(next,'この日を未入力に戻しました')){closeDialog();render();}return;
+  if(commit(next,'この日を未入力に戻しました')){editorDrafts.delete(editDay);render();}return;
  }
  if(action==="export-month"){exportPeriod(C.month(selectedMonth));return;}
  if(action==="submit-period"){openSubmission(C.periods(selectedMonth)[Number(button.dataset.index)]);return;}
@@ -261,6 +284,10 @@ document.addEventListener("click",event=>{
 });
 document.addEventListener("change",event=>{
  if(embed)return;const input=event.target;
+ if(input.id==="editDate"){
+  if(C.validDay(input.value)&&input.value>=C.FIRST&&input.value<=clockNow().day)openEditor(input.value);else{input.value=editDay;toast("今日までの日付を選んでください。",{warning:true});}return;
+ }
+ if(input.closest?.("#dayForm")){syncEditor();captureEditor();return;}
  if(input.dataset.time){
   const kind=input.dataset.time,r=record(now.day),rest=readRest();
   if(!input.value){input.value=r[kind];return showError("時刻を入力してください。取消は「取消」ボタンで行えます。");}
@@ -282,6 +309,7 @@ document.addEventListener("change",event=>{
  }
 });
 document.addEventListener("input",event=>{
+ if(event.target.closest?.("#dayForm")){syncEditor();captureEditor();return;}
  if(event.target.closest?.("#allocationForm")){
   const total=C.PROJECTS.reduce((n,k)=>n+Math.round(Number($("alloc"+k).value)*60),0);$("allocationTotal").textContent=Number.isFinite(total)?C.short(total):'—';
  }
@@ -297,8 +325,9 @@ document.addEventListener("submit",event=>{
   if(updateToday({allocation},'工数を保存しました'))syncHome();return;
  }
  if(id==="dayForm"){
-  now=clockNow();const r={start:$("editStart").value,end:$("editEnd").value,overnight:$("editOvernight").checked,breakMinutes:Number($("editBreak").value),locationId:$("editPlace").value,note:$("editNote").value,leave:$("editLeave").value,allocation:Object.fromEntries(C.PROJECTS.map(k=>[k,Number($("editAlloc"+k).value)]))};
-  if(saveRecord(editDay,r,'勤怠を更新しました')){closeDialog();render();}return;
+  now=clockNow();const r=readEditor().record;
+  if(r.breakMinutes==null)return showError("休憩時間は 01:00 のように、0:00〜24:00で入力してください。");
+  if(saveRecord(editDay,r,'勤怠を更新しました')){editorDrafts.delete(editDay);render();}return;
  }
  if(id==="defaultsForm"){
   const next=C.clone(data),d={locationId:$("defaultPlace").value,note:$("defaultNote").value,breakMinutes:Number($("defaultBreak").value)};
@@ -311,7 +340,7 @@ document.addEventListener("submit",event=>{
   if(commit(next,'勤務表設定を更新しました')){settingsDraft=null;render();}
  }
 });
-dialog.addEventListener("close",()=>{if(!dialog.open){editDay="";error="";}});
+dialog.addEventListener("close",()=>{if(!dialog.open)error="";});
 window.addEventListener("storage",event=>{
  if(event.key!==C.KEY)return;
  showError("別の画面で記録が更新されました。再読み込みして最新の記録を確認してください。");
