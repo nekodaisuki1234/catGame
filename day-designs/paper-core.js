@@ -7,9 +7,16 @@ const pad=n=>String(n).padStart(2,"0"),clone=value=>JSON.parse(JSON.stringify(va
 const iso=d=>d.toISOString().slice(0,10),date=day=>new Date(day+"T00:00:00Z");
 const validDay=day=>/^\d{4}-\d{2}-\d{2}$/.test(day||"")&&Number.isFinite(+date(day))&&iso(date(day))===day;
 const add=(day,n)=>{const d=date(day);d.setUTCDate(d.getUTCDate()+n);return iso(d);};
-const weekday=day=>date(day).getUTCDay(),workday=day=>weekday(day)>0&&weekday(day)<6;
+const weekday=day=>date(day).getUTCDay();
+const calendar=global.PaperHolidays||{start:"",end:"",days:{}};
+const holidayKnown=day=>validDay(day)&&day>=calendar.start&&day<=calendar.end;
+const holiday=day=>calendar.days[day]||"";
+// null is an unpublished calendar date, rather than an invented business day.
+const workday=day=>weekday(day)>0&&weekday(day)<6?(holidayKnown(day)?!holiday(day):null):false;
 function dates(start,end){const out=[];for(let d=start;d<=end&&out.length<400;d=add(d,1))out.push(d);return out;}
 function month(day,offset=0){const d=date(day),y=d.getUTCFullYear(),m=d.getUTCMonth()+offset;return {start:iso(new Date(Date.UTC(y,m,1))),end:iso(new Date(Date.UTC(y,m+1,0)))};}
+function monthWorkdays(day){const p=month(day);return holidayKnown(p.start)&&holidayKnown(p.end)?dates(p.start,p.end).filter(d=>workday(d)).length:null;}
+function fiscalPeriod(day){const year=Number(day.slice(0,4))-(Number(day.slice(5,7))<4?1:0);return {start:year+"-04-01",end:(year+1)+"-03-31"};}
 function periods(day){
  const m=month(day),prev=month(day,-1);
  return [{start:prev.start.slice(0,8)+"16",end:m.start.slice(0,8)+"15",label:"15日締め"},{...prev,label:"前月末締め"},{...m,label:"月末締め"}];
@@ -99,6 +106,15 @@ function missing(state,period,now){
   return workday(d)||!!r?.leave;
  });
 }
+function pastMissing(state,now){
+ const out=[],end=add(now.day,-1);
+ for(let day=FIRST;day<=end;day=add(day,1)){
+  if(!workday(day))continue;
+  const r=state.records[day];if(fullLeave(r))continue;
+  if(!r?.start||!r.end)out.push(day);
+ }
+ return out;
+}
 function summary(state,period,now){
  const result={minutes:0,leave:0,days:0,allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};
  for(const d of dates(period.start,period.end)){
@@ -117,7 +133,8 @@ function workbook(state,period,now){
  const rows=[["勤怠表（A. Paper 操作デモ）"],["氏名","田中 花子"],["対象期間",period.start+"〜"+period.end],["作業概要",state.settings.workSummary],["基準時間",state.settings.minHours+"〜"+state.settings.maxHours+"時間"],[],["日付","曜日","区分","出勤","退勤","休憩（分）","勤務時間","勤務場所","作業内容",...PROJECTS.map(k=>k+"（時間）")]];
  for(const d of dates(period.start,period.end)){
   const r=state.records[d],future=d>now.day,p=state.settings.places.find(p=>p.id===r?.locationId),hasWork=!!r?.start&&!fullLeave(r);
-  const status=future?"これから":r?.leave?LEAVES[r.leave]:r?.end?"勤務":r?.start?"退勤未入力":workday(d)?"未入力":"休日";
+  const base=future?"これから":r?.leave?LEAVES[r.leave]:r?.end?"勤務":r?.start?"退勤未入力":holiday(d)|| (workday(d)?"未入力":holidayKnown(d)?"休日":"祝日未確認");
+  const status=!future&&holiday(d)&&(r?.start||r?.leave)?base+"（"+holiday(d)+"）":base;
   rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[r.start,r.end+(r.end&&r.overnight?"（翌日）":""),hasWork?r.breakMinutes:"",durationCell(worked(r,d,now)),hasWork?p?.code||"":"",r.note,...PROJECTS.map(k=>r.allocation[k])]:["","","","","","",...PROJECTS.map(()=>"")])]);
  }
  rows.push([], ["合計","","","","","",durationCell(summaryData.minutes),"","",...PROJECTS.map(k=>Number(summaryData.allocation[k].toFixed(4)))]);
@@ -168,5 +185,5 @@ function workbook(state,period,now){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,add,weekday,workday,dates,month,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,empty,validateRecord,validateSettings,seed,hydrate,missing,summary,submissionStatus,invalidateSubmissions,workbook};
+global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,empty,validateRecord,validateSettings,seed,hydrate,missing,summary,submissionStatus,invalidateSubmissions,workbook};
 })(window);
