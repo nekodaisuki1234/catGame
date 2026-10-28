@@ -16,6 +16,12 @@ const workday=day=>weekday(day)>0&&weekday(day)<6?(holidayKnown(day)?!holiday(da
 function dates(start,end){const out=[];for(let d=start;d<=end&&out.length<400;d=add(d,1))out.push(d);return out;}
 function month(day,offset=0){const d=date(day),y=d.getUTCFullYear(),m=d.getUTCMonth()+offset;return {start:iso(new Date(Date.UTC(y,m,1))),end:iso(new Date(Date.UTC(y,m+1,0)))};}
 function monthWorkdays(day){const p=month(day);return holidayKnown(p.start)&&holidayKnown(p.end)?dates(p.start,p.end).filter(d=>workday(d)).length:null;}
+function plannedHours(settings,day){
+ if(!validDay(day))return null;
+ const overrides=settings?.plannedHoursByMonth,key=day.slice(0,7);
+ if(overrides&&Object.hasOwn(overrides,key))return overrides[key];
+ const days=monthWorkdays(day);return days===null?null:days*8;
+}
 function fiscalPeriod(day){const year=Number(day.slice(0,4))-(Number(day.slice(5,7))<4?1:0);return {start:year+"-04-01",end:(year+1)+"-03-31"};}
 function periods(day){
  const m=month(day),prev=month(day,-1);
@@ -99,13 +105,17 @@ function validateRecordChange(state,day,nextOrNull,now){
 function validateSettings(s){
  if(!s||!Number.isFinite(s.minHours)||!Number.isFinite(s.maxHours)||s.minHours<0||s.maxHours>744||s.minHours>s.maxHours)return "基準時間は0〜744時間で、下限≦上限にしてください。";
  if(!Number.isFinite(s.plannedHours)||s.plannedHours<0||s.plannedHours>744)return "勤務予定は0〜744時間で入力してください。";
+ if(s.plannedHoursByMonth!==undefined){
+  const planned=s.plannedHoursByMonth;
+  if(!planned||typeof planned!=="object"||Array.isArray(planned)||Object.entries(planned).some(([key,value])=>!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)||!Number.isFinite(value)||value<0||value>744))return "月ごとの勤務予定は年月と0〜744時間を確認してください。";
+ }
  if(typeof s.workSummary!=="string"||s.workSummary.length>1000)return "作業概要は1000文字以内で入力してください。";
  if(!Array.isArray(s.projects)||s.projects.length!==4||s.projects.some((p,i)=>p.id!==PROJECTS[i]||typeof p.name!=="string"||!p.name.trim()||p.name.length>80||typeof p.description!=="string"||p.description.length>1000))return "各PJの略称と概要を確認してください。";
  if(!Array.isArray(s.places)||s.places.length!==3||s.places.some((p,i)=>p.id!=="place"+(i+1)||typeof p.code!=="string"||!p.code.trim()||p.code.length>80||typeof p.name!=="string"||!p.name.trim()||p.name.length>80||typeof p.address!=="string"||p.address.length>1000))return "作業場所・名称・住所を確認してください。";
  return "";
 }
 function seed(now){
- const settings={minHours:140,maxHours:180,plannedHours:168,workSummary:"ことら送金対応",projects:PROJECTS.slice(0,4).map((id,i)=>({id,name:i?"プロジェクト"+(i+1):"デビプリ",description:i?"":"アプラス、千葉銀行など開発案件"})),places:[{id:"place1",code:"TIS1",name:"TIS本社1",address:"大阪堂北ビル"},{id:"place2",code:"クロノス",name:"クロノス",address:""},{id:"place3",code:"在宅",name:"在宅勤務",address:""}]};
+ const settings={minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"ことら送金対応",projects:PROJECTS.slice(0,4).map((id,i)=>({id,name:i?"プロジェクト"+(i+1):"デビプリ",description:i?"":"アプラス、千葉銀行など開発案件"})),places:[{id:"place1",code:"TIS1",name:"TIS本社1",address:"大阪堂北ビル"},{id:"place2",code:"クロノス",name:"クロノス",address:""},{id:"place3",code:"在宅",name:"在宅勤務",address:""}]};
  const state={version:VERSION,revision:0,defaults:{locationId:"place2",note:"テスト対応",breakMinutes:60},settings,records:{},submissions:{}};
  // Clearly marked fictional history, isolated from every other design and the main app.
  const totals=[10395,9630,10260,9660,11085,9150,5310];
@@ -128,7 +138,13 @@ function hydrate(raw,now){
  // Validate stored dates against end-of-day, so a saved record survives clock changes.
  for(const [day,r] of Object.entries(raw.records))if(!validateRecord(r,day,{day:day>now.day?day:now.day,minutes:1439},raw.settings).ok)return null;
  for(const [key,s] of Object.entries(raw.submissions))if(!/^\d{4}-\d{2}-\d{2}\|\d{4}-\d{2}-\d{2}$/.test(key)||!s||typeof s.at!=="string"||!Number.isFinite(Date.parse(s.at))||typeof s.test!=="boolean")return null;
- return clone(raw);
+ const state=clone(raw);
+ if(state.settings.plannedHoursByMonth===undefined){
+  state.settings.plannedHoursByMonth={};
+  // The former demo default becomes automatic; preserve other saved choices for this month.
+  if(state.settings.plannedHours!==168)state.settings.plannedHoursByMonth[now.day.slice(0,7)]=state.settings.plannedHours;
+ }
+ return state;
 }
 function missing(state,period,now){
  const end=period.end<now.day?period.end:now.day;
@@ -269,5 +285,5 @@ function workbook(state,period,now){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,empty,validateRecord,validateRecordChange,compSources,validateSettings,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
+global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,empty,validateRecord,validateRecordChange,compSources,validateSettings,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
 })(window);
