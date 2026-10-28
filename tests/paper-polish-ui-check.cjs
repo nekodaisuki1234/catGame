@@ -38,6 +38,7 @@ async function run(){
  };
  const openSettings=async page=>{await page.locator("#nav-settings").click();await page.locator("[data-action=settings-tab][data-tab=sheet]").click();};
  const openPlan=async(page,month="2026-10")=>{
+  await page.locator("[data-detail=summary]").click();
   await page.locator("[data-action=edit-plan]").click();
   assert.equal(await page.locator("#paperDialog").evaluate(node=>node.open),true);
   assert.equal(await page.locator("#planForm").getAttribute("data-month"),month);
