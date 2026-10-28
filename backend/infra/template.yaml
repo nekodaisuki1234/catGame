@@ -9,8 +9,8 @@ Parameters:
     AllowedValues: [development, staging, production]
   EntraTenantId:
     Type: String
-    Description: Microsoft Entra tenant ID; tenant-specific tokens only
-    AllowedPattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    Description: Lowercase Microsoft Entra tenant ID; tenant-specific tokens only
+    AllowedPattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
   EntraApiAudience:
     Type: String
     MinLength: 1

@@ -180,7 +180,10 @@ function createDynamoStore({ client, tableName, commands, readRetries = 3, unpro
     const PK = owner(identity);
     if (!SAFE_ID.test(id || "")) throw invalid("出力番号を確認してください。");
     const item = await get(PK, "EXPORT#" + id);
-    return item ? copy(item.entry) : null;
+    if (!item) return null;
+    if (!item.entry || item.entry.id !== id || !item.entry.identity ||
+        item.entry.identity.tenantId !== identity.tenantId || item.entry.identity.employeeId !== identity.employeeId) throw unavailable();
+    return copy(item.entry);
   }
   async function commitExport(identity, { expectedRevision, entry }) {
     const PK = owner(identity);

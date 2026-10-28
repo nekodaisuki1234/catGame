@@ -45,7 +45,7 @@ function createS3ExportStorage({ client, bucket, commands, signer, now = () => n
       // precondition failure may refer to an existing object and must never delete that object.
       if (workbookWritten) {
         try { await send("DeleteObject", { Bucket: bucket, Key: keys.key }); }
-        catch { /* The lifecycle cleanup handles a remaining unreferenced artifact. */ }
+        catch { /* A remaining private, unreferenced artifact needs administrative reconciliation. */ }
       }
       if (error?.name === "PreconditionFailed" || error?.$metadata?.httpStatusCode === 412) {
         throw new ApiError(409, "export_exists", "同じ出力番号が使用済みです。もう一度出力してください。");

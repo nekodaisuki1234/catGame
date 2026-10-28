@@ -3,6 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createDynamoStore } = require("../src/dynamo-store.cjs");
+const { createAttendanceService } = require("../src/service.cjs");
+const { C } = require("../src/core.cjs");
 
 const OWNER = { tenantId: "tenant-a", employeeId: "employee-a" };
 const OTHER = { tenantId: "tenant-b", employeeId: "employee-a" };
@@ -145,6 +147,8 @@ test("export history is immutable, CAS checked and partition scoped without incr
   await assert.rejects(() => f.store.commitExport(OWNER, { expectedRevision: 0, entry }), errorCode(409, "conflict"));
   await assert.rejects(() => f.store.commitExport(OWNER, { expectedRevision: 1, entry: { ...entry, id: "export-2" } }), errorCode(409, "conflict"));
   assert.equal(await f.store.getExport(OWNER, "export-2"), null);
+  f.item(PK, "EXPORT#corrupt", { entry: { id: "corrupt", identity: OTHER, key: "outputs/another-employee.xlsx" } });
+  await assert.rejects(() => f.store.getExport(OWNER, "corrupt"), errorCode(503, "storage_unavailable"));
 });
 
 test("only explicit provisioning creates profile records and never overwrites an existing employee", async () => {
@@ -153,4 +157,27 @@ test("only explicit provisioning creates profile records and never overwrites an
   assert.equal(await f.store.createProvision(OWNER, config), 0);
   await assert.rejects(() => f.store.createProvision(OWNER, config), errorCode(409, "conflict"));
   assert.equal(f.items.get(PK + "|REVISION").revision, 0);
+});
+
+test("the real service and Dynamo adapter save daily records, enforce revision CAS and protect linked holiday work", async () => {
+  const f = fixture(), now = { day: "2026-10-28", minutes: 1200, full: "20:00:00" };
+  const state = C.createState(now, { startDay: "2026-09-01", employee: { name: "社員", department: "開発", id: "E1" } });
+  await f.store.createProvision(OWNER, { settings: state.settings, defaults: state.defaults });
+  const service = createAttendanceService({ store: f.store, clock: () => now });
+  const source = { ...copy(C.empty(state)), start: "09:00", end: "18:00", note: "休日の保守作業",
+    allocation: { P1: 8, P2: 0, P3: 0, P4: 0, SET: 0 } };
+  const saved = await service.putDay(OWNER, "2026-10-24", { expectedRevision: 0, record: source });
+  assert.equal(saved.revision, 1);
+  assert.deepEqual(saved.warnings, []);
+  assert.equal((await service.readDays(OWNER, { start: "2026-10-24", end: "2026-10-24" })).records["2026-10-24"].note, source.note);
+  await assert.rejects(() => service.putDay(OWNER, "2026-10-24", { expectedRevision: 0, record: source }), errorCode(409, "conflict"));
+  const comp = { ...copy(C.empty(state)), leave: "comp", sourceDay: "2026-10-24" };
+  const leave = await service.putDay(OWNER, "2026-10-26", { expectedRevision: 1, record: comp });
+  assert.equal(leave.revision, 2);
+  assert.equal(f.items.get(PK + "|COMP#2026-10-24").day, "2026-10-26");
+  await assert.rejects(() => service.deleteDay(OWNER, "2026-10-24", { expectedRevision: 2 }), errorCode(422, "invalid_comp_link"));
+  await assert.rejects(() => service.putDay(OWNER, "2026-10-27", { expectedRevision: 2, record: comp }), errorCode(422, "invalid_comp_link"));
+  assert.equal(f.items.get(PK + "|REVISION").revision, 2);
+  const response = await service.readDays(OWNER, { start: "2026-10-24", end: "2026-10-24" });
+  assert.deepEqual(Object.keys(response.records), ["2026-10-24"], "related context must not leak into the requested response range");
 });
