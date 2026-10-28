@@ -68,7 +68,7 @@ async function run(){
   await comp.reload();await comp.locator("[data-detail=leave]").click();assert.equal(await comp.locator("#leaveType").inputValue(),"comp");assert.equal(await comp.locator("#leaveSourceDay").inputValue(),"2026-10-24");
   for(const width of [320,390,430]){
    await comp.setViewportSize({width,height:844});assert.ok(await comp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"home comp overflow "+width);
-   const form=await comp.locator("#leaveForm").boundingBox(),button=await comp.locator("#leaveForm button[type=submit]").boundingBox();assert.ok(Math.abs(form.x+form.width-button.x-button.width)<=1,"leave update must align right at "+width);
+   const contentRight=await comp.locator("#leaveForm").evaluate(node=>{const rect=node.getBoundingClientRect(),style=getComputedStyle(node);return rect.right-parseFloat(style.paddingRight)-parseFloat(style.borderRightWidth);}),button=await comp.locator("#leaveForm button[type=submit]").boundingBox();assert.ok(Math.abs(contentRight-button.x-button.width)<=1,"leave update must align with the form content's right edge at "+width);
   }
   await comp.setViewportSize({width:390,height:844});await comp.locator("[data-detail=summary]").click();assert.equal(await comp.locator("#homePaidLeave").innerText(),"1日");
   await edit(comp,"2026-10-26");await comp.locator("#editLeave").selectOption("comp");assert.equal(await comp.locator("#editSourceDay").isVisible(),true);assert.equal(await comp.locator("#editSourceDay option[value='2026-10-24']").count(),0,"already-used source must not be offered twice");
