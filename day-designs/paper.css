@@ -352,9 +352,9 @@ html[data-theme=paper]{scroll-padding-bottom:calc(100px + env(safe-area-inset-bo
 [data-theme=paper] .work-fields .work-save-status{height:44px;min-height:44px;margin-top:-7px;border-top:1px solid #e0e5de;padding-top:0;font-size:11px;line-height:1.6}
 [data-theme=paper] .work-fields .work-save-status>span{display:flex;align-items:center;gap:7px;min-width:0}
 [data-theme=paper] .work-fields .work-save-status>span::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;background:var(--secondary)}
-[data-theme=paper] .work-fields .work-save-status[data-state=dirty]>span{color:#856442}
-[data-theme=paper] .work-fields .work-save-status[data-state=dirty]>span::before{background:#98774e}
-[data-theme=paper] .work-fields .work-save-status[data-state=saving]>span::before{background:var(--muted)}
+[data-theme=paper] .work-fields .work-save-status[data-save-state=dirty]>span{color:#856442}
+[data-theme=paper] .work-fields .work-save-status[data-save-state=dirty]>span::before{background:#98774e}
+[data-theme=paper] .work-fields .work-save-status[data-save-state=saving]>span::before{background:var(--muted)}
 [data-theme=paper] .work-fields .work-save-status .text-button{flex:none;padding-inline:8px;font-size:11px;color:var(--secondary)}
 [data-theme=paper] .paper-form-card>.panel-note:first-child{margin-top:0}
 [data-theme=paper] .paper-form-card .paper-actions{gap:10px;margin-top:20px}

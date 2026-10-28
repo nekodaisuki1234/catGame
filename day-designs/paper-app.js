@@ -434,7 +434,7 @@ function applyEditorTimeAllocation(input){
 function syncWorkStatus(){
  const node=$("workSaveStatus");if(!node)return;
  const dirty=homeDraft().note!=null||homeDraft().locationId!=null;
- node.dataset.state=saving?'saving':dirty?'dirty':'automatic';
+ node.dataset.saveState=saving?'saving':dirty?'dirty':'automatic';
  node.innerHTML=saving?'<span>保存中です</span>':dirty?'<span>勤務内容が未保存です</span><button type="button" class="text-button" data-action="retry-work">再保存</button>':'<span>勤務内容は自動保存</span>';
 }
 function syncAllocationTotal(){syncPendingControls();if(!$("allocationForm"))return;const inputs=C.PROJECTS.map(k=>$("alloc"+k)),total=inputs.reduce((n,input)=>n+Math.round(Number(input.value)*60),0);$("allocationTotal").textContent=inputs.every(input=>input.value.trim()!==""&&input.validity.valid)?C.short(total):'—';}
