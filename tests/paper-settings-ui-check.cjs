@@ -17,11 +17,19 @@ async function run(){
  const stored=async page=>JSON.parse(await raw(page));
  const tab=(page,index)=>page.locator('[data-action="project-tab"][data-index="'+index+'"]');
  const choose=(page,index)=>tab(page,index).click();
+ const placeTab=(page,index)=>page.locator('[data-action="place-tab"][data-index="'+index+'"]');
+ const choosePlace=(page,index)=>placeTab(page,index).click();
  const openSettings=async page=>{await page.locator("#nav-settings").click();await page.locator("[data-action=settings-tab][data-tab=sheet]").click();await page.locator("#settingsForm").waitFor();};
+ const openDefaults=async page=>{await page.locator("#nav-settings").click();await page.locator("[data-action=settings-tab][data-tab=defaults]").click();await page.locator("#defaultsForm").waitFor();};
+ const settled=page=>page.waitForFunction(()=>document.querySelector("#previewApp").getAttribute("aria-busy")==="false");
  const saveSettings=async page=>{
   const revision=(await stored(page)).revision;await page.locator("#settingsForm button[type=submit]").click();
   await page.waitForFunction(revision=>JSON.parse(localStorage.getItem(window.PaperConfig.storageKey)).revision>revision,revision);
   await page.waitForFunction(()=>document.querySelector("#previewApp").getAttribute("aria-busy")==="false");
+ };
+ const saveDefaults=async page=>{
+  const revision=(await stored(page)).revision;await page.locator("#defaultsForm button[type=submit]").click();
+  await page.waitForFunction(revision=>JSON.parse(localStorage.getItem(window.PaperConfig.storageKey)).revision>revision,revision);await settled(page);
  };
  const expectPlan=async(page,mode,value)=>{assert.equal(await page.locator("#plannedHoursMode").inputValue(),mode);assert.equal(await page.locator("#plannedHours").inputValue(),value);};
  const fresh=async(entry,{shape="canonical"}={})=>{
@@ -42,15 +50,15 @@ async function run(){
    const text=JSON.stringify(state);localStorage.setItem(config.storageKey,text);return text;
   },{shape,day:DAY});await page.reload();await ready(page);return {context,page,fixture};
  };
- const fieldsFit=async(page,label)=>{
+ const fieldsFit=async(page,label,selector="#projectSettingsCard button,#projectName,#projectDescription")=>{
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+" has horizontal overflow");
-  const width=page.viewportSize().width,metrics=await page.locator("#projectSettingsCard button,#projectName,#projectDescription").evaluateAll(nodes=>nodes.map(node=>{
-   const rect=node.getBoundingClientRect();return {id:node.id||node.dataset.action,left:rect.left,right:rect.right,width:rect.width,height:rect.height,font:parseFloat(getComputedStyle(node).fontSize),field:node.matches("input,textarea")};
+  const width=page.viewportSize().width,metrics=await page.locator(selector).evaluateAll(nodes=>nodes.map(node=>{
+   const rect=node.getBoundingClientRect();return {id:node.id||node.dataset.action,left:rect.left,right:rect.right,width:rect.width,height:rect.height,font:parseFloat(getComputedStyle(node).fontSize),field:node.matches("input,select,textarea")};
   }));
   for(const metric of metrics){
-   assert.ok(metric.width>=43.5&&metric.height>=43.5,label+" small project control: "+JSON.stringify(metric));
-   assert.ok(metric.left>=-1&&metric.right<=width+1,label+" project control outside viewport: "+JSON.stringify(metric));
-   if(metric.field)assert.ok(metric.font>=16,label+" project field needs 16px input text");
+   assert.ok(metric.width>=43.5&&metric.height>=43.5,label+" small control: "+JSON.stringify(metric));
+   assert.ok(metric.left>=-1&&metric.right<=width+1,label+" control outside viewport: "+JSON.stringify(metric));
+   if(metric.field)assert.ok(metric.font>=16,label+" field needs 16px input text");
   }
  };
  const unzip=buffer=>{
@@ -73,13 +81,13 @@ async function run(){
 
    // Browser autofill can set a value without dispatching input/change; capture must retain it.
    await page.locator("#plannedHours").evaluate(node=>{node.value="164";});await choose(page,1);await expectPlan(page,"manual","164");
-   await page.locator("#placeSelect").selectOption("1");await expectPlan(page,"manual","164");await page.locator("#nav-home").click();await openSettings(page);await expectPlan(page,"manual","164");
+   await page.locator('[data-action="place-tab"][data-index="1"]').click();await expectPlan(page,"manual","164");await page.locator("#nav-home").click();await openSettings(page);await expectPlan(page,"manual","164");
    await saveSettings(page);assert.equal((await stored(page)).settings.plannedHoursByMonth["2026-10"],164);
    await page.locator("#plannedHoursMode").selectOption("auto");await page.locator("#plannedHours").evaluate(node=>{node.value="166";});await saveSettings(page);
    assert.equal((await stored(page)).settings.plannedHoursByMonth["2026-10"],166);await expectPlan(page,"manual","166");
    await page.locator("#plannedHoursMode").selectOption("auto");await saveSettings(page);await expectPlan(page,"auto","168");
    assert.equal(Object.hasOwn((await stored(page)).settings.plannedHoursByMonth,"2026-10"),false);
-   await page.locator("#plannedHours").fill("");await choose(page,3);await page.locator("#placeSelect").selectOption("2");await expectPlan(page,"manual","");
+   await page.locator("#plannedHours").fill("");await choose(page,3);await page.locator('[data-action="place-tab"][data-index="2"]').click();await expectPlan(page,"manual","");
    const invalidPlan=await raw(page);await page.locator("#settingsForm button[type=submit]").click();assert.equal(await raw(page),invalidPlan);assert.equal(await page.locator("#plannedHours").evaluate(node=>node.validity.valueMissing),true);
    await page.locator("#plannedHoursMode").selectOption("auto");await expectPlan(page,"auto","168");
    console.log("PASS "+label+" immediate plan mode change, eventless autofill capture on navigation/submit, automatic reset and blank validation");
@@ -93,9 +101,9 @@ async function run(){
     assert.match(await page.locator("#projectDraftState").innerText(),/未保存/);assert.match(await tab(page,index).getAttribute("aria-label"),/未保存/);
    }
    assert.equal(await raw(page),beforeProjects,"project navigation must not save drafts implicitly");
-   await page.locator("#placeName").fill("場所の未保存下書き");await page.locator("#placeSelect").selectOption("0");await page.locator("#nav-home").click();await openSettings(page);
+   await page.locator("#placeName").fill("場所の未保存下書き");await page.locator('[data-action="place-tab"][data-index="0"]').click();await page.locator("#nav-home").click();await openSettings(page);
    for(let index=0;index<5;index++){await choose(page,index);assert.equal(await page.locator("#projectName").inputValue(),names[index]);assert.equal(await page.locator("#projectDescription").inputValue(),descriptions[index]);}
-   await page.locator("#placeSelect").selectOption("2");assert.equal(await page.locator("#placeName").inputValue(),"場所の未保存下書き");
+   await page.locator('[data-action="place-tab"][data-index="2"]').click();assert.equal(await page.locator("#placeName").inputValue(),"場所の未保存下書き");
    await saveSettings(page);assert.deepEqual((await stored(page)).settings.projects.map(project=>({id:project.id,name:project.name,description:project.description})),names.map((name,index)=>({id:index===4?"SET":"P"+(index+1),name,description:descriptions[index]})));
    await page.reload();await ready(page);await openSettings(page);await choose(page,4);assert.equal(await page.locator("#projectName").inputValue(),names[4]);assert.doesNotMatch(await page.locator("#projectDraftState").innerText(),/未保存/);
 
@@ -104,12 +112,58 @@ async function run(){
    await page.locator("#settingsForm button[type=submit]").click();assert.equal(await raw(page),invalidProject);
    assert.equal(await tab(page,2).getAttribute("aria-pressed"),"true");assert.equal(await page.locator("#projectName").inputValue(),"");assert.equal(await page.locator("#projectName").evaluate(node=>node===document.activeElement),true);
    assert.match(await page.locator("#studyToast").innerText(),/P3/);await page.locator("#projectName").fill(names[2]);await saveSettings(page);
+
+   // Location tabs preserve three independent drafts, including literal text in previews.
+   assert.equal(await page.locator("#placeSelect").count(),0);assert.equal(await page.locator("[data-action=place-tab]").count(),3);
+   const places=[
+    {id:"place1",code:"HOME-01",name:"本社 & <b>西</b>",address:"大阪市中央区・本社ビル"},
+    {id:"place2",code:"CLIENT-02",name:"顧客先 開発チーム",address:"東京都千代田区・開発センター"},
+    {id:"place3",code:"BASE-03",name:"在宅・リモート",address:"自宅・リモート勤務"}
+   ],beforePlaces=await raw(page);
+   await page.locator("#plannedHours").fill("158");
+   for(let index=0;index<3;index++){
+    await choosePlace(page,index);await page.locator("#placeCode").fill(places[index].code);await page.locator("#placeName").fill(places[index].name);await page.locator("#placeAddress").fill(places[index].address);
+    assert.equal(await placeTab(page,index).getAttribute("aria-pressed"),"true");assert.match(await page.locator("#placeDraftState").innerText(),/未保存/);
+    assert.equal(await placeTab(page,index).locator(".place-tab-code").textContent(),places[index].code);assert.equal(await placeTab(page,index).locator(".place-tab-name").textContent(),places[index].name);
+   }
+   assert.equal(await raw(page),beforePlaces,"location drafts and plan changes require an explicit update");
+   await choose(page,4);assert.equal(await page.locator("#projectName").inputValue(),names[4]);await page.locator("#nav-home").click();await openSettings(page);await expectPlan(page,"manual","158");
+   for(let index=0;index<3;index++){
+    await choosePlace(page,index);assert.equal(await page.locator("#placeCode").inputValue(),places[index].code);assert.equal(await page.locator("#placeName").inputValue(),places[index].name);assert.equal(await page.locator("#placeAddress").inputValue(),places[index].address);
+   }
+   assert.equal(await page.locator(".place-tab-name b").count(),0,"location names must remain escaped text");
+   await saveSettings(page);assert.deepEqual((await stored(page)).settings.places,places);assert.equal((await stored(page)).settings.plannedHoursByMonth["2026-10"],158);
+   await page.reload();await ready(page);await openSettings(page);
+   for(let index=0;index<3;index++){await choosePlace(page,index);assert.equal(await page.locator("#placeName").inputValue(),places[index].name);assert.equal(await page.locator("#placeAddress").inputValue(),places[index].address);}
+   assert.doesNotMatch(await page.locator("#placeDraftState").innerText(),/未保存/);
+   await choosePlace(page,1);await page.locator("#placeName").fill("");await choosePlace(page,0);const invalidPlace=await raw(page);
+   await page.locator("#settingsForm button[type=submit]").click();assert.equal(await raw(page),invalidPlace);assert.equal(await placeTab(page,1).getAttribute("aria-pressed"),"true");
+   assert.equal(await page.locator("#placeName").evaluate(node=>node===document.activeElement),true);await page.locator("#placeName").fill(places[1].name);await saveSettings(page);
    for(const width of [320,390,430]){
     await page.setViewportSize({width,height:844});await page.locator("#projectSettingsCard").scrollIntoViewIfNeeded();const top=await page.evaluate(()=>scrollY);
     await choose(page,0);await choose(page,4);assert.ok(Math.abs(await page.evaluate(()=>scrollY)-top)<=1,label+" project switching must preserve scroll position at "+width);await fieldsFit(page,label+" "+width);
+    await page.locator("#placeSettingsCard").scrollIntoViewIfNeeded();const placeTop=await page.evaluate(()=>scrollY);await choosePlace(page,0);await choosePlace(page,2);
+    assert.ok(Math.abs(await page.evaluate(()=>scrollY)-placeTop)<=1,label+" location switching must preserve scroll position at "+width);await fieldsFit(page,label+" places "+width,"#placeSettingsCard button,#placeCode,#placeName,#placeAddress");
    }
    await page.setViewportSize({width:390,height:844});
-   console.log("PASS "+label+" five project drafts, save/reload, place/navigation preservation, invalid-project routing and mobile project controls");
+   console.log("PASS "+label+" five project and three location drafts, saved previews, escaped names, invalid-item routing and mobile controls without scroll jumps");
+
+   // Initial values remain drafts while switching pages; presets stage minutes until Update.
+   await openDefaults(page);const beforeDefaults=await raw(page),defaultNote="次の勤務日の初期作業内容",todayBeforeDefaults=(await stored(page)).records[DAY];
+   await page.locator("#defaultPlace").selectOption("place3");await page.locator("#defaultNote").fill(defaultNote);
+   await page.locator('[data-action="default-break"][data-minutes="90"]').click();assert.equal(await page.locator("#defaultBreak").inputValue(),"90");assert.match(await page.locator("#defaultBreakHint").innerText(),/1時間30分/);
+   assert.equal(await raw(page),beforeDefaults,"a default preset must not automatically save");
+   await page.locator("#defaultBreak").fill("");await page.locator("[data-action=settings-tab][data-tab=sheet]").click();await page.locator("[data-action=settings-tab][data-tab=defaults]").click();
+   assert.equal(await page.locator("#defaultBreak").inputValue(),"");const blankDefault=await raw(page);await page.locator("#defaultsForm button[type=submit]").click();assert.equal(await raw(page),blankDefault);
+   await page.locator("#defaultBreak").fill("75");await page.locator("#nav-home").click();await openDefaults(page);
+   assert.equal(await page.locator("#defaultPlace").inputValue(),"place3");assert.equal(await page.locator("#defaultNote").inputValue(),defaultNote);assert.equal(await page.locator("#defaultBreak").inputValue(),"75");assert.equal(await raw(page),beforeDefaults);
+   for(const width of [320,390,430]){await page.setViewportSize({width,height:844});await fieldsFit(page,label+" initial values "+width,"#defaultsForm input,#defaultsForm select,#defaultsForm textarea,#defaultsForm button");}
+   await page.setViewportSize({width:390,height:844});await page.evaluate(()=>{window.placeDefaultOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error("quota")};});
+   await page.locator("#defaultsForm button[type=submit]").click();await settled(page);assert.equal(await raw(page),beforeDefaults);assert.equal(await page.locator("#defaultNote").inputValue(),defaultNote);assert.equal(await page.locator("#defaultBreak").inputValue(),"75");assert.match(await page.locator("#studyToast").innerText(),/保存/);
+   await page.evaluate(()=>Storage.prototype.setItem=window.placeDefaultOriginalSetItem);await saveDefaults(page);
+   assert.deepEqual((await stored(page)).defaults,{locationId:"place3",note:defaultNote,breakMinutes:75});assert.deepEqual((await stored(page)).records[DAY],todayBeforeDefaults,"saving initial values must preserve today's record");
+   await page.reload();await ready(page);await openDefaults(page);assert.equal(await page.locator("#defaultBreak").inputValue(),"75");assert.equal(await page.locator("#defaultNote").inputValue(),defaultNote);
+   console.log("PASS "+label+" initial-value presets require explicit save, blank and unsaved drafts survive navigation, failed saves preserve inputs and today's record remains intact");
 
    // The fifth bucket is SET; ordinary time edits preserve its manual allocation.
    await page.locator("#nav-home").click();await page.locator("[data-detail=allocation]").click();assert.equal(await page.locator("#allocP5").count(),0);assert.equal(await page.locator("#allocSET").inputValue(),"3");assert.equal(await page.locator(".wordmark").innerText(),"SET");

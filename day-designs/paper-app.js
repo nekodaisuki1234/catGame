@@ -8,7 +8,7 @@ if(embed)document.documentElement.setAttribute("data-embed","");
 if(new URLSearchParams(location.search).get("screen")==="1")document.documentElement.setAttribute("data-screen","");
 const PRESETS=[0,30,45,60,90];
 let now=C.clock(),renderedDay=now.day,sampleClock="",view="home",detail="summary",restOpen=false,error="",toastTimer,lockUntil=0;
-let selectedMonth=C.month(now.day).start,settingsTab="defaults",projectIndex=0,placeIndex=0,settingsDraft=null,editDay="",submitPeriod=null,testSubmission=true;
+let selectedMonth=C.month(now.day).start,settingsTab="defaults",projectIndex=0,placeIndex=0,settingsDraft=null,defaultsDraft=null,editDay="",submitPeriod=null,testSubmission=true;
 const settingsPlanDrafts=new Map();
 let storageProblem="",data=null,repository=null,unsubscribe=null,loading=false,saving=false;
 const pendingControls=new Map();
@@ -64,7 +64,7 @@ function repositoryMessage(issue,fallback){
 }
 function syncPendingControls(){
  if(!saving)return;
- const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="quick-rest"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"],[data-action="project-tab"],[data-action="project-step"]';
+ const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="quick-rest"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"],[data-action="project-tab"],[data-action="project-step"],[data-action="place-tab"],[data-action="default-break"]';
  const controls=[...root.querySelectorAll(selector),...dialog.querySelectorAll(selector),...document.querySelectorAll('[data-state],[data-action="reset"],[data-action="live"]')];
  for(const node of controls){if(node.id==="workNote")continue;if(!pendingControls.has(node))pendingControls.set(node,node.disabled);node.disabled=true;}
 }
@@ -240,7 +240,7 @@ function planningHint(manual,day){
 }
 function planningSettings(s){
  const key=now.day.slice(0,7),manual=Object.hasOwn(s.plannedHoursByMonth||{},key),planned=C.plannedHours(s,now.day),value=Number.isFinite(planned)?planned:'',manualValue=settingsPlanDrafts.has(key)?settingsPlanDrafts.get(key):value;
- return '<div class="planned-settings" data-month="'+key+'" data-planning-mode="'+(manual?'manual':'auto')+'"><label class="paper-label" for="plannedHoursMode">勤務予定の設定</label><select id="plannedHoursMode" class="paper-input">'+options([['auto','平日数 × 8時間（自動）'],['manual','時間を指定（この月のみ）']],manual?'manual':'auto')+'</select><label class="paper-label" for="plannedHours">'+key.slice(0,4)+'年'+Number(key.slice(5))+'月の勤務予定（時間）</label><input class="paper-input" type="number" id="plannedHours" min="0" max="744" step="any" inputmode="decimal"'+(manual||value!==''?' required':'')+' value="'+value+'" data-manual-value="'+h(manualValue)+'" data-planning-mode="'+(manual?'manual':'auto')+'" placeholder="—" aria-describedby="plannedHoursHint"><p class="panel-note" id="plannedHoursHint" role="status" aria-live="polite" aria-atomic="true">'+planningHint(manual,key+'-01')+'</p></div>';
+ return '<div class="planned-settings" data-month="'+key+'" data-planning-mode="'+(manual?'manual':'auto')+'"><label class="paper-label" for="plannedHoursMode">勤務予定の設定</label><select id="plannedHoursMode" class="paper-input">'+options([['auto','平日数 × 8時間（自動）'],['manual','時間を指定（この月のみ）']],manual?'manual':'auto')+'</select><label class="paper-label" for="plannedHours">'+key.slice(0,4)+'年'+Number(key.slice(5))+'月の勤務予定</label><div class="field-unit"><input class="paper-input" type="number" id="plannedHours" min="0" max="744" step="any" inputmode="decimal"'+(manual||value!==''?' required':'')+' value="'+value+'" data-manual-value="'+h(manualValue)+'" data-planning-mode="'+(manual?'manual':'auto')+'" placeholder="—" aria-describedby="plannedHoursHint"><span aria-hidden="true">時間</span></div><p class="panel-note" id="plannedHoursHint" role="status" aria-live="polite" aria-atomic="true">'+planningHint(manual,key+'-01')+'</p></div>';
 }
 function syncPlanningControls(input){
  const compact=!!input?.closest?.('#planForm'),field=$(compact?'planHoursInput':'plannedHours'),mode=$(compact?'planMode':'plannedHoursMode');
@@ -295,12 +295,58 @@ function syncProjectDraft(){
 function invalidProject(s){
  return s.projects.findIndex(p=>typeof p.name!=='string'||!p.name.trim()||p.name.length>80||typeof p.description!=='string'||p.description.length>1000);
 }
+function placeChanged(place,index){
+ const saved=data.settings.places[index];return !saved||place.code!==saved.code||place.name!==saved.name||place.address!==saved.address;
+}
+function placeSettingsContents(s){
+ const place=s.places[placeIndex];
+ return '<h2 id="placeSettingsTitle" class="form-card-heading">作業場所</h2><div class="place-tabs" role="group" aria-label="編集する作業場所">'+s.places.map((item,index)=>'<button type="button" data-action="place-tab" data-index="'+index+'" aria-pressed="'+(index===placeIndex)+'" aria-label="'+h('場所'+(index+1)+' '+(item.code.trim()||'表示名未入力')+' '+(item.name.trim()||'名称未入力')+(placeChanged(item,index)?'、未保存の変更あり':''))+'"><strong>場所'+(index+1)+'</strong><span class="place-tab-code">'+h(item.code.trim()||'未入力')+'</span><span class="place-tab-name">'+h(item.name.trim()||'名称未入力')+'</span><span class="place-tab-draft"'+(placeChanged(item,index)?'':' hidden')+' aria-label="未保存"></span></button>').join('')+'</div><div class="place-editor-title"><span class="place-code">'+C.pad(placeIndex+1)+'</span><div><h3>場所'+(placeIndex+1)+'の情報</h3><span id="placeDraftState" role="status">'+(placeChanged(place,placeIndex)?'未保存の変更あり':'保存済みの内容')+'</span></div></div><div class="place-fields"><div class="form-field"><label class="paper-label" for="placeCode">表示名・略称</label><input class="paper-input" id="placeCode" required maxlength="80" value="'+h(place.code)+'" placeholder="例：本社" aria-describedby="placeCodeHint"><p id="placeCodeHint" class="field-help">ホームなどの勤務場所の選択肢に表示します。</p></div><div class="form-field"><label class="paper-label" for="placeName">正式名称</label><input class="paper-input" id="placeName" required maxlength="80" value="'+h(place.name)+'" placeholder="例：本社オフィス"></div><div class="form-field"><label class="paper-label" for="placeAddress">住所・建物名</label><textarea class="paper-input" id="placeAddress" maxlength="1000" rows="3" placeholder="住所や建物名、フロアなど">'+h(place.address)+'</textarea></div></div><p class="project-save-note">入力内容は画面下の「更新」で保存します。</p>';
+}
+function placeSettings(s){
+ placeIndex=Math.max(0,Math.min(placeIndex,s.places.length-1));
+ return '<section id="placeSettingsCard" class="paper-form-card place-settings-card" aria-labelledby="placeSettingsTitle">'+placeSettingsContents(s)+'</section>';
+}
+function switchPlace(index,{focus=false}={}){
+ if(saving||!Number.isInteger(index))return;
+ captureSettings();const s=settingsDraft||data.settings;if(index<0||index>=s.places.length)return;
+ placeIndex=index;const card=$('placeSettingsCard');if(!card)return;card.innerHTML=placeSettingsContents(s);syncPendingControls();
+ if(focus)$('placeCode').focus({preventScroll:true});else card.querySelector('[data-action="place-tab"][data-index="'+index+'"]').focus({preventScroll:true});
+}
+function syncPlaceDraft(){
+ if(!$('placeSettingsCard')||!settingsDraft)return;
+ settingsDraft.places.forEach((place,index)=>{const button=root.querySelector('[data-action="place-tab"][data-index="'+index+'"]');if(!button)return;const code=place.code.trim()||'未入力',name=place.name.trim()||'名称未入力';button.querySelector('.place-tab-code').textContent=code;button.querySelector('.place-tab-name').textContent=name;button.setAttribute('aria-label','場所'+(index+1)+' '+code+' '+name+(placeChanged(place,index)?'、未保存の変更あり':''));button.querySelector('.place-tab-draft').hidden=!placeChanged(place,index);});
+ $('placeDraftState').textContent=placeChanged(settingsDraft.places[placeIndex],placeIndex)?'未保存の変更あり':'保存済みの内容';
+}
+function invalidPlace(s){
+ return s.places.findIndex(place=>typeof place.code!=='string'||!place.code.trim()||place.code.length>80||typeof place.name!=='string'||!place.name.trim()||place.name.length>80||typeof place.address!=='string'||place.address.length>1000);
+}
+function captureDefaults(){
+ if(!$('defaultsForm'))return;
+ defaultsDraft={locationId:$('defaultPlace').value,note:$('defaultNote').value,breakMinutes:$('defaultBreak').value};
+}
+function defaultsChanged(draft){
+ return draft.locationId!==data.defaults.locationId||draft.note!==data.defaults.note||String(draft.breakMinutes).trim()===''||Number(draft.breakMinutes)!==data.defaults.breakMinutes;
+}
+function defaultBreakText(value){
+ const text=String(value).trim(),minutes=Number(text);
+ return text!==''&&Number.isInteger(minutes)&&minutes>=0&&minutes<=1440?C.duration(minutes):'0〜1440分で入力してください。';
+}
+function syncDefaultsDraft(){
+ if(!$('defaultsForm'))return;
+ captureDefaults();
+ $('defaultBreakHint').textContent=defaultBreakText(defaultsDraft.breakMinutes);
+ document.querySelectorAll('[data-action="default-break"]').forEach(button=>button.setAttribute('aria-pressed',String(defaultsDraft.breakMinutes.trim()!==''&&Number(defaultsDraft.breakMinutes)===Number(button.dataset.minutes))));
+ $('defaultsDraftState').textContent=defaultsChanged(defaultsDraft)?'未保存の変更あり':'保存済みの内容';
+}
+function defaultsSettings(d){
+ return '<section class="settings-section"><form id="defaultsForm" class="paper-form-card defaults-settings-card"><div class="defaults-summary">'+icon('settings')+'<div><h2>新しい日の初期値</h2><p>勤務場所・作業内容・休憩の標準を設定します。</p><span id="defaultsDraftState" role="status">'+(defaultsChanged(d)?'未保存の変更あり':'保存済みの内容')+'</span></div></div><div class="defaults-fields"><div class="form-field"><label class="paper-label" for="defaultPlace">いつもの勤務場所</label><select class="paper-input" id="defaultPlace">'+placeOptions(d.locationId)+'</select></div><div class="form-field"><label class="paper-label" for="defaultNote">初期表示する作業内容</label><textarea class="paper-input" id="defaultNote" maxlength="1000" rows="3" placeholder="新しい日に入力しておく作業内容">'+h(d.note)+'</textarea></div><div class="form-field"><label class="paper-label" for="defaultBreak">初期の休憩時間</label><div class="field-unit"><input class="paper-input" id="defaultBreak" type="number" min="0" max="1440" step="1" inputmode="numeric" required value="'+h(d.breakMinutes)+'" aria-label="初期の休憩時間（分）" aria-describedby="defaultBreakHint"><span aria-hidden="true">分</span></div><p id="defaultBreakHint" class="field-help" role="status">'+defaultBreakText(d.breakMinutes)+'</p><div class="default-break-presets" role="group" aria-label="初期休憩時間の候補">'+PRESETS.map(minutes=>'<button type="button" data-action="default-break" data-minutes="'+minutes+'" aria-pressed="'+(String(d.breakMinutes).trim()!==''&&Number(d.breakMinutes)===minutes)+'">'+minutes+'分'+(minutes===60?'<span class="sr-only">（標準の1時間）</span>':'')+'</button>').join('')+'</div></div></div><p class="settings-save-hint">変更は「更新」で保存し、新しい日の入力に使います。</p><div class="paper-actions settings-save-row"><button type="button" class="paper-button secondary" data-action="reset-defaults">標準に戻す</button><button type="submit" class="paper-button">更新</button></div></form><button type="button" class="totals-button" data-action="totals">勤怠時間合計 <span aria-hidden="true">→</span></button></section>';
+}
 function settings(){
- const d=data.defaults,s=settingsDraft||data.settings,place=s.places[placeIndex];
+ const d=defaultsDraft||data.defaults,s=settingsDraft||data.settings;
  let body;
- if(settingsTab==="defaults")body='<section class="settings-section"><h2>初期表示変更</h2><p class="panel-note">新しい日の勤務場所・作業内容・休憩に使います。</p><form id="defaultsForm" class="paper-form-card"><label class="paper-label" for="defaultPlace">作業場所</label><select class="paper-input" id="defaultPlace">'+placeOptions(d.locationId)+'</select><label class="paper-label" for="defaultNote">作業内容</label><textarea class="paper-input" id="defaultNote" maxlength="1000" rows="4">'+h(d.note)+'</textarea><label class="paper-label" for="defaultBreak">休憩時間（分）</label><input class="paper-input" id="defaultBreak" type="number" min="0" max="1440" step="1" required value="'+d.breakMinutes+'"><div class="paper-actions"><button type="button" class="paper-button secondary" data-action="reset-defaults">初期設定</button><button type="submit" class="paper-button">更新</button></div></form><button type="button" class="totals-button" data-action="totals">勤怠時間合計 <span aria-hidden="true">→</span></button></section>';
- else body='<section class="settings-section"><form id="settingsForm"><section class="paper-form-card"><h2 class="form-card-heading">勤務時間・作業概要</h2><div class="hours-range"><label for="minHours"><span>基準時間（下限）</span><input id="minHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.minHours)?s.minHours:'')+'"></label><span>〜</span><label for="maxHours"><span>上限</span><input id="maxHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.maxHours)?s.maxHours:'')+'"></label></div>'+planningSettings(s)+'<label class="paper-label" for="workSummary">作業概要</label><textarea class="paper-input" id="workSummary" maxlength="1000" rows="2">'+h(s.workSummary)+'</textarea></section>'+projectSettings(s)+'<section class="paper-form-card"><h2 class="form-card-heading">作業場所</h2><div class="master-heading"><label for="placeSelect">作業場所選択</label><select class="paper-input" id="placeSelect">'+options(s.places.map((p,i)=>[String(i),"場所"+(i+1)]),String(placeIndex))+'</select></div><div class="master-fields"><label for="placeCode"><span>作業場所</span><input class="paper-input" id="placeCode" required maxlength="80" value="'+h(place.code)+'"></label><label for="placeName"><span>作業場所名称</span><input class="paper-input" id="placeName" required maxlength="80" value="'+h(place.name)+'"></label></div><label class="paper-label" for="placeAddress">作業場所住所</label><textarea class="paper-input" id="placeAddress" maxlength="1000" rows="2">'+h(place.address)+'</textarea></section><button class="paper-button full-width" type="submit">更新</button></form></section>';
- return '<section class="subpage"><h1>設定</h1><p class="subpage-lede">日々の初期値と、勤務表に載せる情報。</p><div class="settings-tabs" aria-label="設定項目">'+[["defaults","アプリ初期値"],["sheet","勤務表設定値"]].map(([id,label])=>'<button type="button" data-action="settings-tab" data-tab="'+id+'" aria-pressed="'+(settingsTab===id)+'">'+label+'</button>').join("")+'</div>'+body+'</section>';
+ if(settingsTab==='defaults')body=defaultsSettings(d);
+ else body='<section class="settings-section"><form id="settingsForm"><section class="paper-form-card"><div class="settings-card-heading"><h2 class="form-card-heading">勤務時間・作業概要</h2><p>勤務表に使う時間と共通の作業概要を設定します。</p></div><div class="hours-range"><div class="form-field"><label for="minHours"><span>基準時間の下限</span></label><div class="field-unit"><input id="minHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.minHours)?s.minHours:'')+'" aria-label="基準時間の下限（時間）"><span aria-hidden="true">時間</span></div></div><span aria-hidden="true">〜</span><div class="form-field"><label for="maxHours"><span>基準時間の上限</span></label><div class="field-unit"><input id="maxHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.maxHours)?s.maxHours:'')+'" aria-label="基準時間の上限（時間）"><span aria-hidden="true">時間</span></div></div></div>'+planningSettings(s)+'<label class="paper-label" for="workSummary">共通の作業概要</label><textarea class="paper-input" id="workSummary" maxlength="1000" rows="3" placeholder="勤務表全体に記載する作業概要">'+h(s.workSummary)+'</textarea></section>'+projectSettings(s)+placeSettings(s)+'<div class="settings-save-row settings-sheet-actions"><p class="settings-save-hint">勤務予定・プロジェクト・作業場所をまとめて保存します。</p><button class="paper-button full-width" type="submit">更新</button></div></form></section>';
+ return '<section class="subpage"><h1>設定</h1><p class="subpage-lede">いつもの入力と、勤務表に使う情報を整えます。</p><div class="settings-tabs" aria-label="設定項目">'+[['defaults','いつもの勤務'],['sheet','勤務表の設定']].map(([id,label])=>'<button type="button" data-action="settings-tab" data-tab="'+id+'" aria-pressed="'+(settingsTab===id)+'">'+label+'</button>').join('')+'</div>'+body+'</section>';
 }
 function nav(){return '<nav class="app-nav" aria-label="メインナビゲーション">'+[["home","home","ホーム"],["records","calendar","勤怠"],["submit","send","提出"],["settings","settings","設定"]].map(([id,ic,label])=>'<button id="nav-'+id+'" type="button" class="nav-button" data-action="tab" data-tab="'+id+'" '+(view===id||view==="editor"&&id==="records"||view==="missing"&&id==="home"?'aria-current="page"':'')+'>'+icon(ic)+'<span>'+label+'</span></button>').join("")+'</nav>';}
 function render(){
@@ -413,6 +459,7 @@ async function exportPeriod(period,mark=false){
  finally{setSaving(false);}
 }
 function captureSettings(){
+ captureDefaults();
  if(!$("settingsForm"))return;
  reconcilePlanningControls($('plannedHours'));
  settingsDraft=settingsDraft||C.clone(data.settings);
@@ -445,6 +492,8 @@ document.addEventListener("click",async event=>{
  const action=button.dataset.action;
  if(action==='edit-plan'){openPlan();return;}
  if(action==="project-tab"||action==="project-step"){switchProject(Number(button.dataset.index),{focus:action==="project-step"});return;}
+ if(action==="place-tab"){switchPlace(Number(button.dataset.index));return;}
+ if(action==="default-break"){const minutes=Number(button.dataset.minutes);if(!saving&&PRESETS.includes(minutes)&&$("defaultBreak")){$("defaultBreak").value=String(minutes);syncDefaultsDraft();}return;}
  if(action==='plan-auto'){$('planMode').value='auto';syncPlanningControls($('planMode'));return;}
  if(action==="missing-records"){view="missing";error="";render();rememberRoute();root.scrollIntoView({block:"start"});return;}
  if(action==="missing-back"){history.back();return;}
@@ -502,7 +551,7 @@ document.addEventListener("click",async event=>{
  if(action==="settings-tab"){captureSettings();settingsTab=button.dataset.tab;error="";render();return;}
  if(action==="reset-defaults"){
   const next=C.clone(data);next.defaults=config.initialState(now).defaults;
-  if(await commit(next,'初期値を標準に戻しました'))render();return;
+  if(await commit(next,'初期値を標準に戻しました')){defaultsDraft=null;render();}return;
  }
  if(action==="totals"){
   const month=C.month(now.day),sum=C.summary(data,month,now);
@@ -535,12 +584,12 @@ document.addEventListener("change",async event=>{
  if(input.id==="testSubmission"){testSubmission=input.checked;return;}
  if(input.id==='planMode'||input.id==='planHoursInput'){syncPlanningControls(input);return;}
  if(input.id==='plannedHoursMode'||input.id==='plannedHours'){syncPlanningControls(input);captureSettings();return;}
- if(input.id==="placeSelect"){
-  captureSettings();placeIndex=Number(input.value);render();return;
- }
+ if(input.closest?.("#defaultsForm")){syncDefaultsDraft();return;}
 });
 document.addEventListener("input",event=>{
  if(embed||!data)return;
+ if(event.target.closest?.("#defaultsForm")){syncDefaultsDraft();return;}
+ if(["placeCode","placeName","placeAddress"].includes(event.target.id)){captureSettings();syncPlaceDraft();return;}
  if(event.target.id==="projectName"||event.target.id==="projectDescription"){captureSettings();syncProjectDraft();return;}
  if(event.target.id==='planHoursInput'){syncPlanningControls(event.target);return;}
  if(event.target.id==='plannedHours'){syncPlanningControls(event.target);captureSettings();return;}
@@ -583,13 +632,16 @@ document.addEventListener("submit",async event=>{
   if(await saveRecord(day,r,'勤怠を更新しました',{strictAllocation:true})){clearSavedHomeDraft(day,r);render();}return;
  }
  if(id==="defaultsForm"){
-  const next=C.clone(data),d={locationId:$("defaultPlace").value,note:$("defaultNote").value,breakMinutes:Number($("defaultBreak").value)};
+  captureDefaults();
+  const next=C.clone(data),d={locationId:$("defaultPlace").value,note:$("defaultNote").value,breakMinutes:$("defaultBreak").value.trim()===""?NaN:Number($("defaultBreak").value)};
   if(!Number.isInteger(d.breakMinutes)||d.breakMinutes<0||d.breakMinutes>1440)return showError("休憩は0〜1440分の整数で入力してください。");
-  next.defaults=d;if(await commit(next,'新しい日の初期値を更新しました'))render();return;
+  next.defaults=d;if(await commit(next,'新しい日の初期値を更新しました')){if(defaultsDraft&&defaultsDraft.locationId===d.locationId&&defaultsDraft.note===d.note&&defaultsDraft.breakMinutes.trim()!==''&&Number(defaultsDraft.breakMinutes)===d.breakMinutes)defaultsDraft=null;render();}return;
  }
  if(id==="settingsForm"){
   captureSettings();const invalid=invalidProject(settingsDraft);
   if(invalid>=0){switchProject(invalid);const p=settingsDraft.projects[invalid],nameInvalid=typeof p.name!=='string'||!p.name.trim()||p.name.length>80;$(nameInvalid?'projectName':'projectDescription').focus();toast(p.id+'の'+(nameInvalid?'プロジェクト名':'概要')+'を確認してください。',{warning:true});return;}
+  const invalidLocation=invalidPlace(settingsDraft);
+  if(invalidLocation>=0){switchPlace(invalidLocation);const place=settingsDraft.places[invalidLocation],field=typeof place.code!=='string'||!place.code.trim()||place.code.length>80?'placeCode':typeof place.name!=='string'||!place.name.trim()||place.name.length>80?'placeName':'placeAddress';$(field).focus();toast('場所'+(invalidLocation+1)+'の入力内容を確認してください。',{warning:true});return;}
   const issue=C.validateSettings(settingsDraft);if(issue)return showError(issue);
   const next=C.clone(data);next.settings=C.clone(settingsDraft);next.submissions={};
   if(await commit(next,'勤務表設定を更新しました')){settingsDraft=null;settingsPlanDrafts.clear();render();}

@@ -393,3 +393,58 @@ html[data-theme=paper]{scroll-padding-bottom:calc(100px + env(safe-area-inset-bo
 [data-theme=paper] .project-stepper{display:flex;gap:10px;margin-top:18px}
 [data-theme=paper] .project-stepper button{flex:1;min-width:44px;padding-inline:8px;font-size:12px}
 [data-theme=paper] .project-save-note{margin:12px 0 0;font-size:10px;line-height:1.9;color:var(--muted)}
+
+/* Settings keep the paper form language, with places and daily defaults clearly grouped. */
+[data-theme=paper] .settings-tabs{gap:4px;padding:4px;border:1px solid #dbe0dc;border-radius:10px;background:#e9ede8}
+[data-theme=paper] .settings-tabs button{min-height:44px;padding:9px 8px;border:0;border-radius:7px;font-size:12px;line-height:1.7}
+[data-theme=paper] .settings-tabs button[aria-pressed=true]{border:0;background:#fff;box-shadow:0 1px 3px #283a4c0d;color:var(--primary)}
+[data-theme=paper] .settings-tabs button:focus-visible{outline:2px solid var(--secondary);outline-offset:2px}
+[data-theme=paper] .settings-card-heading{margin-bottom:17px;padding-bottom:14px;border-bottom:1px solid #e3e3de}
+[data-theme=paper] .paper-form-card .settings-card-heading :is(h2,h3){margin:0;font-size:14px;line-height:1.7;font-weight:600;color:var(--primary)}
+[data-theme=paper] .settings-card-heading p{margin:3px 0 0;color:var(--muted);font-size:10px;line-height:1.8}
+[data-theme=paper] .defaults-summary{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:13px 14px;border:1px solid #dce4dc;border-radius:8px;background:#eef3ed}
+[data-theme=paper] .defaults-summary>svg{width:25px;height:25px;flex:none;color:var(--secondary)}
+[data-theme=paper] .defaults-summary>div{min-width:0}
+[data-theme=paper] .defaults-summary :is(h2,h3){margin:0;font-size:14px;font-weight:600;line-height:1.7;color:var(--primary)}
+[data-theme=paper] .defaults-summary p{margin:3px 0 0;font-size:10px;line-height:1.8;color:var(--muted)}
+[data-theme=paper] #defaultsDraftState{display:block;min-height:18px;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.8}
+[data-theme=paper] .defaults-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:17px}
+[data-theme=paper] .defaults-fields .paper-label{margin-top:0}
+[data-theme=paper] .field-unit{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0}
+[data-theme=paper] .field-unit>.paper-input{min-width:0}
+[data-theme=paper] .field-unit>span{min-width:22px;font-size:12px;line-height:1.7;color:var(--muted);white-space:nowrap}
+[data-theme=paper] .hours-range .field-unit{gap:6px}
+[data-theme=paper] .field-help{margin:6px 0 0;color:var(--muted);font-size:10px;line-height:1.8}
+[data-theme=paper] .default-break-presets{display:grid;grid-template-columns:repeat(5,minmax(44px,1fr));gap:5px;margin-top:9px}
+[data-theme=paper] .default-break-presets button{min-width:44px;min-height:44px;padding:6px 3px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted);font-size:11px;line-height:1.5;font-variant-numeric:tabular-nums;white-space:nowrap}
+[data-theme=paper] .default-break-presets button[aria-pressed=true]{border-color:var(--secondary);background:#e6eeea;box-shadow:inset 0 0 0 1px var(--secondary);color:var(--secondary);font-weight:600}
+[data-theme=paper] .default-break-presets button:focus-visible{outline:2px solid var(--secondary);outline-offset:2px}
+[data-theme=paper] .default-break-presets button:disabled{opacity:.5;cursor:default}
+[data-theme=paper] #defaultBreakHint{display:block;min-height:20px;margin:6px 0 0;color:var(--secondary);font-size:11px;line-height:1.8;font-variant-numeric:tabular-nums}
+[data-theme=paper] .settings-save-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid #e3e3de}
+[data-theme=paper] .settings-save-row .paper-button{flex:1;min-width:0}
+[data-theme=paper] .settings-save-hint{margin:16px 0 0;color:var(--muted);font-size:10px;line-height:1.8}
+[data-theme=paper] .settings-save-row>.settings-save-hint{flex-basis:100%;margin:0}
+[data-theme=paper] .settings-sheet-actions>.full-width{flex-basis:100%;margin-top:0}
+[data-theme=paper] .defaults-settings-card .settings-save-row{margin-top:12px;padding-top:0;border-top:0}
+[data-theme=paper] .place-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:18px}
+[data-theme=paper] .place-tabs button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:44px;min-height:80px;padding:9px 5px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);line-height:1.5}
+[data-theme=paper] .place-tabs strong{font-size:10px;font-weight:400;color:var(--muted)}
+[data-theme=paper] .place-tab-code,[data-theme=paper] .place-tab-name{display:block;max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[data-theme=paper] .place-tab-code{font-size:12px;font-weight:600;color:var(--primary)}
+[data-theme=paper] .place-tab-name{font-size:9px;color:var(--muted)}
+[data-theme=paper] .place-tabs button[aria-pressed=true]{border-color:var(--secondary);background:#e6eeea;box-shadow:inset 0 0 0 1px var(--secondary)}
+[data-theme=paper] .place-tabs button[aria-pressed=true] .place-tab-code{color:var(--secondary)}
+[data-theme=paper] .place-tabs button:focus-visible{outline:2px solid var(--secondary);outline-offset:2px}
+[data-theme=paper] .place-tabs button:disabled{opacity:.5;cursor:default}
+[data-theme=paper] .place-tab-draft{position:absolute;top:6px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--secondary)}
+[data-theme=paper] .place-editor-title{display:flex;align-items:center;gap:11px;padding-bottom:14px;border-bottom:1px solid #e3e3de}
+[data-theme=paper] .place-editor-title>div{min-width:0}
+[data-theme=paper] .place-code{display:grid;place-items:center;flex:none;min-width:44px;height:44px;padding:0 9px;border-radius:8px;background:var(--primary);color:#fff;font-family:Georgia,"Times New Roman",serif;font-size:21px;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+[data-theme=paper] .place-editor-title h3{margin:0;color:var(--primary);font-size:13px;font-weight:550;line-height:1.7}
+[data-theme=paper] #placeDraftState{display:block;min-height:18px;color:var(--muted);font-size:10px;line-height:1.8}
+[data-theme=paper] .place-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:16px}
+[data-theme=paper] .place-fields .paper-label{margin-top:0}
+[data-theme=paper] .place-settings-card textarea{min-height:88px}
+@media(max-width:360px){[data-theme=paper] .place-tabs{gap:5px}[data-theme=paper] .defaults-summary{padding:12px}[data-theme=paper] .settings-tabs button{padding-inline:5px;font-size:11px}}
+@media(max-width:319px){[data-theme=paper] .default-break-presets{grid-template-columns:repeat(3,minmax(44px,1fr))}}
