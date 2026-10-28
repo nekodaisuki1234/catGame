@@ -1,0 +1,37 @@
+name: Attendance backend checks
+on:
+  push:
+    branches: [main, codex/paper-batch9]
+    paths: ['backend/**', 'Makefile', '.github/workflows/attendance-backend-checks.yml', 'day-designs/paper-core.js', 'day-designs/paper-holidays.js']
+  pull_request:
+    paths: ['backend/**', 'Makefile', '.github/workflows/attendance-backend-checks.yml', 'day-designs/paper-core.js', 'day-designs/paper-holidays.js']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install backend dependencies
+        run: |
+          if [ -f backend/package-lock.json ]; then npm ci --prefix backend --ignore-scripts; else npm install --prefix backend --ignore-scripts; fi
+      - name: Export dependency lock for bootstrap
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const encoded = fs.readFileSync('backend/package-lock.json').toString('base64');
+          const chunks = encoded.match(/.{1,3500}/g);
+          chunks.forEach((chunk, i) => console.log(`BACKEND_LOCK_CHUNK ${i+1}/${chunks.length}:${chunk}`));
+          NODE
+      - name: Backend tests
+        run: npm test --prefix backend
+      - uses: aws-actions/setup-sam@v2
+      - name: Validate AWS template
+        run: sam validate --lint --template-file backend/infra/template.yaml --region ap-northeast-1
+      - name: Verify Lambda packaging
+        run: sam build --template-file backend/infra/template.yaml

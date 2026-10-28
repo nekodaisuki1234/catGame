@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "worksheet": "勤務表",
+  "cells": {
+    "employee.name": "B2",
+    "employee.department": "B3",
+    "employee.id": "F2",
+    "period.start": "B4",
+    "period.end": "F4",
+    "settings.workSummary": "B5"
+  },
+  "days": {
+    "startRow": 8,
+    "capacity": 31,
+    "columns": {
+      "day": "A",
+      "weekday": "B",
+      "holiday": "C",
+      "status": "D",
+      "start": "E",
+      "endWithOffset": "F",
+      "breakMinutes": "G",
+      "workedHours": "H",
+      "absenceHours": "I",
+      "locationCode": "J",
+      "note": "K",
+      "allocation.P1": "L",
+      "allocation.P2": "M",
+      "allocation.P3": "N",
+      "allocation.P4": "O",
+      "allocation.SET": "P",
+      "sourceDay": "Q"
+    }
+  },
+  "summary": {
+    "hours": "H40",
+    "absenceHours": "I40",
+    "allocation.P1": "L40",
+    "allocation.P2": "M40",
+    "allocation.P3": "N40",
+    "allocation.P4": "O40",
+    "allocation.SET": "P40"
+  }
+}
