@@ -355,3 +355,15 @@ html[data-theme=paper]{scroll-padding-bottom:calc(100px + env(safe-area-inset-bo
 [data-theme=paper] .calculated-badge{padding-inline:4px;font-size:8px}
 }
 @media(prefers-reduced-motion:reduce){[data-theme=paper] :is(.paper-input,.time-input,.rest-inputs input){transition:none}}
+
+/* Absence totals keep a permanent, quiet row; warnings remain floating toasts. */
+[data-theme=paper] .absence-summary{min-width:0;margin:16px 0 0;padding:14px 0;border-bottom:1px solid var(--line)}
+[data-theme=paper] .absence-summary-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0;font-size:12px;line-height:1.7;color:var(--muted)}
+[data-theme=paper] .absence-summary-line strong{font-size:18px;font-weight:500;line-height:1.6;color:var(--primary);font-variant-numeric:tabular-nums;white-space:nowrap}
+[data-theme=paper] .absence-summary-note{margin:4px 0 0;color:var(--muted);font-size:10px;line-height:1.8}
+[data-theme=paper] .month-summary+.absence-summary{margin:0;padding-top:0;padding-bottom:14px}
+[data-theme=paper] .editor-absence{min-width:0;margin-top:16px;padding-top:12px;border-top:1px solid #e3e3de}
+[data-theme=paper] .editor-absence>div{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-height:23px;font-size:11px;line-height:1.8;color:var(--muted)}
+[data-theme=paper] .editor-absence output{color:var(--primary);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+[data-theme=paper] .editor-absence>p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.8}
+@media(max-width:360px){[data-theme=paper] .absence-summary-line{font-size:11px}[data-theme=paper] .absence-summary-line strong{font-size:16px}}

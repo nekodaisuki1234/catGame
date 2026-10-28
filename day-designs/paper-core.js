@@ -54,6 +54,15 @@ function worked(r,day,now){
  const net=end==null?0:end-timeToMin(r.start)-r.breakMinutes;
  return r.end?net:Math.max(0,net);
 }
+function absenceMinutes(r,day,now){
+ // Unentered or unfinished days stay in the missing-record flow; only completed work contributes.
+ if(!r||!validDay(day)||!validDay(now?.day)||day>now.day||workday(day)!==true||fullLeave(r))return 0;
+ const start=timeToMin(r.start),end=timeToMin(r.end);
+ if(start==null||end==null||!Number.isInteger(r.breakMinutes)||r.breakMinutes<0||r.breakMinutes>1440)return 0;
+ const span=end+(r.overnight?1440:0)-start;if(span<0)return 0;
+ const credit=["am","pm"].includes(r.leave)?240:0;
+ return Math.max(0,480-credit-Math.max(0,span-r.breakMinutes));
+}
 function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,leave:"",sourceDay:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
 function validateRecord(r,day,now,settings,options={}){
  const bad=error=>({ok:false,error});
@@ -79,6 +88,8 @@ function validateRecord(r,day,now,settings,options={}){
  const net=worked(r,day,now),complete=!!r.start&&!!r.end;
  if(options.strictAllocation&&complete&&net>=0&&allocated!==net)return bad("勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）を一致させてください。");
  const warnings=!complete?[]:net<0?["休憩時間を引いた勤務時間が「"+duration(net)+"」になっています。記録は保存しました。出退勤と休憩時間を確認してください。"+(allocated?" 工数は入力済みの値を保持しています。":"")]:allocated&&allocated!==net?["勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）が一致していません。記録は保存しました。工数の振り分けを確認してください。"]:[];
+ const absence=net>=0?absenceMinutes(r,day,now):0;
+ if(absence)warnings.push((["am","pm"].includes(r.leave)?"半休4時間分を含めても、":"実働が")+"1日8時間に"+duration(absence)+"不足しています。欠勤時間として集計します。");
  return {ok:true,value:clone(r),warnings};
 }
 function eligibleCompSource(state,sourceDay,day,now){
@@ -230,11 +241,13 @@ function pastMissing(state,now){
  return out;
 }
 function summary(state,period,now){
- const result={minutes:0,leave:0,days:0,allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};
+ const result={minutes:0,leave:0,days:0,absenceMinutes:0,absenceDays:0,allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};
  for(const d of dates(period.start,period.end)){
   const r=state.records[d];if(!r||d>now.day)continue;
   result.minutes+=worked(r,d,now);if(r.start)result.days++;
   result.leave+=r.leave==="paid"?1:["am","pm"].includes(r.leave)?.5:0;
+  const absence=d>=firstDay(state)?absenceMinutes(r,d,now):0;
+  result.absenceMinutes+=absence;if(absence)result.absenceDays++;
   for(const k of PROJECTS)result.allocation[k]+=r.allocation[k];
  }
  return result;
@@ -302,5 +315,5 @@ function workbook(state,period,now){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,empty,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
+global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,absenceMinutes,empty,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
 })(window);

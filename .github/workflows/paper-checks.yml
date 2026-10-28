@@ -37,6 +37,7 @@ jobs:
           node tests/paper-planning-check.cjs
           node tests/paper-initialization-check.cjs
           node tests/paper-repository-check.cjs
+          node tests/paper-absence-check.cjs
       - name: Install browser test tools
         run: |
           npm install --prefix "$RUNNER_TEMP/paper-browser" --no-save --no-package-lock --ignore-scripts playwright@1.57.0
@@ -52,6 +53,7 @@ jobs:
           node tests/paper-planning-ui-check.cjs
           node tests/paper-preparation-ui-check.cjs
           node tests/paper-polish-ui-check.cjs
+          node tests/paper-absence-ui-check.cjs
       - name: Keep screenshots
         if: always()
         uses: actions/upload-artifact@v4
