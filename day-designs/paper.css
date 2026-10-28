@@ -10,25 +10,26 @@
 [data-theme=paper] .preview-error{margin:0 0 16px}
 [data-theme=paper] .preview-error:empty{margin:0}
 [data-theme=paper] .clock-live{min-height:44px;border:0;border-bottom:1px solid var(--line);padding:3px 0;margin-left:7px;background:none;color:var(--primary);font-size:11px}
-[data-theme=paper] .paper-input{display:block;width:100%;min-width:0;min-height:44px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);background:var(--field);color:var(--ink);font-size:16px;line-height:1.5;max-width:100%}
+[data-theme=paper] .paper-input{display:block;width:100%;min-width:0;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-size:16px;line-height:1.5;max-width:100%}
 [data-theme=paper] .paper-input[type=number]{font-variant-numeric:tabular-nums}
 [data-theme=paper] select.paper-input{padding-right:30px}
-[data-theme=paper] textarea.paper-input{font-size:14px}
-[data-theme=paper] .paper-input:focus{border-color:var(--primary);outline-color:var(--primary)}
+[data-theme=paper] textarea.paper-input{font-size:16px;line-height:1.75}
+[data-theme=paper] :is(.paper-input,.time-input,.rest-inputs input){transition:border-color .15s ease,box-shadow .15s ease}
+[data-theme=paper] :is(.paper-input,.time-input,.rest-inputs input):focus{border-color:var(--secondary);outline:2px solid #50736a38;outline-offset:1px;box-shadow:0 0 0 3px #50736a0c}
 [data-theme=paper] .paper-input:disabled{opacity:.5}
 [data-theme=paper] .paper-label{display:block;margin:18px 0 6px;font-size:12px;line-height:1.7;color:var(--muted)}
 [data-theme=paper] form>.paper-label:first-child{margin-top:0}
 [data-theme=paper] .work-fields{display:grid;gap:14px;margin-top:14px;padding-top:16px;border-top:1px solid var(--line)}
 [data-theme=paper] .work-fields label{min-width:0}
 [data-theme=paper] .work-fields label>span{display:block;margin-bottom:6px;color:var(--muted);font-size:12px;line-height:1.7}
-[data-theme=paper] .work-place{display:grid;grid-template-columns:80px minmax(0,1fr);align-items:center;gap:12px}
-[data-theme=paper] .work-fields .work-place>span{margin:0}
-[data-theme=paper] .work-place select{font-size:14px}
+[data-theme=paper] .work-place{display:block}
+[data-theme=paper] .work-fields .work-place>span{margin-bottom:6px}
+[data-theme=paper] .work-place select{font-size:16px}
 [data-theme=paper] .time-fields label>span{margin-bottom:6px}
 [data-theme=paper] .nextday{min-height:44px}
 [data-theme=paper] .text-button{min-width:44px;min-height:44px}
 [data-theme=paper] .rest-row{min-height:44px}
-[data-theme=paper] .rest-inputs input{height:44px;font-variant-numeric:tabular-nums}
+[data-theme=paper] .rest-inputs input{height:46px;border-radius:8px;background:#fff;font-variant-numeric:tabular-nums}
 [data-theme=paper] .small-save,[data-theme=paper] .rest-presets button{min-width:44px;min-height:44px}
 [data-theme=paper] .punch-pane{margin-bottom:15px}
 [data-theme=paper] .detail-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:17px;border-bottom:1px solid var(--line)}
@@ -221,19 +222,11 @@ html[data-embed][data-theme=paper] .app-nav{position:absolute}
 [data-theme=paper] .editor-date-picker svg{width:17px;height:17px;flex:none;color:var(--muted)}
 [data-theme=paper] .editor-date-picker input{position:absolute;inset:0;width:100%;height:100%;min-height:44px;opacity:0;cursor:pointer}
 [data-theme=paper] .editor-date-picker:focus-within{outline:3px solid var(--primary);outline-offset:3px}
-[data-theme=paper] .editor-fields{display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;column-gap:15px;row-gap:15px}
-[data-theme=paper] .editor-fields>label,[data-theme=paper] .editor-field-label{font-size:12px;line-height:1.6;color:var(--muted)}
-[data-theme=paper] .editor-fields>label small{display:block;font-size:9px;letter-spacing:.03em;margin-top:2px}
+[data-theme=paper] .editor-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 [data-theme=paper] .editor-fields>div{min-width:0}
-[data-theme=paper] .editor-fields .paper-input,[data-theme=paper] .editor-fields .time-input{height:44px;min-width:0;width:100%}
-[data-theme=paper] .editor-fields select{font-size:14px}
-[data-theme=paper] .editor-fields textarea.paper-input{height:75px;min-height:75px}
-[data-theme=paper] .editor-fields label[for=editNote]{align-self:start;padding-top:10px}
-[data-theme=paper] .editor-fields label[for=editEnd]{align-self:start;padding-top:4px}
-[data-theme=paper] .editor-fields label[for=editEnd]{align-self:start;padding-top:12px}
+[data-theme=paper] .editor-fields textarea.paper-input{height:auto;min-height:96px}
 [data-theme=paper] .editor-break-input{text-align:center;font-variant-numeric:tabular-nums}
-[data-theme=paper] .editor-fields .nextday{margin-bottom:-4px}
-[data-theme=paper] .editor-worked{display:flex;align-items:baseline;justify-content:center;gap:5px;min-height:44px;padding:8px 10px;border-block:1px solid var(--line);font-family:Georgia,"Times New Roman",serif;font-size:25px;line-height:1.2;color:var(--primary)}
+[data-theme=paper] .editor-worked{display:flex;align-items:center;justify-content:center;gap:5px;min-height:46px;padding:9px 8px;border:1px solid #d5e1dc;border-radius:8px;background:#eef3ef;font-family:Georgia,"Times New Roman",serif;font-size:25px;line-height:1;color:var(--primary);font-variant-numeric:tabular-nums}
 [data-theme=paper] .editor-worked.negative-value{color:#946774}
 [data-theme=paper] .editor-worked small{font:10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--muted)}
 [data-theme=paper] .editor-allocation-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:21px;margin-top:24px;border-top:1px solid var(--line)}
@@ -247,7 +240,7 @@ html[data-embed][data-theme=paper] .app-nav{position:absolute}
 [data-theme=paper] .editor-allocation input{text-align:center;padding-inline:5px;height:44px}
 [data-theme=paper] .editor-update{height:44px;min-width:0;padding:8px 10px}
 [data-theme=paper] .editor-clear{display:block;min-height:44px;margin:20px auto 0;padding:5px 0;border:0;background:none;color:var(--muted);font-size:10px;text-decoration:underline;text-underline-offset:4px}
-@media(max-width:360px){[data-theme=paper] .editor-fields{grid-template-columns:68px minmax(0,1fr);column-gap:12px}[data-theme=paper] .editor-date-switcher{grid-template-columns:44px minmax(0,1fr) 44px;gap:5px}[data-theme=paper] .editor-date-picker{font-size:11px;gap:2px}[data-theme=paper] .editor-date-picker svg{width:14px}[data-theme=paper] .editor-allocation{column-gap:10px}}
+@media(max-width:360px){[data-theme=paper] .editor-date-switcher{grid-template-columns:44px minmax(0,1fr) 44px;gap:5px}[data-theme=paper] .editor-date-picker{font-size:11px;gap:2px}[data-theme=paper] .editor-date-picker svg{width:14px}[data-theme=paper] .editor-allocation{column-gap:10px}}
 /* Keep iPhone form focus at the page scale and clear of the bottom navigation. */
 [data-theme=paper] .work-save-status{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;font-size:10px;color:var(--muted)}
 [data-theme=paper] .work-save-status .text-button{padding-block:2px}
@@ -318,3 +311,47 @@ html[data-theme=paper]{scroll-padding-bottom:calc(100px + env(safe-area-inset-bo
 [data-theme=paper] .editor-comp-source{min-width:0}
 [data-theme=paper] .editor-comp-source .panel-note{margin:7px 0 0;font-size:10px}
 [data-theme=paper] .comp-source-note{display:block;margin-top:6px;font-size:10px;line-height:1.7;color:var(--muted)}
+
+/* Forms read like small paper sheets: labels above, white fields and quiet grouping. */
+[data-theme=paper] .paper-form-card{min-width:0;margin-top:16px;padding:17px 16px;border:1px solid #dedfda;border-radius:10px;background:#faf9f7;box-shadow:0 1px 0 #283a4c04}
+[data-theme=paper] form>.paper-form-card:first-child{margin-top:0}
+[data-theme=paper] .paper-form-card :is(h2,h3).form-card-heading{margin:0 0 16px;font-size:13px;font-weight:600;line-height:1.7;letter-spacing:.01em;color:var(--primary)}
+[data-theme=paper] .paper-form-card .paper-label{margin-top:16px}
+[data-theme=paper] .paper-form-card>.paper-label:first-child{margin-top:0}
+[data-theme=paper] :is(.form-field,.form-field>label){min-width:0}
+[data-theme=paper] :is(.form-field>label,.calculated-label){display:block;margin:0 0 7px;font-size:12px;line-height:1.7;font-weight:400;color:var(--muted)}
+[data-theme=paper] .form-field label small{margin-left:5px;font-size:10px}
+[data-theme=paper] .home-time-card .time-area{margin-top:0}
+[data-theme=paper] .home-time-card .time-help{flex-wrap:wrap;column-gap:10px;row-gap:2px;margin-bottom:12px}
+[data-theme=paper] .time-input{height:46px;border-radius:8px;background:#fff;font-variant-numeric:tabular-nums}
+[data-theme=paper] .home-time-card .rest-row{margin-top:0;border-top:1px solid #e3e3de;padding-top:4px}
+[data-theme=paper] .rest-presets{gap:5px}
+[data-theme=paper] .rest-presets button{background:#fff;border-radius:6px;font-variant-numeric:tabular-nums}
+[data-theme=paper] .work-fields.paper-form-card{gap:16px;padding-top:17px;border-top:1px solid #dedfda}
+[data-theme=paper] .work-fields.paper-form-card>.form-card-heading{margin-bottom:0}
+[data-theme=paper] .work-fields .work-save-status{margin-top:-5px;border-top:1px solid #e3e3de;padding-top:5px}
+[data-theme=paper] .paper-form-card>.panel-note:first-child{margin-top:0}
+[data-theme=paper] .paper-form-card .paper-actions{gap:10px;margin-top:20px}
+[data-theme=paper] .paper-form-card .master-heading{display:block;padding-top:0;margin:0 0 16px;border-top:0;font-size:12px}
+[data-theme=paper] .paper-form-card .master-heading label{display:block;margin-bottom:7px;color:var(--muted);line-height:1.7}
+[data-theme=paper] .paper-form-card .master-heading select{width:100%;font-size:16px}
+[data-theme=paper] .paper-form-card .master-fields{margin-top:0}
+[data-theme=paper] .paper-form-card .full-width{margin-top:20px}
+[data-theme=paper] .editor-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px;row-gap:4px;align-items:start}
+[data-theme=paper] #dayForm .paper-form-card>.nextday{margin:0}
+[data-theme=paper] .editor-rest-worked{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:8px;align-items:start}
+[data-theme=paper] .calculated-label{display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:21px;white-space:nowrap}
+[data-theme=paper] .calculated-badge{display:inline-block;padding:1px 5px;border-radius:4px;background:#e6eeea;color:var(--secondary);font-size:9px;line-height:1.7;white-space:nowrap}
+[data-theme=paper] .editor-allocation-card .editor-allocation-heading{padding-top:0;margin-top:0;border-top:0}
+[data-theme=paper] .editor-allocation-card .editor-allocation-heading h2{font-size:13px;color:var(--primary)}
+[data-theme=paper] .editor-allocation-card .editor-allocation-state{margin:6px 0 14px;text-align:left;justify-content:flex-start}
+[data-theme=paper] .allocation-grid input,[data-theme=paper] .editor-allocation input{font-variant-numeric:tabular-nums}
+[data-theme=paper] .plan-hours-field{gap:9px}
+@media(max-width:360px){
+[data-theme=paper] .paper-form-card{padding:16px 14px}
+[data-theme=paper] .work-fields.paper-form-card{padding-top:16px}
+[data-theme=paper] .editor-time-grid,[data-theme=paper] .editor-rest-worked{column-gap:10px}
+[data-theme=paper] .calculated-label{font-size:11px;gap:3px}
+[data-theme=paper] .calculated-badge{padding-inline:4px;font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){[data-theme=paper] :is(.paper-input,.time-input,.rest-inputs input){transition:none}}

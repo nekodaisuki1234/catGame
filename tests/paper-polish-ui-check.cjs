@@ -9,6 +9,8 @@ const root=path.resolve(__dirname,".."),server=http.createServer((req,res)=>{
 });
 const ENTRIES=[{file:"a-paper.html?screen=1",mode:"demo",key:"day-paper-attendance-v1"},{file:"a-paper-app.html",mode:"local",key:"day-paper-local-v1"}];
 const OCTOBER="2026-10-27T12:00:00Z",HOLIDAY="2026-11-03T12:00:00Z",WIDTHS=[320,390,430];
+const screenshots=process.env.PAPER_SCREENSHOT_DIR;
+if(screenshots)fs.mkdirSync(screenshots,{recursive:true});
 async function run(){
  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
  const browser=await chromium.launch({headless:true,executablePath:process.env.PAPER_CHROMIUM_PATH||(fs.existsSync("/usr/bin/chromium")?"/usr/bin/chromium":undefined),args:["--no-sandbox"]}),errors=[];
@@ -79,6 +81,45 @@ async function run(){
  };
  const homeControls=".time-area input,.work-fields input,.work-fields select,.work-fields textarea,#restEditor input,#restEditor button,.punch-actions button,[data-action=edit-plan]";
  const formControls=form=>form+" input,"+form+" select,"+form+" textarea,"+form+" button";
+ const aboveLabels=async(page,selector,label)=>{
+  const fields=await page.locator(selector).evaluateAll(nodes=>nodes.filter(node=>node.getBoundingClientRect().height>0).map(node=>{
+   const caption=node.labels?.[0],text=caption?.contains(node)?[...caption.children].find(child=>child!==node&&!child.contains(node)):caption;
+   const field=node.getBoundingClientRect(),name=text?.getBoundingClientRect();
+   return {id:node.id,text:text?.textContent.trim(),fieldTop:field.top,labelBottom:name?.bottom};
+  }));
+  assert.ok(fields.length,label+" has labelled inputs");
+  for(const field of fields){
+   assert.ok(field.text,label+" "+field.id+" needs a visible associated label");
+   assert.ok(field.labelBottom<=field.fieldTop+1,label+" "+field.id+" label must sit above its input: "+JSON.stringify(field));
+  }
+ };
+ const pairedTimes=async(page,start,end,label)=>{
+  const positions=await page.evaluate(({start,end})=>[start,end].map(selector=>{
+   const rect=document.querySelector(selector).getBoundingClientRect();return {top:rect.top,left:rect.left,right:rect.right};
+  }),{start,end});
+  assert.ok(Math.abs(positions[0].top-positions[1].top)<=1,label+" departure and arrival fields must align");
+  assert.ok(positions[0].right<positions[1].left,label+" departure and arrival fields must not overlap");
+ };
+ const groupedFields=async(page,groups,label)=>{
+  const result=await page.evaluate(groups=>{
+   const cards=groups.map(fields=>fields.map(selector=>document.querySelector(selector)?.closest(".paper-form-card")));
+   return {grouped:cards.every(group=>group[0]&&group.every(card=>card===group[0])),distinct:new Set(cards.map(group=>group[0])).size===cards.length};
+  },groups);
+  assert.ok(result.grouped,label+" related fields must be grouped in a card");
+  assert.ok(result.distinct,label+" time, work detail and allocation groups must remain distinguishable");
+ };
+ const focusIndicator=async(page,selector,label)=>{
+  const appearance=node=>{
+   const css=getComputedStyle(node),rect=node.getBoundingClientRect();
+   return {border:css.borderColor,shadow:css.boxShadow,outline:css.outlineStyle,outlineWidth:parseFloat(css.outlineWidth),width:rect.width,height:rect.height};
+  };
+  const input=page.locator(selector),before=await input.evaluate(appearance);
+  await input.focus();await page.clock.runFor(200);const after=await input.evaluate(appearance);
+  assert.equal(await input.evaluate(node=>node===document.activeElement),true,label+" input must receive focus");
+  assert.ok(after.outline!=="none"&&after.outlineWidth>0||after.shadow!=="none"&&after.shadow!==before.shadow||after.border!==before.border,label+" focused input must have a visible indicator");
+  assert.equal(after.width,before.width,label+" focusing must not resize the field");assert.equal(after.height,before.height,label+" focusing must not resize the field");
+ };
+ const screenshot=async(page,name,width)=>{if(screenshots&&width===390)await page.screenshot({path:path.join(screenshots,name+".png"),fullPage:true});};
  const homePositions=page=>page.evaluate(()=>Object.fromEntries([".hero-composition",".hero-date","#paperClock","#punchActions",".time-area","#restEditor",".work-fields"].map(selector=>{
   const rect=document.querySelector(selector).getBoundingClientRect();return [selector,{top:rect.top+scrollY,height:rect.height}];
  })));
@@ -168,6 +209,10 @@ async function run(){
    for(const width of WIDTHS){
     await layout.setViewportSize({width,height:844});await fixture(layout);const screen=label+" "+width+"px";
     await paperAppearance(layout);await clockGeometry(layout,screen,true);await controls(layout,homeControls,screen+" home");
+    await aboveLabels(layout,"#startTime,#endTime,#workPlace,#workNote",screen+" home");
+    await pairedTimes(layout,"#startTime","#endTime",screen+" home");
+    await groupedFields(layout,[["#startTime","#endTime","#restEditor"],["#workPlace","#workNote"]],screen+" home");
+    await focusIndicator(layout,"#workNote",screen+" home");await screenshot(layout,label+"-paper-forms-home",width);
     assert.equal(await layout.locator("#homeMissingNotice").isVisible(),true);const warningPositions=await homePositions(layout);
     assert.equal((await layout.locator("#homeMissingSlot").boundingBox()).height,44);
     await fixture(layout,{missing:false});assert.equal(await layout.locator("#homeMissingNotice").isVisible(),false);
@@ -175,16 +220,36 @@ async function run(){
     await layout.locator("[data-action=rest]").click();await controls(layout,homeControls,screen+" home rest editor");
     await layout.locator("[data-action=detail][data-detail=leave]").click();await layout.locator("#leaveType").selectOption("comp");
     await controls(layout,formControls("#leaveForm"),screen+" leave");
+    await aboveLabels(layout,"#leaveType,#leaveSourceDay",screen+" leave");
+    await layout.locator("[data-action=detail][data-detail=allocation]").click();
+    await controls(layout,formControls("#allocationForm"),screen+" allocation");
+    await aboveLabels(layout,"#allocationForm input",screen+" allocation");
     await layout.locator("#nav-settings").click();await controls(layout,formControls("#defaultsForm"),screen+" defaults");
+    await aboveLabels(layout,"#defaultPlace,#defaultNote,#defaultBreak",screen+" defaults");
     await layout.locator("[data-action=settings-tab][data-tab=sheet]").click();await controls(layout,formControls("#settingsForm"),screen+" settings");
+    await aboveLabels(layout,"#minHours,#maxHours,#plannedHoursMode,#plannedHours,#workSummary,#projectSelect,#projectName,#projectDescription,#placeSelect,#placeCode,#placeName,#placeAddress",screen+" settings");
+    await groupedFields(layout,[["#minHours","#maxHours","#plannedHours"],["#projectName","#projectDescription"],["#placeCode","#placeName","#placeAddress"]],screen+" settings");
+    await screenshot(layout,label+"-paper-forms-settings",width);
     await layout.locator("#nav-home").click();await layout.locator("[data-action=edit-day][data-day='2026-11-03']").click();
     await controls(layout,formControls("#dayForm")+",#editDate,.editor-date-switcher button",screen+" record editor");
+    await aboveLabels(layout,"#editStart,#editEnd,#editBreak,#editLeave,#editPlace,#editNote,#dayForm input[name]",screen+" record editor");
+    await pairedTimes(layout,"#editStart","#editEnd",screen+" record editor");
+    await groupedFields(layout,[["#editStart","#editEnd","#editBreak","#editWorked"],["#editLeave","#editPlace","#editNote"],["#editAllocP1","#editAllocP2"]],screen+" record editor");
+    assert.equal(await layout.locator("#editWorked").evaluate(node=>node.tagName==="OUTPUT"&&!node.isContentEditable),true,screen+" calculated hours must be read-only output");
+    assert.match(await layout.locator("#editWorked").evaluate(node=>node.closest(".form-field").textContent),/自動計算/);
+    await layout.locator("#editStart").fill("09:00");await layout.locator("#editEnd").fill("18:00");await layout.locator("#editBreak").fill("01:30");
+    assert.equal(await layout.locator("#editWorked").evaluate(node=>node.textContent.replace(/\s+/g,"")),"7.5時間",screen+" grouped time controls must update calculated hours");
+    await focusIndicator(layout,"#editNote",screen+" record editor");await screenshot(layout,label+"-paper-forms-editor",width);
+    await layout.locator("#editLeave").selectOption("comp");
+    await controls(layout,"#editSourceDay",screen+" compensatory leave source");await aboveLabels(layout,"#editSourceDay",screen+" compensatory leave source");
+    await layout.locator("#editLeave").selectOption("");assert.equal(await layout.locator("#editSourceDay").isVisible(),false);
     await layout.locator("#nav-home").click();await openPlan(layout,"2026-11");
     await controls(layout,formControls("#planForm")+",#paperDialog .dialog-close",screen+" monthly plan");
+    await aboveLabels(layout,"#planHoursInput,#planMode",screen+" monthly plan");
     await layout.locator("#paperDialog .dialog-close").click();
    }
    await layout.clock.setSystemTime(new Date(OCTOBER));await fixture(layout);await clockGeometry(layout,label+" ordinary day",false);
-   console.log("PASS "+label+" compact date/clock, inline holiday, stable missing-warning space, Paper appearance and 320/390/430px home/settings/editor/leave/plan form geometry");
+   console.log("PASS "+label+" compact date/clock, inline holiday, stable missing-warning space, Paper appearance, grouped labelled forms, aligned time pairs, read-only calculated hours and focus/tap geometry at 320/390/430px");
    await visual.context.close();
   }
   assert.deepEqual(errors,[]);console.log("PASS both HTML entries without browser errors");
