@@ -3,7 +3,7 @@ const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("n
 const context={window:{},Intl,Date};vm.createContext(context);
 for(const file of ["paper-holidays.js","paper-core.js"])vm.runInContext(fs.readFileSync(path.join(__dirname,"../day-designs",file),"utf8"),context);
 const C=context.window.PaperAttendance,now={day:"2026-10-27",minutes:21*60},day="2026-10-26",period={start:day,end:day},base=C.seed(now);
-const allocation=minutes=>({P1:minutes/60,P2:0,P3:0,P4:0,P5:0,SET:0});
+const allocation=minutes=>({P1:minutes/60,P2:0,P3:0,P4:0,SET:0});
 const record=(changes={})=>({...C.empty(base),start:"09:00",end:"18:00",note:"結合テストを実施",allocation:allocation(480),...changes});
 const stateFor=(r,d=day)=>({...C.clone(base),records:r===undefined?{}:{[d]:r}});
 const check=(r,options={})=>C.submissionCheck(stateFor(r),period,now,options);
@@ -72,12 +72,12 @@ for(const minutes of [0,479,481]){
  assert.equal(save(r,{strictAllocation:true}).ok,false,"explicit editor requires exact allocation, including all-zero allocation");
  assert.ok(C.hydrate(stateFor(r),now),"historical mismatches remain loadable");
 }
-const split=record({allocation:{P1:1.5,P2:1.25,P3:1,P4:.25,P5:.5,SET:3.5}});
-assert.equal(check(split).ok,true,"all six allocation buckets count toward the exact sum");
+const split=record({allocation:{P1:1.5,P2:1.25,P3:1,P4:.25,SET:4}});
+assert.equal(check(split).ok,true,"all five allocation buckets count toward the exact sum");
 assert.equal(save(split,{strictAllocation:true}).ok,true);
 assert.equal(check(overFour).ok,true,"fractional hours representing exact minutes are supported");
 assert.equal(save(overFour,{strictAllocation:true}).ok,true);
-for(const r of [record({allocation:{P1:7.123,P2:0,P3:0,P4:0,P5:0,SET:0}}),record({allocation:allocation(-1)}),record({note:42}),record({leave:"compensatory"}),record({end:"05:00"})])assert.equal(check(r).ok,false,"submission always performs structural validation first");
+for(const r of [record({allocation:{P1:7.123,P2:0,P3:0,P4:0,SET:0}}),record({allocation:allocation(-1)}),record({note:42}),record({leave:"compensatory"}),record({end:"05:00"})])assert.equal(check(r).ok,false,"submission always performs structural validation first");
 
 const missing=C.submissionCheck(stateFor(undefined),period,now);
 assert.equal(missing.ok,false);assert.equal(missing.errors.length,1);assert.equal(missing.errors[0].day,day);
@@ -129,7 +129,7 @@ for(const r of [record(),overFour,overnight,negative,zeroHours]){
  const original=JSON.stringify(r),assigned=C.allocateToP1(r,day,now),net=Math.max(0,C.worked(r,day,now));
  assert.notEqual(assigned,r);assert.notEqual(assigned.allocation,r.allocation);
  assert.equal(assigned.allocation.P1,net/60);
- for(const key of ["P2","P3","P4","P5","SET"])assert.equal(assigned.allocation[key],0);
+ for(const key of ["P2","P3","P4","SET"])assert.equal(assigned.allocation[key],0);
  assert.equal(JSON.stringify(r),original,"automatic P1 allocation does not mutate its input");
  assert.equal(assigned.note,r.note);assert.equal(assigned.start,r.start);
 }

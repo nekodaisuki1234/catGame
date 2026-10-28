@@ -19,7 +19,7 @@ async function run(){
     const C=window.PaperAttendance,now=C.clock(),state=C.seed(now);state.records={};
     for(const day of C.dates(C.FIRST,C.add(now.day,-1)))if(C.workday(day))state.records[day]={...C.empty(state),leave:"holiday"};
     state.records["2026-04-01"]={...C.empty(state),leave:"paid"};
-    state.records["2026-10-20"]={...C.empty(state),leave:"am",start:"09:00",end:"13:00",breakMinutes:0,allocation:{P1:4,P2:0,P3:0,P4:0,P5:0,SET:0}};
+    state.records["2026-10-20"]={...C.empty(state),leave:"am",start:"09:00",end:"13:00",breakMinutes:0,allocation:{P1:4,P2:0,P3:0,P4:0,SET:0}};
     delete state.records["2026-10-26"];localStorage.setItem(C.KEY,JSON.stringify(state));
    });await page.reload();
   }

@@ -18,7 +18,7 @@ async function run(){
    const C=window.PaperAttendance,state=C.seed(C.clock());state.records={};
    // Ten completed workdays give 80 hours: the difference between 168 and 160 is visible in the ring.
    for(const day of ["2026-10-01","2026-10-02","2026-10-05","2026-10-06","2026-10-07","2026-10-08","2026-10-09","2026-10-13","2026-10-14","2026-10-15"]){
-    state.records[day]={...C.empty(state),start:"09:00",end:"18:00",breakMinutes:60,allocation:{P1:8,P2:0,P3:0,P4:0,P5:0,SET:0}};
+    state.records[day]={...C.empty(state),start:"09:00",end:"18:00",breakMinutes:60,allocation:{P1:8,P2:0,P3:0,P4:0,SET:0}};
    }
    state.settings.plannedHoursByMonth=options.overrides||{};
    if(Object.hasOwn(options,"legacy")){delete state.settings.plannedHoursByMonth;state.settings.plannedHours=options.legacy;}

@@ -31,7 +31,7 @@ async function run(){
   await page.evaluate(({kind,day})=>{
    const C=window.PaperAttendance,config=window.PaperConfig,now=C.clock(),state=config.mode==="local"?C.createState(now,{startDay:"2026-10-01"}):C.seed(now);
    state.records={};state.submissions={};
-   if(kind!=="empty")state.records[day]={...C.empty(state),start:"09:00",end:kind==="complete"?"18:00":"",note:"保存済みの作業内容",allocation:{P1:kind==="complete"?6:0,P2:kind==="complete"?2:0,P3:0,P4:0,P5:0,SET:0}};
+   if(kind!=="empty")state.records[day]={...C.empty(state),start:"09:00",end:kind==="complete"?"18:00":"",note:"保存済みの作業内容",allocation:{P1:kind==="complete"?6:0,P2:kind==="complete"?2:0,P3:0,P4:0,SET:0}};
    localStorage.setItem(config.storageKey,JSON.stringify(state));
   },{kind,day:DAY});await page.reload();await ready(page);
  };

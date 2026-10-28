@@ -34,7 +34,7 @@ assert.equal(C.employee(custom).name,'佐藤 & <花子>',"initial state owns a s
 assert.deepEqual(plain(C.pastMissing(custom,now)),["2026-10-26","2026-10-27"]);
 assert.deepEqual(plain(C.missing(custom,C.month(now.day),now)),["2026-10-26","2026-10-27","2026-10-28"]);
 assert.match(sheets(custom)["xl/worksheets/sheet1.xml"],/佐藤 &amp; &lt;花子&gt;/,"Excel uses the configured employee with XML escaping");
-const complete={...C.empty(custom),start:"09:00",end:"18:00",note:"設計",allocation:{P1:8,P2:0,P3:0,P4:0,P5:0,SET:0}};
+const complete={...C.empty(custom),start:"09:00",end:"18:00",note:"設計",allocation:{P1:8,P2:0,P3:0,P4:0,SET:0}};
 for(const day of ["2026-10-25","2026-02-30","2026-10-29"]){
  assert.equal(C.validateRecord(complete,day,now,custom.settings).ok,false,"record outside the local date boundary: "+day);
  assert.equal(C.validateRecordChange(custom,day,complete,now).ok,false);
@@ -49,7 +49,7 @@ assert.equal(C.submissionCheck(filled,{start:"2026-10-01",end:"2026-10-25"},now)
 
 // Local start dates also permit real records older than the former fixed demo start.
 const historical=C.createState(now,{startDay:"2026-03-28"}),source="2026-03-28",compDay="2026-03-30";
-historical.records[source]={...C.empty(historical),start:"09:00",end:"18:00",note:"休日出勤",allocation:{P1:8,P2:0,P3:0,P4:0,P5:0,SET:0}};
+historical.records[source]={...C.empty(historical),start:"09:00",end:"18:00",note:"休日出勤",allocation:{P1:8,P2:0,P3:0,P4:0,SET:0}};
 assert.equal(C.validateRecord(historical.records[source],source,now,historical.settings).ok,true);
 assert.deepEqual(plain(C.compSources(historical,compDay,now)),[source],"compensatory sources use the configured start date");
 const comp={...C.empty(historical),leave:"comp",sourceDay:source};

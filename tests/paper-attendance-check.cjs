@@ -83,7 +83,7 @@ assert.equal(check({...normal,locationId:"invalid"}).ok,false);
 assert.equal(check({...normal,note:"a".repeat(1001)}).ok,false);
 assert.equal(check(normal,"2026-10-28").ok,false);
 assert.equal(check(normal,"2026-02-30").ok,false);
-const assigned={...normal,allocation:{P1:6,P2:0,P3:0,P4:0,P5:0,SET:2}};
+const assigned={...normal,allocation:{P1:6,P2:0,P3:0,P4:0,SET:2}};
 assert.equal(check(assigned).ok,true);
 const negative={...assigned,breakMinutes:600};
 assert.equal(check(negative).ok,true,"negative net time warns rather than blocking, even with existing allocations");
@@ -105,9 +105,9 @@ for(const change of [{end:"18:15"},{breakMinutes:30}]){
 }
 assert.equal(check(normal).warnings.length,0,"unallocated time is not an allocation mismatch warning");
 assert.equal(check({...assigned,end:""}).ok,true,"an unfinished workday can retain provisional allocations");
-assert.equal(check({...normal,end:"17:01",allocation:{P1:7.01666667,P2:0,P3:0,P4:0,P5:0,SET:0}}).ok,true);
-assert.equal(check({...normal,allocation:{P1:7.123,P2:0,P3:0,P4:0,P5:0,SET:0}}).ok,false);
-assert.equal(check({...normal,allocation:{P1:-1,P2:0,P3:0,P4:0,P5:0,SET:0}}).ok,false);
+assert.equal(check({...normal,end:"17:01",allocation:{P1:7.01666667,P2:0,P3:0,P4:0,SET:0}}).ok,true);
+assert.equal(check({...normal,allocation:{P1:7.123,P2:0,P3:0,P4:0,SET:0}}).ok,false);
+assert.equal(check({...normal,allocation:{P1:-1,P2:0,P3:0,P4:0,SET:0}}).ok,false);
 const october=C.summary(data,C.month(now.day),now);
 assert.equal(october.minutes,5310);assert.equal(october.leave,1);
 assert.equal(october.allocation.P1,86.5);assert.equal(october.allocation.SET,2);

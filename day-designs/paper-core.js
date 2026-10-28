@@ -1,7 +1,7 @@
 (function(global){
 "use strict";
 const VERSION=1,KEY="day-paper-attendance-v1",FIRST="2026-04-01";
-const PROJECTS=["P1","P2","P3","P4","P5","SET"],PROJECT_IDS=PROJECTS.slice(0,-1),WEEK=["日","月","火","水","木","金","土"];
+const PROJECTS=["P1","P2","P3","P4","SET"],PROJECT_IDS=PROJECTS,WEEK=["日","月","火","水","木","金","土"];
 const LEAVES={"":"休暇なし",paid:"有給休暇",am:"午前半休",pm:"午後半休",holiday:"公休",special:"特別休暇",comp:"代休"};
 const DEMO_EMPLOYEE={name:"田中 花子",department:"営業",id:"E001"},EMPLOYEE_FIELDS=["name","department","id"];
 const pad=n=>String(n).padStart(2,"0"),clone=value=>JSON.parse(JSON.stringify(value));
@@ -64,6 +64,12 @@ function absenceMinutes(r,day,now){
  return Math.max(0,480-credit-Math.max(0,span-r.breakMinutes));
 }
 function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,leave:"",sourceDay:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
+const validAllocationHours=value=>Number.isFinite(value)&&value>=0&&value<=24&&Math.abs(value*60-Math.round(value*60))<=1e-5;
+function legacyAllocationSource(record){
+ const source=record?.legacyProjectAllocation,value=record?.allocation?.SET;
+ return !!source&&typeof source==="object"&&!Array.isArray(source)&&Object.keys(source).length===2&&Object.hasOwn(source,"P5")&&Object.hasOwn(source,"SET")&&validAllocationHours(source.P5)&&validAllocationHours(source.SET)&&Number.isFinite(value)&&value>24&&value<=48&&Math.abs(value*60-Math.round(value*60))<=1e-5&&Math.round(value*60)===Math.round(source.P5*60)+Math.round(source.SET*60);
+}
+function allocationMax(record,key){return key==="SET"&&legacyAllocationSource(record)?48:24;}
 function validateRecord(r,day,now,settings,options={}){
  const bad=error=>({ok:false,error});
  const first=settings?.attendanceStartDay||FIRST;
@@ -82,7 +88,8 @@ function validateRecord(r,day,now,settings,options={}){
   const span=timeToMin(r.end)+(r.overnight?1440:0)-timeToMin(r.start);
   if(span<0)return bad("翌日の退勤は「翌日に退勤」を選んでください。");
  }
- if(!r.allocation||PROJECTS.some(k=>!Number.isFinite(r.allocation[k])||r.allocation[k]<0||r.allocation[k]>24||Math.abs(r.allocation[k]*60-Math.round(r.allocation[k]*60))>1e-5))return bad("工数は0〜24時間で、分単位で入力してください。");
+ if(r.legacyProjectAllocation!==undefined&&!legacyAllocationSource(r))return bad("統合前の工数の保存情報を確認してください。");
+ if(!r.allocation||Object.hasOwn(r.allocation,"P5")||PROJECTS.some(k=>!Number.isFinite(r.allocation[k])||r.allocation[k]<0||r.allocation[k]>allocationMax(r,k)||Math.abs(r.allocation[k]*60-Math.round(r.allocation[k]*60))>1e-5))return bad("工数は0〜24時間で、分単位で入力してください。");
  const allocated=PROJECTS.reduce((sum,k)=>sum+Math.round(r.allocation[k]*60),0);
  if(allocated&&!r.start)return bad("工数は出勤時刻を入力してから設定してください。");
  const net=worked(r,day,now),complete=!!r.start&&!!r.end;
@@ -131,18 +138,18 @@ function validateSettings(s){
   if(!planned||typeof planned!=="object"||Array.isArray(planned)||Object.entries(planned).some(([key,value])=>!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)||!Number.isFinite(value)||value<0||value>744))return "月ごとの勤務予定は年月と0〜744時間を確認してください。";
  }
  if(typeof s.workSummary!=="string"||s.workSummary.length>1000)return "作業概要は1000文字以内で入力してください。";
- if(!Array.isArray(s.projects)||s.projects.length!==PROJECT_IDS.length)return "PJはP1〜P5の略称と概要を設定してください。";
+ if(!Array.isArray(s.projects)||s.projects.length!==PROJECT_IDS.length)return "PJはP1〜P4・SETの略称と概要を設定してください。";
  for(const [i,p] of s.projects.entries())if(!p||p.id!==PROJECT_IDS[i]||typeof p.name!=="string"||!p.name.trim()||p.name.length>80||typeof p.description!=="string"||p.description.length>1000)return "PJ "+PROJECT_IDS[i]+"の略称と概要を確認してください。";
  if(!Array.isArray(s.places)||s.places.length!==3||s.places.some((p,i)=>p.id!=="place"+(i+1)||typeof p.code!=="string"||!p.code.trim()||p.code.length>80||typeof p.name!=="string"||!p.name.trim()||p.name.length>80||typeof p.address!=="string"||p.address.length>1000))return "作業場所・名称・住所を確認してください。";
  return "";
 }
 function createState(now,{startDay=now.day,employee:identity={name:"",department:"",id:""}}={}){
- const settings={attendanceStartDay:startDay,employee:identity,minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"",projects:PROJECT_IDS.map((id,i)=>({id,name:"プロジェクト"+(i+1),description:""})),places:[1,2,3].map(n=>({id:"place"+n,code:"場所"+n,name:"勤務場所"+n,address:""}))};
+ const settings={attendanceStartDay:startDay,employee:identity,minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"",projects:PROJECT_IDS.map((id,i)=>({id,name:id==="SET"?"SET":"プロジェクト"+(i+1),description:""})),places:[1,2,3].map(n=>({id:"place"+n,code:"場所"+n,name:"勤務場所"+n,address:""}))};
  const error=validateSettings(settings);if(error)throw new TypeError(error);
  return {version:VERSION,revision:0,mode:"local",defaults:{locationId:"place1",note:"",breakMinutes:60},settings:clone(settings),records:{},submissions:{}};
 }
 function seed(now){
- const settings={minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"ことら送金対応",projects:PROJECT_IDS.map((id,i)=>({id,name:i?"プロジェクト"+(i+1):"デビプリ",description:i?"":"アプラス、千葉銀行など開発案件"})),places:[{id:"place1",code:"TIS1",name:"TIS本社1",address:"大阪堂北ビル"},{id:"place2",code:"クロノス",name:"クロノス",address:""},{id:"place3",code:"在宅",name:"在宅勤務",address:""}]};
+ const settings={minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"ことら送金対応",projects:PROJECT_IDS.map((id,i)=>({id,name:id==="SET"?"SET":i?"プロジェクト"+(i+1):"デビプリ",description:i?"":"アプラス、千葉銀行など開発案件"})),places:[{id:"place1",code:"TIS1",name:"TIS本社1",address:"大阪堂北ビル"},{id:"place2",code:"クロノス",name:"クロノス",address:""},{id:"place3",code:"在宅",name:"在宅勤務",address:""}]};
  const state={version:VERSION,revision:0,mode:"demo",defaults:{locationId:"place2",note:"テスト対応",breakMinutes:60},settings,records:{},submissions:{}};
  // Clearly marked fictional history, isolated from every other design and the main app.
  const totals=[10395,9630,10260,9660,11085,9150,5310];
@@ -160,8 +167,9 @@ function seed(now){
 }
 function hydrate(raw,now){
  if(!raw||raw.version!==VERSION||!Number.isInteger(raw.revision)||raw.revision<0||!raw.settings||!raw.defaults||!raw.records||Array.isArray(raw.records)||typeof raw.records!=="object"||!raw.submissions||Array.isArray(raw.submissions)||typeof raw.submissions!=="object")return null;
- const legacyProjects=Array.isArray(raw.settings.projects)&&raw.settings.projects.length===4&&raw.settings.projects.every((p,i)=>p?.id===PROJECT_IDS[i]);
- const settings=legacyProjects?{...raw.settings,projects:[...raw.settings.projects,{id:"P5",name:"プロジェクト5",description:""}]}:raw.settings;
+ const oldFour=Array.isArray(raw.settings.projects)&&raw.settings.projects.length===4&&raw.settings.projects.every((p,i)=>p?.id===PROJECT_IDS[i]);
+ const oldFive=Array.isArray(raw.settings.projects)&&raw.settings.projects.length===5&&raw.settings.projects.every((p,i)=>p?.id===(i===4?"P5":PROJECT_IDS[i]));
+ const settings=oldFour?{...raw.settings,projects:[...raw.settings.projects,{id:"SET",name:"SET",description:""}]}:oldFive?{...raw.settings,projects:raw.settings.projects.map((p,i)=>i===4?{...p,id:"SET"}:p)}:raw.settings;
  // Validate original values before JSON cloning can drop undefined keys or change NaN.
  if(validateSettings(settings))return null;
  if(raw.mode!==undefined&&raw.mode!=="demo"&&raw.mode!=="local")return null;
@@ -169,17 +177,21 @@ function hydrate(raw,now){
  const d=raw.defaults;
  if(!settings.places.some(p=>p.id===d.locationId)||typeof d.note!=="string"||d.note.length>1000||!Number.isInteger(d.breakMinutes)||d.breakMinutes<0||d.breakMinutes>1440)return null;
  // Validate stored dates against end-of-day, so a saved record survives clock changes.
+ const migratedRecords={};
  for(const [day,r] of Object.entries(raw.records)){
-  const oldAllocation=legacyProjects&&r?.allocation&&typeof r.allocation==="object"&&!Array.isArray(r.allocation)&&!Object.hasOwn(r.allocation,"P5");
-  const candidate=oldAllocation?{...r,allocation:{...r.allocation,P5:0}}:r;
+  let candidate=r;
+  const allocation=r?.allocation;
+  if((oldFour||oldFive)&&allocation&&typeof allocation==="object"&&!Array.isArray(allocation)&&Object.hasOwn(allocation,"P5")){
+   if(!validAllocationHours(allocation.P5)||!Object.hasOwn(allocation,"SET")||!validAllocationHours(allocation.SET)||r.legacyProjectAllocation!==undefined)return null;
+   const originalSET=allocation.SET,minutes=Math.round(allocation.P5*60)+Math.round(originalSET*60),nextAllocation={...allocation,SET:minutes/60};delete nextAllocation.P5;
+   candidate={...r,allocation:nextAllocation};
+   if(minutes>1440)candidate.legacyProjectAllocation={P5:allocation.P5,SET:originalSET};
+  }else if(oldFive&&!Object.hasOwn(allocation||{},"P5"))return null;
   if(!validateRecord(candidate,day,{day:day>now.day?day:now.day,minutes:1439},settings).ok)return null;
+  migratedRecords[day]=candidate;
  }
  for(const [key,s] of Object.entries(raw.submissions))if(!/^\d{4}-\d{2}-\d{2}\|\d{4}-\d{2}-\d{2}$/.test(key)||!s||typeof s.at!=="string"||!Number.isFinite(Date.parse(s.at))||typeof s.test!=="boolean")return null;
- let state;try{state=clone(raw);}catch{return null;}
- if(legacyProjects){
-  state.settings.projects.push({id:"P5",name:"プロジェクト5",description:""});
-  for(const [day,r] of Object.entries(state.records))if(!Object.hasOwn(raw.records[day].allocation,"P5"))r.allocation.P5=0;
- }
+ let state;try{state=clone({...raw,settings,records:migratedRecords});}catch{return null;}
  if(state.settings.plannedHoursByMonth===undefined){
   state.settings.plannedHoursByMonth={};
   // The former demo default becomes automatic; preserve other saved choices for this month.
@@ -329,5 +341,5 @@ function workbook(state,period,now){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,absenceMinutes,empty,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
+global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,absenceMinutes,empty,allocationMax,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
 })(window);
