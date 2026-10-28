@@ -27,7 +27,8 @@ async function run(){
  };
  const state=page=>page.evaluate(()=>JSON.parse(localStorage.getItem(window.PaperAttendance.KEY)));
  const openPlan=async page=>{
-  await page.locator("[data-action=edit-plan]").click();
+  await page.locator("#nav-settings").click();
+  await page.locator("[data-action=settings-tab][data-tab=sheet]").click();
   assert.equal(await page.locator("main h1").innerText(),"設定");
   assert.equal(await page.locator("[data-action=settings-tab][data-tab=sheet]").getAttribute("aria-pressed"),"true");
   assert.equal(await page.locator("#settingsForm").isVisible(),true);
@@ -36,7 +37,7 @@ async function run(){
  const setMode=(page,mode)=>page.locator("#plannedHoursMode").selectOption(mode);
  const expectMode=async(page,mode,value)=>{
   assert.equal(await page.locator("#plannedHoursMode").inputValue(),mode);
-  assert.equal(await page.locator("#plannedHours").isDisabled(),mode==="auto");
+  assert.equal(await page.locator("#plannedHours").isDisabled(),false,"automatic plans must remain directly editable");
   assert.equal(await page.locator("#plannedHours").inputValue(),value);
  };
  const expectSummary=async(page,planned,percent,remaining,offset)=>{
@@ -52,14 +53,45 @@ async function run(){
   for(const width of [320,390,430]){
    await page.setViewportSize({width,height:844});
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+" overflow at "+width);
-   for(const selector of ["#plannedHoursValue","[data-action=edit-plan]","#plannedHoursMode","#plannedHours","#plannedHoursHint"]){
+   for(const selector of ["#plannedHoursValue","[data-action=edit-plan]","#plannedHoursMode","#plannedHours","#plannedHoursHint","#planMode","#planHoursInput","#planHoursHint"]){
     const node=page.locator(selector);if(!await node.count())continue;
     const box=await node.boundingBox();assert.ok(box&&box.x>=-1&&box.x+box.width<=width+1,label+" "+selector+" outside viewport at "+width);
    }
   }
   await page.setViewportSize({width:390,height:844});
  };
+ const openPlanDialog=async page=>{
+  await page.locator("[data-action=edit-plan]").click();
+  assert.equal(await page.locator("#paperDialog").evaluate(node=>node.open),true);
+  assert.equal(await page.locator("#planForm").getAttribute("data-month"),"2026-10");
+  assert.equal(await page.locator("main h1").innerText(),"今日の勤怠");
+ };
+ const savePlanDialog=async page=>{
+  await page.locator("#planForm button[type=submit]").click();
+  await page.waitForFunction(()=>!document.querySelector("#paperDialog").open);
+ };
  try{
+  // A monthly plan is a small, independent edit, even with an invalid settings draft elsewhere.
+  const compact=await fresh("2026-10-27T12:00:00Z",{overrides:{"2026-09":152,"2026-11":144}});
+  await openPlan(compact);await compact.locator("#minHours").fill("");await compact.locator("#projectName").fill("");
+  await compact.locator("#workSummary").fill("保存しない設定の下書き");await compact.locator("#nav-home").click();
+  const beforeCompact=await state(compact);await openPlanDialog(compact);
+  assert.equal(await compact.locator("#planMode").inputValue(),"auto");assert.equal(await compact.locator("#planHoursInput").isEditable(),true);
+  await compact.locator("#planHoursInput").fill("160");
+  assert.equal(await compact.locator("#planMode").inputValue(),"manual","typing a plan must select manual mode automatically");
+  await noOverflow(compact,"compact monthly plan");await savePlanDialog(compact);
+  const afterCompact=await state(compact);
+  assert.deepEqual(afterCompact.settings,{...beforeCompact.settings,plannedHoursByMonth:{"2026-09":152,"2026-10":160,"2026-11":144}},"the dialog must save only this month's override");
+  assert.deepEqual(afterCompact.submissions,beforeCompact.submissions);await expectSummary(compact,160,"50%","予定まで 80時間",50);
+  await openPlan(compact);assert.equal(await compact.locator("#minHours").inputValue(),"");assert.equal(await compact.locator("#projectName").inputValue(),"");
+  assert.equal(await compact.locator("#workSummary").inputValue(),"保存しない設定の下書き");await expectMode(compact,"manual","160");
+  await compact.locator("#nav-home").click();await compact.reload();await expectSummary(compact,160,"50%","予定まで 80時間",50);
+  await openPlanDialog(compact);await compact.locator("[data-action=plan-auto]").click();
+  assert.equal(await compact.locator("#planMode").inputValue(),"auto");assert.equal(await compact.locator("#planHoursInput").inputValue(),"168");
+  await savePlanDialog(compact);assert.deepEqual((await state(compact)).settings.plannedHoursByMonth,{"2026-09":152,"2026-11":144});
+  await expectSummary(compact,168,"48%","予定まで 88時間",100-80/168*100);
+  console.log("PASS direct monthly dialog typing, isolated save despite invalid settings drafts, other-month preservation, reload and automatic reset");
+
   const page=await fresh("2026-10-27T12:00:00Z");
   assert.deepEqual((await state(page)).settings.plannedHoursByMonth,{});
   assert.equal(await page.locator("#homeWorkdays").innerText(),"21日");
@@ -71,6 +103,9 @@ async function run(){
   // The mode switch must preserve a manual draft while showing the computed value in automatic mode.
   await setMode(page,"manual");await expectMode(page,"manual","168");await page.locator("#plannedHours").fill("160");
   await setMode(page,"auto");await expectMode(page,"auto","168");await setMode(page,"manual");await expectMode(page,"manual","160");
+  await setMode(page,"auto");await page.locator("#projectSelect").selectOption("1");await page.locator("#placeSelect").selectOption("1");
+  await expectMode(page,"auto","168");await setMode(page,"manual");await expectMode(page,"manual","160");
+  await page.locator("#projectSelect").selectOption("0");await page.locator("#placeSelect").selectOption("0");
   await page.locator("#minHours").fill("150");await page.locator("#workSummary").fill("月予定と一緒に保存する下書き");await page.locator("#projectName").fill("PJの下書き");
   await page.locator("#projectSelect").selectOption("1");await expectMode(page,"manual","160");assert.equal(await page.locator("#minHours").inputValue(),"150");assert.equal(await page.locator("#workSummary").inputValue(),"月予定と一緒に保存する下書き");
   await page.locator("#placeSelect").selectOption("1");await expectMode(page,"manual","160");await page.locator("#placeName").fill("場所の下書き");
@@ -121,7 +156,7 @@ async function run(){
   await unknown.reload();await expectSummary(unknown,120,"0%","予定まで 120時間",100);await openPlan(unknown);await expectMode(unknown,"manual","120");
   await setMode(unknown,"auto");await expectMode(unknown,"auto","");await savePlan(unknown);assert.deepEqual((await state(unknown)).settings.plannedHoursByMonth,{"2026-11":144});
   await unknown.locator("#nav-home").click();await expectSummary(unknown,"—","—","予定未設定",100);
-  console.log("PASS unknown 2028 automatic plan stays unavailable, manual plans save/reload, and automatic reset can save a disabled blank field");
+  console.log("PASS unknown 2028 automatic plan stays unavailable, manual plans save/reload, and automatic reset can save an editable blank field");
 
   // The former global 168 default becomes automatic; a customized legacy value is retained for the migration month.
   const legacyDefault=await fresh("2026-11-03T12:00:00Z",{legacy:168});await expectSummary(legacyDefault,152,"0%","予定まで 152時間",100);

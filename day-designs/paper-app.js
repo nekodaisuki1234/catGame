@@ -9,6 +9,7 @@ if(new URLSearchParams(location.search).get("screen")==="1")document.documentEle
 const PRESETS=[0,30,45,60,90];
 let now=C.clock(),renderedDay=now.day,sampleClock="",view="home",detail="summary",restOpen=false,error="",toastTimer,lockUntil=0;
 let selectedMonth=C.month(now.day).start,settingsTab="defaults",projectIndex=0,placeIndex=0,settingsDraft=null,editDay="",submitPeriod=null,testSubmission=true;
+const settingsPlanDrafts=new Map();
 let storageProblem="",data=null,repository=null,unsubscribe=null,loading=false,saving=false;
 const pendingControls=new Map();
 let punchFeedback=null,feedbackTimer,warningTimer;
@@ -58,7 +59,7 @@ function repositoryMessage(issue,fallback){
 }
 function syncPendingControls(){
  if(!saving)return;
- const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="preset"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"]';
+ const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="preset"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"]';
  const controls=[...root.querySelectorAll(selector),...dialog.querySelectorAll(selector),...document.querySelectorAll('[data-state],[data-action="reset"],[data-action="live"]')];
  for(const node of controls){if(node.id==="workNote")continue;if(!pendingControls.has(node))pendingControls.set(node,node.disabled);node.disabled=true;}
 }
@@ -225,17 +226,30 @@ function planningHint(manual,day){
  const monthLabel=day.slice(0,4)+'年'+Number(day.slice(5,7))+'月';
  if(manual)return monthLabel+'の勤務予定を指定できます。ほかの月には影響しません。';
  const days=C.monthWorkdays(day);
- return days==null?monthLabel+'の祝日データは未収録です。「時間を指定」で勤務予定を設定できます。':monthLabel+'：平日'+days+'日 × 8時間 = '+(days*8)+'時間（土日・祝日を除く）。月ごとに自動更新します。';
+ return days==null?monthLabel+'の祝日データは未収録です。時間欄に勤務予定を入力してください。':monthLabel+'：平日'+days+'日 × 8時間 = '+(days*8)+'時間（土日・祝日を除く）。時間を入力すると、この月だけ変更できます。';
 }
 function planningSettings(s){
- const key=now.day.slice(0,7),manual=Object.hasOwn(s.plannedHoursByMonth||{},key),planned=C.plannedHours(s,now.day),value=Number.isFinite(planned)?planned:'';
- return '<div class="planned-settings" data-month="'+key+'"><label class="paper-label" for="plannedHoursMode">勤務予定の設定</label><select id="plannedHoursMode" class="paper-input">'+options([['auto','平日数 × 8時間（自動）'],['manual','時間を指定（この月のみ）']],manual?'manual':'auto')+'</select><label class="paper-label" for="plannedHours">'+key.slice(0,4)+'年'+Number(key.slice(5))+'月の勤務予定（時間）</label><input class="paper-input" type="number" id="plannedHours" min="0" max="744" step="any" required value="'+value+'" data-manual-value="'+value+'" placeholder="—" aria-describedby="plannedHoursHint" '+(manual?'':'disabled')+'><p class="panel-note" id="plannedHoursHint">'+planningHint(manual,key+'-01')+'</p></div>';
+ const key=now.day.slice(0,7),manual=Object.hasOwn(s.plannedHoursByMonth||{},key),planned=C.plannedHours(s,now.day),value=Number.isFinite(planned)?planned:'',manualValue=settingsPlanDrafts.has(key)?settingsPlanDrafts.get(key):value;
+ return '<div class="planned-settings" data-month="'+key+'"><label class="paper-label" for="plannedHoursMode">勤務予定の設定</label><select id="plannedHoursMode" class="paper-input">'+options([['auto','平日数 × 8時間（自動）'],['manual','時間を指定（この月のみ）']],manual?'manual':'auto')+'</select><label class="paper-label" for="plannedHours">'+key.slice(0,4)+'年'+Number(key.slice(5))+'月の勤務予定（時間）</label><input class="paper-input" type="number" id="plannedHours" min="0" max="744" step="any" inputmode="decimal"'+(manual||value!==''?' required':'')+' value="'+value+'" data-manual-value="'+h(manualValue)+'" data-planning-mode="'+(manual?'manual':'auto')+'" placeholder="—" aria-describedby="plannedHoursHint"><p class="panel-note" id="plannedHoursHint">'+planningHint(manual,key+'-01')+'</p></div>';
 }
-function syncPlanningControls(){
- const field=$('plannedHours'),manual=$('plannedHoursMode').value==='manual',day=document.querySelector('.planned-settings').dataset.month+'-01';
- if(manual){if(field.disabled)field.value=field.dataset.manualValue??'';field.disabled=false;}
- else{if(!field.disabled)field.dataset.manualValue=field.value;const days=C.monthWorkdays(day);field.value=days==null?'':days*8;field.disabled=true;}
- $('plannedHoursHint').textContent=planningHint(manual,day);
+function syncPlanningControls(input){
+ const compact=!!input?.closest?.('#planForm'),field=$(compact?'planHoursInput':'plannedHours'),mode=$(compact?'planMode':'plannedHoursMode');
+ if(!field||!mode)return;
+ const container=compact?$('planForm'):field.closest('.planned-settings'),day=container.dataset.month+'-01',typed=input===field,wasManual=field.dataset.planningMode==='manual';
+ if(typed)mode.value='manual';
+ const manual=mode.value==='manual';
+ if(manual){if(!typed&&!wasManual)field.value=field.dataset.manualValue??'';field.dataset.manualValue=field.value;}
+ else{if(wasManual)field.dataset.manualValue=field.value;const days=C.monthWorkdays(day);field.value=days==null?'':days*8;}
+ if(!compact&&(manual||wasManual))settingsPlanDrafts.set(container.dataset.month,field.dataset.manualValue);
+ field.dataset.planningMode=manual?'manual':'auto';
+ field.required=manual||C.monthWorkdays(day)!=null;
+ $(compact?'planHoursHint':'plannedHoursHint').textContent=planningHint(manual,day);
+}
+function openPlan(){
+ captureSettings();
+ const day=clockNow().day,key=day.slice(0,7),manual=Object.hasOwn(data.settings.plannedHoursByMonth||{},key),planned=C.plannedHours(data.settings,day),value=Number.isFinite(planned)?planned:'';
+ openDialog(dialogHeader('勤務予定を変更',key.slice(0,4)+'年'+Number(key.slice(5))+'月の設定')+dialogError()+'<form id="planForm" class="plan-form" data-month="'+key+'"><label class="paper-label" for="planHoursInput">この月の勤務予定（時間）</label><div class="plan-hours-field"><input class="paper-input" type="number" id="planHoursInput" min="0" max="744" step="any" inputmode="decimal"'+(manual||value!==''?' required':'')+' value="'+value+'" data-manual-value="'+value+'" data-planning-mode="'+(manual?'manual':'auto')+'" placeholder="時間を入力" aria-describedby="planHoursHint" autofocus><span aria-hidden="true">時間</span></div><p class="panel-note" id="planHoursHint">'+planningHint(manual,key+'-01')+'</p><label class="paper-label" for="planMode">計算方法</label><select id="planMode" class="paper-input">'+options([['auto','平日数 × 8時間（自動）'],['manual','時間を指定（この月のみ）']],manual?'manual':'auto')+'</select><button type="button" class="text-button plan-auto" data-action="plan-auto">自動計算に戻す</button><div class="paper-actions"><button type="button" class="paper-button secondary" data-action="close-dialog">キャンセル</button><button type="submit" class="paper-button">保存</button></div></form>');
+ $('planHoursInput').focus();
 }
 function settings(){
  const d=data.defaults,s=settingsDraft||data.settings,p=s.projects[projectIndex],place=s.places[placeIndex];
@@ -378,7 +392,8 @@ document.addEventListener("click",async event=>{
  if(!data)return;
  if(button.dataset.state){await sample(button.dataset.state);return;}
  const action=button.dataset.action;
- if(action==='edit-plan'){view='settings';settingsTab='sheet';error='';render();rememberRoute();$('plannedHoursMode').scrollIntoView({block:'center'});return;}
+ if(action==='edit-plan'){openPlan();return;}
+ if(action==='plan-auto'){$('planMode').value='auto';syncPlanningControls($('planMode'));return;}
  if(action==="missing-records"){view="missing";error="";render();rememberRoute();root.scrollIntoView({block:"start"});return;}
  if(action==="missing-back"){history.back();return;}
  if(action==="tab"||action==="home"){
@@ -458,13 +473,16 @@ document.addEventListener("change",async event=>{
   const day=input.value+'-01';if(C.validDay(day)&&day>=firstMonth()&&day<=now.day){rememberList();selectedMonth=day;render();rememberRoute(true);}else{input.value=selectedMonth.slice(0,7);showError("表示できる月を選んでください。");}return;
  }
  if(input.id==="testSubmission"){testSubmission=input.checked;return;}
- if(input.id==='plannedHoursMode'){syncPlanningControls();captureSettings();return;}
+ if(input.id==='planMode'||input.id==='planHoursInput'){syncPlanningControls(input);return;}
+ if(input.id==='plannedHoursMode'||input.id==='plannedHours'){syncPlanningControls(input);captureSettings();return;}
  if(input.id==="projectSelect"||input.id==="placeSelect"){
   captureSettings();if(input.id==="projectSelect")projectIndex=Number(input.value);else placeIndex=Number(input.value);render();return;
  }
 });
 document.addEventListener("input",event=>{
  if(embed||!data)return;
+ if(event.target.id==='planHoursInput'){syncPlanningControls(event.target);return;}
+ if(event.target.id==='plannedHours'){syncPlanningControls(event.target);captureSettings();return;}
  if(event.target.id==="workNote"){setHomeDraft("note",event.target.value);syncWorkStatus();return;}
  if(event.target.id==="restHours"||event.target.id==="restMinutes"){setHomeDraft("rest",{hours:$("restHours").value,minutes:$("restMinutes").value});return;}
  if(event.target.closest?.("#dayForm")){if(event.target.id==='editLeave')syncCompSourceFields(true);applyEditorTimeAllocation(event.target);syncEditor();captureEditor();return;}
@@ -474,6 +492,21 @@ document.addEventListener("input",event=>{
 });
 document.addEventListener("submit",async event=>{
  if(embed||!data)return;event.preventDefault();const id=event.target.id;
+ if(id==='planForm'){
+  const form=event.target,key=form.dataset.month,field=$('planHoursInput'),manual=$('planMode').value==='manual',value=field.value.trim()===''?NaN:Number(field.value);
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)||!C.validDay(key+'-01'))return showError('変更する年月を確認してください。');
+  if(manual&&(!Number.isFinite(value)||value<0||value>744))return showError('勤務予定は0〜744時間で入力してください。');
+  const next=C.clone(data);next.settings.plannedHoursByMonth={...(next.settings.plannedHoursByMonth||{})};
+  if(manual)next.settings.plannedHoursByMonth[key]=value;else delete next.settings.plannedHoursByMonth[key];
+  const issue=C.validateSettings(next.settings);if(issue)return showError(issue);
+  if(await commit(next,'勤務予定を更新しました')){
+   if(settingsDraft){settingsDraft.plannedHoursByMonth={...(settingsDraft.plannedHoursByMonth||{})};if(Object.hasOwn(data.settings.plannedHoursByMonth,key))settingsDraft.plannedHoursByMonth[key]=data.settings.plannedHoursByMonth[key];else delete settingsDraft.plannedHoursByMonth[key];}
+   if(Object.hasOwn(data.settings.plannedHoursByMonth,key))settingsPlanDrafts.set(key,String(data.settings.plannedHoursByMonth[key]));else settingsPlanDrafts.delete(key);
+   if($('planForm')===form)closeDialog();
+   if(view==='home'&&renderedDay===clockNow().day)syncHome(true);else render();
+  }
+  return;
+ }
  if(id==="restForm"){
   const total=readRest();if(total==null)return;if(await updateToday({breakMinutes:total},'休憩時間を保存しました',{autoAllocate:true})){clearHomeDraft("rest");restOpen=false;syncHome();}return;
  }
@@ -495,7 +528,7 @@ document.addEventListener("submit",async event=>{
  if(id==="settingsForm"){
   captureSettings();const issue=C.validateSettings(settingsDraft);if(issue)return showError(issue);
   const next=C.clone(data);next.settings=C.clone(settingsDraft);next.submissions={};
-  if(await commit(next,'勤務表設定を更新しました')){settingsDraft=null;render();}
+  if(await commit(next,'勤務表設定を更新しました')){settingsDraft=null;settingsPlanDrafts.clear();render();}
  }
 });
 dialog.addEventListener("close",()=>{if(!dialog.open)error="";});
