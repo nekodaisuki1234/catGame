@@ -37,7 +37,7 @@ async function run(){
   await page.evaluate(()=>{
    const C=window.PaperAttendance,config=window.PaperConfig,now=C.clock(),state=config.mode==="local"?C.createState(now,{startDay:"2026-09-01"}):C.seed(now);
    state.settings.attendanceStartDay="2026-09-01";state.records={};state.submissions={};
-   const work=(end,breakMinutes,hours)=>({...C.empty(state),start:"09:00",end,breakMinutes,note:"作業内容あり",allocation:{P1:hours,P2:0,P3:0,P4:0,SET:0}});
+   const work=(end,breakMinutes,hours)=>({...C.empty(state),start:"09:00",end,breakMinutes,note:"作業内容あり",allocation:{P1:hours,P2:0,P3:0,P4:0,P5:0,SET:0}});
    state.records["2026-09-30"]=work("16:00",60,6);
    state.records["2026-10-12"]=work("10:00",0,1); // Official holiday.
    state.records["2026-10-20"]={...C.empty(state),leave:"am"}; // Incomplete half leave remains missing.

@@ -1,7 +1,7 @@
 (function(global){
 "use strict";
 const VERSION=1,KEY="day-paper-attendance-v1",FIRST="2026-04-01";
-const PROJECTS=["P1","P2","P3","P4","SET"],WEEK=["日","月","火","水","木","金","土"];
+const PROJECTS=["P1","P2","P3","P4","P5","SET"],PROJECT_IDS=PROJECTS.slice(0,-1),WEEK=["日","月","火","水","木","金","土"];
 const LEAVES={"":"休暇なし",paid:"有給休暇",am:"午前半休",pm:"午後半休",holiday:"公休",special:"特別休暇",comp:"代休"};
 const DEMO_EMPLOYEE={name:"田中 花子",department:"営業",id:"E001"},EMPLOYEE_FIELDS=["name","department","id"];
 const pad=n=>String(n).padStart(2,"0"),clone=value=>JSON.parse(JSON.stringify(value));
@@ -131,17 +131,18 @@ function validateSettings(s){
   if(!planned||typeof planned!=="object"||Array.isArray(planned)||Object.entries(planned).some(([key,value])=>!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)||!Number.isFinite(value)||value<0||value>744))return "月ごとの勤務予定は年月と0〜744時間を確認してください。";
  }
  if(typeof s.workSummary!=="string"||s.workSummary.length>1000)return "作業概要は1000文字以内で入力してください。";
- if(!Array.isArray(s.projects)||s.projects.length!==4||s.projects.some((p,i)=>p.id!==PROJECTS[i]||typeof p.name!=="string"||!p.name.trim()||p.name.length>80||typeof p.description!=="string"||p.description.length>1000))return "各PJの略称と概要を確認してください。";
+ if(!Array.isArray(s.projects)||s.projects.length!==PROJECT_IDS.length)return "PJはP1〜P5の略称と概要を設定してください。";
+ for(const [i,p] of s.projects.entries())if(!p||p.id!==PROJECT_IDS[i]||typeof p.name!=="string"||!p.name.trim()||p.name.length>80||typeof p.description!=="string"||p.description.length>1000)return "PJ "+PROJECT_IDS[i]+"の略称と概要を確認してください。";
  if(!Array.isArray(s.places)||s.places.length!==3||s.places.some((p,i)=>p.id!=="place"+(i+1)||typeof p.code!=="string"||!p.code.trim()||p.code.length>80||typeof p.name!=="string"||!p.name.trim()||p.name.length>80||typeof p.address!=="string"||p.address.length>1000))return "作業場所・名称・住所を確認してください。";
  return "";
 }
 function createState(now,{startDay=now.day,employee:identity={name:"",department:"",id:""}}={}){
- const settings={attendanceStartDay:startDay,employee:identity,minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"",projects:PROJECTS.slice(0,4).map((id,i)=>({id,name:"プロジェクト"+(i+1),description:""})),places:[1,2,3].map(n=>({id:"place"+n,code:"場所"+n,name:"勤務場所"+n,address:""}))};
+ const settings={attendanceStartDay:startDay,employee:identity,minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"",projects:PROJECT_IDS.map((id,i)=>({id,name:"プロジェクト"+(i+1),description:""})),places:[1,2,3].map(n=>({id:"place"+n,code:"場所"+n,name:"勤務場所"+n,address:""}))};
  const error=validateSettings(settings);if(error)throw new TypeError(error);
  return {version:VERSION,revision:0,mode:"local",defaults:{locationId:"place1",note:"",breakMinutes:60},settings:clone(settings),records:{},submissions:{}};
 }
 function seed(now){
- const settings={minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"ことら送金対応",projects:PROJECTS.slice(0,4).map((id,i)=>({id,name:i?"プロジェクト"+(i+1):"デビプリ",description:i?"":"アプラス、千葉銀行など開発案件"})),places:[{id:"place1",code:"TIS1",name:"TIS本社1",address:"大阪堂北ビル"},{id:"place2",code:"クロノス",name:"クロノス",address:""},{id:"place3",code:"在宅",name:"在宅勤務",address:""}]};
+ const settings={minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"ことら送金対応",projects:PROJECT_IDS.map((id,i)=>({id,name:i?"プロジェクト"+(i+1):"デビプリ",description:i?"":"アプラス、千葉銀行など開発案件"})),places:[{id:"place1",code:"TIS1",name:"TIS本社1",address:"大阪堂北ビル"},{id:"place2",code:"クロノス",name:"クロノス",address:""},{id:"place3",code:"在宅",name:"在宅勤務",address:""}]};
  const state={version:VERSION,revision:0,mode:"demo",defaults:{locationId:"place2",note:"テスト対応",breakMinutes:60},settings,records:{},submissions:{}};
  // Clearly marked fictional history, isolated from every other design and the main app.
  const totals=[10395,9630,10260,9660,11085,9150,5310];
@@ -150,7 +151,7 @@ function seed(now){
   let left=totals[i];
   for(const d of days){
    if(left<=0)break;
-   const daily=Math.max(480,Math.ceil(totals[i]/Math.max(1,days.length)/15)*15),maxSameDay=1439-9*60-60,n=Math.min(daily,left,maxSameDay),r=empty(state);Object.assign(r,{start:"09:00",end:time(9*60+60+n),allocation:{P1:n/60,P2:0,P3:0,P4:0,SET:0}});state.records[d]=r;left-=n;
+   const daily=Math.max(480,Math.ceil(totals[i]/Math.max(1,days.length)/15)*15),maxSameDay=1439-9*60-60,n=Math.min(daily,left,maxSameDay),r=empty(state);Object.assign(r,{start:"09:00",end:time(9*60+60+n),allocation:{...r.allocation,P1:n/60}});state.records[d]=r;left-=n;
   }
  }
  if(state.records["2026-10-01"]){const r=state.records["2026-10-01"],n=worked(r,"2026-10-01",now);r.allocation.P1=Math.max(0,n-120)/60;r.allocation.SET=Math.min(n,120)/60;}
@@ -158,15 +159,27 @@ function seed(now){
  return state;
 }
 function hydrate(raw,now){
- if(!raw||raw.version!==VERSION||!Number.isInteger(raw.revision)||raw.revision<0||validateSettings(raw.settings)||!raw.defaults||!raw.records||Array.isArray(raw.records)||typeof raw.records!=="object"||!raw.submissions||Array.isArray(raw.submissions)||typeof raw.submissions!=="object")return null;
+ if(!raw||raw.version!==VERSION||!Number.isInteger(raw.revision)||raw.revision<0||!raw.settings||!raw.defaults||!raw.records||Array.isArray(raw.records)||typeof raw.records!=="object"||!raw.submissions||Array.isArray(raw.submissions)||typeof raw.submissions!=="object")return null;
+ const legacyProjects=Array.isArray(raw.settings.projects)&&raw.settings.projects.length===4&&raw.settings.projects.every((p,i)=>p?.id===PROJECT_IDS[i]);
+ const settings=legacyProjects?{...raw.settings,projects:[...raw.settings.projects,{id:"P5",name:"プロジェクト5",description:""}]}:raw.settings;
+ // Validate original values before JSON cloning can drop undefined keys or change NaN.
+ if(validateSettings(settings))return null;
  if(raw.mode!==undefined&&raw.mode!=="demo"&&raw.mode!=="local")return null;
- if(raw.mode==="local"&&(!validDay(raw.settings.attendanceStartDay)||raw.settings.employee===undefined))return null;
+ if(raw.mode==="local"&&(!validDay(settings.attendanceStartDay)||settings.employee===undefined))return null;
  const d=raw.defaults;
- if(!raw.settings.places.some(p=>p.id===d.locationId)||typeof d.note!=="string"||d.note.length>1000||!Number.isInteger(d.breakMinutes)||d.breakMinutes<0||d.breakMinutes>1440)return null;
+ if(!settings.places.some(p=>p.id===d.locationId)||typeof d.note!=="string"||d.note.length>1000||!Number.isInteger(d.breakMinutes)||d.breakMinutes<0||d.breakMinutes>1440)return null;
  // Validate stored dates against end-of-day, so a saved record survives clock changes.
- for(const [day,r] of Object.entries(raw.records))if(!validateRecord(r,day,{day:day>now.day?day:now.day,minutes:1439},raw.settings).ok)return null;
+ for(const [day,r] of Object.entries(raw.records)){
+  const oldAllocation=legacyProjects&&r?.allocation&&typeof r.allocation==="object"&&!Array.isArray(r.allocation)&&!Object.hasOwn(r.allocation,"P5");
+  const candidate=oldAllocation?{...r,allocation:{...r.allocation,P5:0}}:r;
+  if(!validateRecord(candidate,day,{day:day>now.day?day:now.day,minutes:1439},settings).ok)return null;
+ }
  for(const [key,s] of Object.entries(raw.submissions))if(!/^\d{4}-\d{2}-\d{2}\|\d{4}-\d{2}-\d{2}$/.test(key)||!s||typeof s.at!=="string"||!Number.isFinite(Date.parse(s.at))||typeof s.test!=="boolean")return null;
- const state=clone(raw);
+ let state;try{state=clone(raw);}catch{return null;}
+ if(legacyProjects){
+  state.settings.projects.push({id:"P5",name:"プロジェクト5",description:""});
+  for(const [day,r] of Object.entries(state.records))if(!Object.hasOwn(raw.records[day].allocation,"P5"))r.allocation.P5=0;
+ }
  if(state.settings.plannedHoursByMonth===undefined){
   state.settings.plannedHoursByMonth={};
   // The former demo default becomes automatic; preserve other saved choices for this month.
@@ -296,12 +309,13 @@ function workbook(state,period,now){
   }
   function column(n){let s="";for(n++;n>0;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;}
   function worksheet(rows,headerRow=1){
+    const lastColumn=Math.max(12,...rows.map(row=>row.length));
     const data=rows.map((row,r)=>'<row r="'+(r+1)+'">'+row.map((cell,c)=>{
       const item=cell&&typeof cell==="object"?cell:{v:cell},style=item.duration?2:r+1===headerRow?1:0,ref=column(c)+(r+1);
       if(typeof item.v==="number"&&Number.isFinite(item.v))return '<c r="'+ref+'" s="'+style+'"><v>'+item.v+'</v></c>';
       return '<c r="'+ref+'" s="'+style+'" t="inlineStr"><is><t xml:space="preserve">'+xml(item.v)+'</t></is></c>';
     }).join("")+'</row>').join("");
-    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="'+headerRow+'" topLeftCell="A'+(headerRow+1)+'" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="15" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/><col min="3" max="12" width="15" customWidth="1"/></cols><sheetData>'+data+'</sheetData></worksheet>';
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="'+headerRow+'" topLeftCell="A'+(headerRow+1)+'" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="15" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/><col min="3" max="'+lastColumn+'" width="15" customWidth="1"/></cols><sheetData>'+data+'</sheetData></worksheet>';
   }
   function xlsx(sheets){
     const prefix='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';

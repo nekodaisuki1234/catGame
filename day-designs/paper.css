@@ -187,7 +187,8 @@ html[data-embed][data-theme=paper] .app-nav{position:absolute}
 [data-theme=paper] .project-color-1{background:#50736a}
 [data-theme=paper] .project-color-2{background:#83979b}
 [data-theme=paper] .project-color-3{background:#a4a99b}
-[data-theme=paper] .project-color-4{background:#b6a38a}
+[data-theme=paper] .project-color-4{background:#7f879d}
+[data-theme=paper] .project-color-5{background:#b6a38a}
 [data-theme=paper] .project-breakdown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 25px;margin-top:19px}
 [data-theme=paper] .project-breakdown>div{display:grid;grid-template-columns:1fr auto;gap:6px 8px;min-width:0}
 [data-theme=paper] .project-breakdown dt{display:flex;align-items:center;gap:6px;font-size:10px;line-height:1.7}
@@ -238,7 +239,7 @@ html[data-embed][data-theme=paper] .app-nav{position:absolute}
 [data-theme=paper] .editor-allocation label{display:block;min-width:0}
 [data-theme=paper] .editor-allocation label>span{display:block;font-size:11px;color:var(--muted);margin-bottom:6px}
 [data-theme=paper] .editor-allocation input{text-align:center;padding-inline:5px;height:44px}
-[data-theme=paper] .editor-update{height:44px;min-width:0;padding:8px 10px}
+[data-theme=paper] .editor-update{grid-column:1/-1;height:44px;min-width:0;padding:8px 10px}
 [data-theme=paper] .editor-clear{display:block;min-height:44px;margin:20px auto 0;padding:5px 0;border:0;background:none;color:var(--muted);font-size:10px;text-decoration:underline;text-underline-offset:4px}
 @media(max-width:360px){[data-theme=paper] .editor-date-switcher{grid-template-columns:44px minmax(0,1fr) 44px;gap:5px}[data-theme=paper] .editor-date-picker{font-size:11px;gap:2px}[data-theme=paper] .editor-date-picker svg{width:14px}[data-theme=paper] .editor-allocation{column-gap:10px}}
 /* Keep iPhone form focus at the page scale and clear of the bottom navigation. */
@@ -375,3 +376,21 @@ html[data-theme=paper]{scroll-padding-bottom:calc(100px + env(safe-area-inset-bo
 [data-theme=paper] .editor-absence output{color:var(--primary);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
 [data-theme=paper] .editor-absence>p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.8}
 @media(max-width:360px){[data-theme=paper] .absence-summary-line{font-size:11px}[data-theme=paper] .absence-summary-line strong{font-size:16px}}
+
+/* Project information stays in one editor, with every project a single tap away. */
+[data-theme=paper] .project-tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(44px,1fr));gap:5px;margin-bottom:20px}
+[data-theme=paper] .project-tabs button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:44px;min-height:62px;padding:8px 3px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);line-height:1.5}
+[data-theme=paper] .project-tabs strong{font-size:13px;font-weight:600;color:var(--primary)}
+[data-theme=paper] .project-tab-name{display:block;max-width:100%;min-width:0;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+[data-theme=paper] .project-tabs button[aria-pressed=true]{border-color:var(--secondary);background:#e6eeea;box-shadow:inset 0 0 0 1px var(--secondary)}
+[data-theme=paper] .project-tabs button[aria-pressed=true] strong{color:var(--secondary)}
+[data-theme=paper] .project-tabs button:focus-visible{outline:2px solid var(--secondary);outline-offset:2px}
+[data-theme=paper] .project-tabs button:disabled{opacity:.5;cursor:default}
+[data-theme=paper] .project-tab-draft{position:absolute;top:5px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--secondary)}
+[data-theme=paper] .project-editor-title{display:flex;align-items:center;gap:11px;padding-bottom:15px;border-bottom:1px solid #e3e3de}
+[data-theme=paper] .project-code{display:grid;place-items:center;min-width:44px;height:44px;padding:0 8px;border-radius:8px;background:var(--primary);color:#fff;font-size:15px;font-weight:550}
+[data-theme=paper] .project-editor-title h3{margin:0;font-size:13px;line-height:1.7;font-weight:550}
+[data-theme=paper] #projectDraftState{display:block;min-height:18px;font-size:10px;line-height:1.8;color:var(--muted)}
+[data-theme=paper] .project-stepper{display:flex;gap:10px;margin-top:18px}
+[data-theme=paper] .project-stepper button{flex:1;min-width:44px;padding-inline:8px;font-size:12px}
+[data-theme=paper] .project-save-note{margin:12px 0 0;font-size:10px;line-height:1.9;color:var(--muted)}

@@ -3,7 +3,7 @@ const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("n
 const context={window:{},Intl,Date};vm.createContext(context);
 for(const file of ["paper-holidays.js","paper-core.js"])vm.runInContext(fs.readFileSync(path.join(__dirname,"../day-designs",file),"utf8"),context);
 const C=context.window.PaperAttendance,now={day:"2026-10-27",minutes:18*60},base=C.seed(now);
-const allocation=minutes=>({P1:minutes/60,P2:0,P3:0,P4:0,SET:0});
+const allocation=minutes=>({P1:minutes/60,P2:0,P3:0,P4:0,P5:0,SET:0});
 const work=(changes={})=>({...C.empty(base),start:"09:00",end:"18:00",note:"休日のリリース対応",allocation:allocation(480),...changes});
 const comp=sourceDay=>({...C.empty(base),leave:"comp",sourceDay,note:""});
 const state=records=>({...C.clone(base),records,submissions:{}});
@@ -30,12 +30,12 @@ for(const strictAllocation of [false,true]){
 }
 assert.match(messages(C.submissionCheck(state({[now.day]:negative}),{start:now.day,end:now.day},now)),/マイナス/);
 
-// Recompute only P1, so manual work on the other four projects survives time edits.
-const split=work({allocation:{P1:4,P2:1,P3:1.5,P4:.5,SET:1}}),original=JSON.stringify(split);
+// Recompute only P1, so manual work on the other five projects survives time edits.
+const split=work({allocation:{P1:4,P2:1,P3:1.5,P4:.5,P5:0,SET:1}}),original=JSON.stringify(split);
 for(const [changes,expected] of [[{end:"19:00"},5],[{breakMinutes:90},3.5],[{end:"18:01"},4+1/60]]){
  const adjusted=C.allocateToP1({...split,...changes},now.day,now);
  assert.equal(adjusted.allocation.P1,expected);
- for(const key of ["P2","P3","P4","SET"])assert.equal(adjusted.allocation[key],split.allocation[key]);
+ for(const key of ["P2","P3","P4","P5","SET"])assert.equal(adjusted.allocation[key],split.allocation[key]);
  assert.equal(C.validateRecord(adjusted,now.day,now,base.settings,{strictAllocation:true}).ok,true);
 }
 assert.equal(JSON.stringify(split),original,"allocation helper does not mutate its argument");
@@ -128,7 +128,7 @@ while(bytes.readUInt32LE(cursor)===0x04034b50){
  entries[bytes.subarray(cursor+30,cursor+30+nameLength).toString()]=bytes.subarray(start,start+size).toString();cursor=start+size;
 }
 const sheet=entries["xl/worksheets/sheet1.xml"];
-assert.match(sheet,/代休元の休日出勤日/);assert.match(sheet,/<c r="O8"[^>]*><is><t[^>]*>2026-09-26<\/t><\/is><\/c>/);
+assert.match(sheet,/代休元の休日出勤日/);assert.match(sheet,/<c r="P8"[^>]*><is><t[^>]*>2026-09-26<\/t><\/is><\/c>/);
 assert.match(sheet,/代休/);assert.doesNotMatch(sheet,/有給休暇/);
 
 for(const d of ["2026-10-10","2026-10-11","2026-10-12"]){

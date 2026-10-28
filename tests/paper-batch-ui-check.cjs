@@ -17,7 +17,7 @@ async function run(){
   await page.evaluate(()=>{
    const C=window.PaperAttendance,now=C.clock(),state=C.seed(now);state.records={};
    for(const day of C.dates(C.FIRST,C.add(now.day,-1)))if(C.workday(day))state.records[day]={...C.empty(state),leave:"holiday"};
-   const work=(end,breakMinutes,hours)=>({...C.empty(state),start:"09:00",end,breakMinutes,note:"休日のシステム対応",allocation:{P1:hours,P2:0,P3:0,P4:0,SET:0}});
+   const work=(end,breakMinutes,hours)=>({...C.empty(state),start:"09:00",end,breakMinutes,note:"休日のシステム対応",allocation:{P1:hours,P2:0,P3:0,P4:0,P5:0,SET:0}});
    state.records["2026-10-20"]={...C.empty(state),leave:"paid"};
    state.records["2026-10-24"]=work("18:00",60,8);
    state.records["2026-10-25"]=work("11:00",0,2);

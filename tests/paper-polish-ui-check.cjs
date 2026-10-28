@@ -227,7 +227,7 @@ async function run(){
     await layout.locator("#nav-settings").click();await controls(layout,formControls("#defaultsForm"),screen+" defaults");
     await aboveLabels(layout,"#defaultPlace,#defaultNote,#defaultBreak",screen+" defaults");
     await layout.locator("[data-action=settings-tab][data-tab=sheet]").click();await controls(layout,formControls("#settingsForm"),screen+" settings");
-    await aboveLabels(layout,"#minHours,#maxHours,#plannedHoursMode,#plannedHours,#workSummary,#projectSelect,#projectName,#projectDescription,#placeSelect,#placeCode,#placeName,#placeAddress",screen+" settings");
+    await aboveLabels(layout,"#minHours,#maxHours,#plannedHoursMode,#plannedHours,#workSummary,#projectName,#projectDescription,#placeSelect,#placeCode,#placeName,#placeAddress",screen+" settings");
     await groupedFields(layout,[["#minHours","#maxHours","#plannedHours"],["#projectName","#projectDescription"],["#placeCode","#placeName","#placeAddress"]],screen+" settings");
     await screenshot(layout,label+"-paper-forms-settings",width);
     await layout.locator("#nav-home").click();await layout.locator("[data-action=edit-day][data-day='2026-11-03']").click();

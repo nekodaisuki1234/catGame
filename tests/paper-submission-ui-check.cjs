@@ -16,11 +16,11 @@ async function run(){
   await page.evaluate(()=>{
    const C=window.PaperAttendance,now=C.clock(),state=C.seed(now);state.records={};
    for(const day of C.dates(C.month(now.day).start,now.day))if(C.workday(day))state.records[day]={...C.empty(state),leave:"holiday"};
-   const work=(changes={})=>({...C.empty(state),start:"09:00",end:"18:00",note:"通常の作業内容",allocation:{P1:8,P2:0,P3:0,P4:0,SET:0},...changes});
-   state.records["2026-10-01"]=work({end:"14:00",allocation:{P1:4,P2:0,P3:0,P4:0,SET:0}});
+   const work=(changes={})=>({...C.empty(state),start:"09:00",end:"18:00",note:"通常の作業内容",allocation:{P1:8,P2:0,P3:0,P4:0,P5:0,SET:0},...changes});
+   state.records["2026-10-01"]=work({end:"14:00",allocation:{P1:4,P2:0,P3:0,P4:0,P5:0,SET:0}});
    state.records["2026-10-02"]=work({note:" \u3000\t "});
-   state.records["2026-10-05"]=work({allocation:{P1:7,P2:0,P3:0,P4:0,SET:0}});
-   state.records["2026-10-06"]=work({end:"09:30",allocation:{P1:0,P2:0,P3:0,P4:0,SET:0}});
+   state.records["2026-10-05"]=work({allocation:{P1:7,P2:0,P3:0,P4:0,P5:0,SET:0}});
+   state.records["2026-10-06"]=work({end:"09:30",allocation:{P1:0,P2:0,P3:0,P4:0,P5:0,SET:0}});
    localStorage.setItem(C.KEY,JSON.stringify(state));
   });await page.reload();
   const stored=()=>page.evaluate(()=>JSON.parse(localStorage.getItem(window.PaperAttendance.KEY)));
@@ -46,7 +46,7 @@ async function run(){
   const punchCtx=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true}),p=await punchCtx.newPage();p.on("pageerror",e=>errors.push(e.message));await p.clock.install({time:new Date("2026-10-27T00:00:00Z")});await p.goto(url);
   const record=()=>p.evaluate(()=>JSON.parse(localStorage.getItem(window.PaperAttendance.KEY)).records["2026-10-27"]);
   await p.locator("#startPunch").click();await p.clock.runFor(900);assert.equal((await record()).allocation.P1,0);
-  await p.clock.setSystemTime(new Date("2026-10-27T09:00:00Z"));await p.locator("#endPunch").click();await p.clock.runFor(900);assert.equal((await record()).allocation.P1,8);for(const key of ["P2","P3","P4","SET"])assert.equal((await record()).allocation[key],0);
+  await p.clock.setSystemTime(new Date("2026-10-27T09:00:00Z"));await p.locator("#endPunch").click();await p.clock.runFor(900);assert.equal((await record()).allocation.P1,8);for(const key of ["P2","P3","P4","P5","SET"])assert.equal((await record()).allocation[key],0);
   await p.locator("[data-detail=allocation]").click();await p.locator("#allocP1").fill("4");await p.locator("#allocP2").fill("4");await p.locator("#allocationForm button[type=submit]").click();assert.equal((await record()).allocation.P2,4);
   await p.locator("#allocP1").fill("3");await p.locator("#allocationForm button[type=submit]").click();assert.equal((await record()).allocation.P1,4);
   await p.clock.setSystemTime(new Date("2026-10-27T09:01:00Z"));await p.locator("#endPunch").click();await p.clock.runFor(900);assert.equal(Math.round((await record()).allocation.P1*60),241);assert.equal((await record()).allocation.P2,4);

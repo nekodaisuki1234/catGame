@@ -18,7 +18,7 @@ async function run(){
    const C=window.PaperAttendance,state=C.seed(C.clock());state.records={};
    // Ten completed workdays give 80 hours: the difference between 168 and 160 is visible in the ring.
    for(const day of ["2026-10-01","2026-10-02","2026-10-05","2026-10-06","2026-10-07","2026-10-08","2026-10-09","2026-10-13","2026-10-14","2026-10-15"]){
-    state.records[day]={...C.empty(state),start:"09:00",end:"18:00",breakMinutes:60,allocation:{P1:8,P2:0,P3:0,P4:0,SET:0}};
+    state.records[day]={...C.empty(state),start:"09:00",end:"18:00",breakMinutes:60,allocation:{P1:8,P2:0,P3:0,P4:0,P5:0,SET:0}};
    }
    state.settings.plannedHoursByMonth=options.overrides||{};
    if(Object.hasOwn(options,"legacy")){delete state.settings.plannedHoursByMonth;state.settings.plannedHours=options.legacy;}
@@ -103,13 +103,13 @@ async function run(){
   // The mode switch must preserve a manual draft while showing the computed value in automatic mode.
   await setMode(page,"manual");await expectMode(page,"manual","168");await page.locator("#plannedHours").fill("160");
   await setMode(page,"auto");await expectMode(page,"auto","168");await setMode(page,"manual");await expectMode(page,"manual","160");
-  await setMode(page,"auto");await page.locator("#projectSelect").selectOption("1");await page.locator("#placeSelect").selectOption("1");
+  await setMode(page,"auto");await page.locator('[data-action="project-tab"][data-index="1"]').click();await page.locator("#placeSelect").selectOption("1");
   await expectMode(page,"auto","168");await setMode(page,"manual");await expectMode(page,"manual","160");
-  await page.locator("#projectSelect").selectOption("0");await page.locator("#placeSelect").selectOption("0");
+  await page.locator('[data-action="project-tab"][data-index="0"]').click();await page.locator("#placeSelect").selectOption("0");
   await page.locator("#minHours").fill("150");await page.locator("#workSummary").fill("月予定と一緒に保存する下書き");await page.locator("#projectName").fill("PJの下書き");
-  await page.locator("#projectSelect").selectOption("1");await expectMode(page,"manual","160");assert.equal(await page.locator("#minHours").inputValue(),"150");assert.equal(await page.locator("#workSummary").inputValue(),"月予定と一緒に保存する下書き");
+  await page.locator('[data-action="project-tab"][data-index="1"]').click();await expectMode(page,"manual","160");assert.equal(await page.locator("#minHours").inputValue(),"150");assert.equal(await page.locator("#workSummary").inputValue(),"月予定と一緒に保存する下書き");
   await page.locator("#placeSelect").selectOption("1");await expectMode(page,"manual","160");await page.locator("#placeName").fill("場所の下書き");
-  await page.locator("#projectSelect").selectOption("0");assert.equal(await page.locator("#projectName").inputValue(),"PJの下書き");
+  await page.locator('[data-action="project-tab"][data-index="0"]').click();assert.equal(await page.locator("#projectName").inputValue(),"PJの下書き");
   await page.locator("#placeSelect").selectOption("0");await page.locator("#placeSelect").selectOption("1");assert.equal(await page.locator("#placeName").inputValue(),"場所の下書き");await expectMode(page,"manual","160");
   assert.deepEqual((await state(page)).settings.plannedHoursByMonth,{},"changing mode or selectors must not save a draft");
   await savePlan(page);assert.deepEqual((await state(page)).settings.plannedHoursByMonth,{"2026-10":160});
@@ -135,7 +135,7 @@ async function run(){
 
   // Empty is invalid; an explicitly entered zero is a valid override with no ratio.
   await openPlan(page);await setMode(page,"manual");await page.locator("#plannedHours").fill("");
-  await page.locator("#projectSelect").selectOption("1");await page.locator("#placeSelect").selectOption("1");await expectMode(page,"manual","");
+  await page.locator('[data-action="project-tab"][data-index="1"]').click();await page.locator("#placeSelect").selectOption("1");await expectMode(page,"manual","");
   const blankRevision=(await state(page)).revision;await savePlan(page);
   assert.equal((await state(page)).revision,blankRevision);assert.deepEqual((await state(page)).settings.plannedHoursByMonth,{"2026-11":144});
   assert.equal(await page.locator("#plannedHours").evaluate(node=>node.validity.valueMissing),true);

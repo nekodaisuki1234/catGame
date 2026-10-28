@@ -3,7 +3,7 @@ const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("n
 const context={window:{},Intl,Date};vm.createContext(context);
 for(const file of ["paper-holidays.js","paper-core.js"])vm.runInContext(fs.readFileSync(path.join(__dirname,"../day-designs",file),"utf8"),context);
 const C=context.window.PaperAttendance,now={day:"2026-10-28",minutes:20*60},base=C.createState(now,{startDay:"2026-10-01"});
-const allocation=minutes=>({P1:Math.max(0,minutes)/60,P2:0,P3:0,P4:0,SET:0});
+const allocation=minutes=>({P1:Math.max(0,minutes)/60,P2:0,P3:0,P4:0,P5:0,SET:0});
 const work=(minutes,leave="")=>({...C.empty(base),start:"09:00",end:C.time(9*60+60+minutes),leave,note:"開発作業",allocation:allocation(minutes)});
 const leave=kind=>({...C.empty(base),leave:kind});
 const state=records=>({...C.clone(base),records});

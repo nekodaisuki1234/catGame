@@ -44,7 +44,7 @@ async function run(){
   await page.locator("[data-action=editor-back]").click();await heading("10月の勤怠");
   console.log("PASS browser Back/Forward, editor drafts and list scroll restoration");
   await page.locator("#nav-settings").click();await page.locator("#defaultBreak").fill("");const revision=(await state()).revision;await page.locator("#defaultsForm button[type=submit]").click();assert.equal((await state()).revision,revision);
-  await page.locator("[data-action=settings-tab][data-tab=sheet]").click();await page.locator("#minHours").fill("");await page.locator("#projectSelect").selectOption("1");assert.equal(await page.locator("#minHours").inputValue(),"");await page.locator("#settingsForm button[type=submit]").click();assert.equal((await state()).revision,revision);
+  await page.locator("[data-action=settings-tab][data-tab=sheet]").click();await page.locator("#minHours").fill("");await page.locator('[data-action="project-tab"][data-index="1"]').click();assert.equal(await page.locator("#minHours").inputValue(),"");await page.locator("#settingsForm button[type=submit]").click();assert.equal((await state()).revision,revision);
   console.log("PASS blank numeric fields are not silently stored as zero");
   // Minute changes update the weekly chart, without reconstructing the user's fields.
   await page.locator("#nav-home").click();await page.locator("#resetPunch").click();await page.clock.runFor(600);await fill("startTime","09:00");
