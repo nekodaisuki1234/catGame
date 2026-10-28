@@ -19,7 +19,7 @@ jobs:
           node-version: '24'
       - name: Install backend dependencies
         run: |
-          npm install --prefix backend --ignore-scripts --save-exact @aws-sdk/client-dynamodb@latest @aws-sdk/client-s3@latest @aws-sdk/lib-dynamodb@latest @aws-sdk/s3-request-presigner@latest
+          npm install --prefix backend --ignore-scripts
       - name: Inspect dependency advisories
         run: |
           npm audit --prefix backend --json > /tmp/attendance-audit.json || true
@@ -29,6 +29,7 @@ jobs:
           console.log('BACKEND_PACKAGE_JSON:' + fs.readFileSync('backend/package.json', 'utf8').replace(/\n/g, ''));
           console.log('BACKEND_AUDIT:' + JSON.stringify({error:audit.error,metadata:audit.metadata,vulnerabilities:Object.fromEntries(Object.entries(audit.vulnerabilities||{}).map(([name,v])=>[name,{severity:v.severity,range:v.range,fixAvailable:v.fixAvailable,via:v.via}]))}));
           NODE
+          npm audit --prefix backend --omit=dev --audit-level=moderate
       - name: Export dependency lock for bootstrap
         run: |
           node - <<'NODE'

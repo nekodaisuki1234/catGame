@@ -49,6 +49,9 @@ async function template() {
   sheet.views = [{ state: "frozen", ySplit: 7 }];
   untouched.getCell("B2").value = { formula: "'勤務表'!I15", result: 0 };
   untouched.getCell("B3").value = "触らない文字";
+  // Trusted workbook content, not an API record: writing this comment exercises
+  // ExcelJS's VML/comment serialization and its UUID v4 dependency.
+  untouched.getCell("B3").note = "このコメントは会社のテンプレートに含まれます。";
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
@@ -102,6 +105,18 @@ test("template copy preserves unrelated cells, sheets, formulas, formatting and 
   assert.equal(sheet.getCell("K15").value, 0.5);
   assert.equal(sheet.getCell("P15").value, 1);
   for (const column of Object.values(mapping.days.columns)) assert.equal(sheet.getCell(`${column}12`).value, "", "unused mapped rows are cleared");
+});
+
+test("an existing template comment survives ExcelJS comment and VML serialization", async () => {
+  const templateBytes = await template(), originalBytes = Buffer.from(templateBytes);
+  const sourceCell = (await load(templateBytes)).getWorksheet("計算").getCell("B3");
+  const commentText = note => typeof note === "string" ? note : note.texts.map(part => part.text).join("");
+  assert.equal(commentText(sourceCell.note), "このコメントは会社のテンプレートに含まれます。");
+  const output = await createExcelRenderer().render({ templateBytes, mapping, state: state(), period, now });
+  const outputCell = (await load(output)).getWorksheet("計算").getCell("B3");
+  assert.equal(outputCell.value, sourceCell.value);
+  assert.equal(commentText(outputCell.note), commentText(sourceCell.note));
+  assert.deepEqual(templateBytes, originalBytes);
 });
 
 test("negative actual hours remain numeric and do not become Excel date serials", async () => {
