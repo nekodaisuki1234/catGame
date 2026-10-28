@@ -3,9 +3,16 @@
 const VERSION=1,KEY="day-paper-attendance-v1",FIRST="2026-04-01";
 const PROJECTS=["P1","P2","P3","P4","SET"],WEEK=["日","月","火","水","木","金","土"];
 const LEAVES={"":"休暇なし",paid:"有給休暇",am:"午前半休",pm:"午後半休",holiday:"公休",special:"特別休暇",comp:"代休"};
+const DEMO_EMPLOYEE={name:"田中 花子",department:"営業",id:"E001"},EMPLOYEE_FIELDS=["name","department","id"];
 const pad=n=>String(n).padStart(2,"0"),clone=value=>JSON.parse(JSON.stringify(value));
 const iso=d=>d.toISOString().slice(0,10),date=day=>new Date(day+"T00:00:00Z");
 const validDay=day=>/^\d{4}-\d{2}-\d{2}$/.test(day||"")&&Number.isFinite(+date(day))&&iso(date(day))===day;
+const firstDay=state=>state?.settings?.attendanceStartDay||FIRST;
+const isDemo=state=>state?.mode!=="local";
+function employee(state){
+ const saved=state?.settings?.employee;
+ return Object.fromEntries(EMPLOYEE_FIELDS.map(key=>[key,typeof saved?.[key]==="string"?saved[key]:isDemo(state)?DEMO_EMPLOYEE[key]:""]));
+}
 const add=(day,n)=>{const d=date(day);d.setUTCDate(d.getUTCDate()+n);return iso(d);};
 const weekday=day=>date(day).getUTCDay();
 const calendar=global.PaperHolidays||{start:"",end:"",days:{}};
@@ -50,10 +57,11 @@ function worked(r,day,now){
 function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,leave:"",sourceDay:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
 function validateRecord(r,day,now,settings,options={}){
  const bad=error=>({ok:false,error});
- if(!validDay(day)||day<FIRST||day>now.day)return bad("今日までの日付を選んでください。");
+ const first=settings?.attendanceStartDay||FIRST;
+ if(!validDay(day)||day<first||day>now.day)return bad("今日までの日付を選んでください。");
  if(!r||typeof r.start!=="string"||typeof r.end!=="string"||typeof r.overnight!=="boolean")return bad("時刻を確認してください。");
  if(!Object.hasOwn(LEAVES,r.leave))return bad("休暇区分を選んでください。");
- if(r.sourceDay!==undefined&&(typeof r.sourceDay!=="string"||r.sourceDay&&(!validDay(r.sourceDay)||r.sourceDay<FIRST)))return bad("代休元の休日出勤日を確認してください。");
+ if(r.sourceDay!==undefined&&(typeof r.sourceDay!=="string"||r.sourceDay&&(!validDay(r.sourceDay)||r.sourceDay<first)))return bad("代休元の休日出勤日を確認してください。");
  if(!Number.isInteger(r.breakMinutes)||r.breakMinutes<0||r.breakMinutes>1440)return bad("休憩時間は0〜1440分で入力してください。");
  if(typeof r.note!=="string"||r.note.length>1000)return bad("作業内容は1000文字以内で入力してください。");
  if(!settings.places.some(p=>p.id===r.locationId))return bad("勤務場所を選んでください。");
@@ -74,7 +82,7 @@ function validateRecord(r,day,now,settings,options={}){
  return {ok:true,value:clone(r),warnings};
 }
 function eligibleCompSource(state,sourceDay,day,now){
- if(!validDay(sourceDay)||sourceDay<FIRST||sourceDay>=day||sourceDay>now.day||!restDay(sourceDay))return false;
+ if(!validDay(sourceDay)||sourceDay<firstDay(state)||sourceDay>=day||sourceDay>now.day||!restDay(sourceDay))return false;
  const r=state.records[sourceDay];
  return !!r?.start&&!!r.end&&!fullLeave(r)&&validateRecord(r,sourceDay,now,state.settings).ok&&worked(r,sourceDay,now)>0;
 }
@@ -85,13 +93,13 @@ function compLinkError(state,day,r,now){
  return used?r.sourceDay+"は"+used[0]+"の代休に使用済みです。1日の休日出勤に対して代休は1日だけ登録できます。":"";
 }
 function compSources(state,day,now){
- if(!state?.records||!Array.isArray(state.settings?.places)||!validDay(day)||day<FIRST||!now||!validDay(now.day)||day>now.day)return [];
+ if(!state?.records||!Array.isArray(state.settings?.places)||!validDay(day)||day<firstDay(state)||!now||!validDay(now.day)||day>now.day)return [];
  const used=new Set(Object.entries(state.records).filter(([d,r])=>d!==day&&r?.leave==="comp").map(([,r])=>r.sourceDay));
  return Object.keys(state.records).filter(d=>!used.has(d)&&eligibleCompSource(state,d,day,now)).sort().reverse();
 }
 function validateRecordChange(state,day,nextOrNull,now){
  const bad=error=>({ok:false,error});
- if(!state?.records||!now||!validDay(day)||day<FIRST||day>now.day)return bad("今日までの日付を選んでください。");
+ if(!state?.records||!now||!validDay(day)||day<firstDay(state)||day>now.day)return bad("今日までの日付を選んでください。");
  if(nextOrNull!==null){const shape=validateRecord(nextOrNull,day,now,state.settings);if(!shape.ok)return bad(shape.error);}
  const candidate={...state,records:{...state.records}};
  if(nextOrNull===null)delete candidate.records[day];else candidate.records[day]=nextOrNull;
@@ -104,6 +112,8 @@ function validateRecordChange(state,day,nextOrNull,now){
 }
 function validateSettings(s){
  if(!s||!Number.isFinite(s.minHours)||!Number.isFinite(s.maxHours)||s.minHours<0||s.maxHours>744||s.minHours>s.maxHours)return "基準時間は0〜744時間で、下限≦上限にしてください。";
+ if(s.attendanceStartDay!==undefined&&!validDay(s.attendanceStartDay))return "記録開始日を正しい日付で入力してください。";
+ if(s.employee!==undefined&&(!s.employee||typeof s.employee!=="object"||Array.isArray(s.employee)||EMPLOYEE_FIELDS.some(key=>typeof s.employee[key]!=="string"||s.employee[key].length>80)))return "氏名・所属・社員番号は80文字以内で入力してください。";
  if(!Number.isFinite(s.plannedHours)||s.plannedHours<0||s.plannedHours>744)return "勤務予定は0〜744時間で入力してください。";
  if(s.plannedHoursByMonth!==undefined){
   const planned=s.plannedHoursByMonth;
@@ -114,9 +124,14 @@ function validateSettings(s){
  if(!Array.isArray(s.places)||s.places.length!==3||s.places.some((p,i)=>p.id!=="place"+(i+1)||typeof p.code!=="string"||!p.code.trim()||p.code.length>80||typeof p.name!=="string"||!p.name.trim()||p.name.length>80||typeof p.address!=="string"||p.address.length>1000))return "作業場所・名称・住所を確認してください。";
  return "";
 }
+function createState(now,{startDay=now.day,employee:identity={name:"",department:"",id:""}}={}){
+ const settings={attendanceStartDay:startDay,employee:identity,minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"",projects:PROJECTS.slice(0,4).map((id,i)=>({id,name:"プロジェクト"+(i+1),description:""})),places:[1,2,3].map(n=>({id:"place"+n,code:"場所"+n,name:"勤務場所"+n,address:""}))};
+ const error=validateSettings(settings);if(error)throw new TypeError(error);
+ return {version:VERSION,revision:0,mode:"local",defaults:{locationId:"place1",note:"",breakMinutes:60},settings:clone(settings),records:{},submissions:{}};
+}
 function seed(now){
  const settings={minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"ことら送金対応",projects:PROJECTS.slice(0,4).map((id,i)=>({id,name:i?"プロジェクト"+(i+1):"デビプリ",description:i?"":"アプラス、千葉銀行など開発案件"})),places:[{id:"place1",code:"TIS1",name:"TIS本社1",address:"大阪堂北ビル"},{id:"place2",code:"クロノス",name:"クロノス",address:""},{id:"place3",code:"在宅",name:"在宅勤務",address:""}]};
- const state={version:VERSION,revision:0,defaults:{locationId:"place2",note:"テスト対応",breakMinutes:60},settings,records:{},submissions:{}};
+ const state={version:VERSION,revision:0,mode:"demo",defaults:{locationId:"place2",note:"テスト対応",breakMinutes:60},settings,records:{},submissions:{}};
  // Clearly marked fictional history, isolated from every other design and the main app.
  const totals=[10395,9630,10260,9660,11085,9150,5310];
  for(let i=0;i<totals.length;i++){
@@ -133,6 +148,8 @@ function seed(now){
 }
 function hydrate(raw,now){
  if(!raw||raw.version!==VERSION||!Number.isInteger(raw.revision)||raw.revision<0||validateSettings(raw.settings)||!raw.defaults||!raw.records||Array.isArray(raw.records)||typeof raw.records!=="object"||!raw.submissions||Array.isArray(raw.submissions)||typeof raw.submissions!=="object")return null;
+ if(raw.mode!==undefined&&raw.mode!=="demo"&&raw.mode!=="local")return null;
+ if(raw.mode==="local"&&(!validDay(raw.settings.attendanceStartDay)||raw.settings.employee===undefined))return null;
  const d=raw.defaults;
  if(!raw.settings.places.some(p=>p.id===d.locationId)||typeof d.note!=="string"||d.note.length>1000||!Number.isInteger(d.breakMinutes)||d.breakMinutes<0||d.breakMinutes>1440)return null;
  // Validate stored dates against end-of-day, so a saved record survives clock changes.
@@ -147,8 +164,8 @@ function hydrate(raw,now){
  return state;
 }
 function missing(state,period,now){
- const end=period.end<now.day?period.end:now.day;
- return dates(period.start<FIRST?FIRST:period.start,end).filter(d=>{
+ const end=period.end<now.day?period.end:now.day,first=firstDay(state);
+ return dates(period.start<first?first:period.start,end).filter(d=>{
   const r=state.records[d];
   if(fullLeave(r))return false;
   if(r?.start)return !r.end;
@@ -159,7 +176,7 @@ function submissionCheck(state,period,now,options={}){
  const fail=message=>({ok:false,errors:[{day:"",messages:[message]}]});
  if(!period||!validDay(period.start)||!validDay(period.end)||period.start>period.end||(+date(period.end)-+date(period.start))/86400000>=366)return fail("対象期間は開始日から366日以内で指定してください。");
  if(!now||!validDay(now.day)||!Number.isInteger(now.minutes)||now.minutes<0||now.minutes>1439)return fail("現在の日付・時刻を確認してください。");
- const start=period.start<FIRST?FIRST:period.start,end=period.end<now.day?period.end:now.day;
+ const first=firstDay(state),start=period.start<first?first:period.start,end=period.end<now.day?period.end:now.day;
  if(start>end)return fail("対象期間に記録開始日から今日までの日付を含めてください。");
  if(!state||!state.records||Array.isArray(state.records)||typeof state.records!=="object"||validateSettings(state.settings))return fail("勤務表のデータと設定を確認してください。");
  const errors=[],missingDays=new Set(missing(state,period,now)),halfLeaveExemptsShortHours=options.halfLeaveExemptsShortHours!==false;
@@ -205,7 +222,7 @@ function allocateToP1(record,day,now){
 }
 function pastMissing(state,now){
  const out=[],end=add(now.day,-1);
- for(let day=FIRST;day<=end;day=add(day,1)){
+ for(let day=firstDay(state);day<=end;day=add(day,1)){
   if(!workday(day))continue;
   const r=state.records[day];if(fullLeave(r))continue;
   if(!r?.start||!r.end)out.push(day);
@@ -230,10 +247,10 @@ function invalidateSubmissions(state,day){
 const durationCell=n=>n<0?short(n):{v:n/1440,duration:true};
 function workbook(state,period,now){
  const summaryData=summary(state,period,now);
- const rows=[["勤怠表（A. Paper 操作デモ）"],["氏名","田中 花子"],["対象期間",period.start+"〜"+period.end],["作業概要",state.settings.workSummary],["基準時間",state.settings.minHours+"〜"+state.settings.maxHours+"時間"],[],["日付","曜日","区分","出勤","退勤","休憩（分）","勤務時間","勤務場所","作業内容",...PROJECTS.map(k=>k+"（時間）"),"代休元の休日出勤日"]];
+ const rows=[[isDemo(state)?"勤怠表（A. Paper 操作デモ）":"勤怠表"],["氏名",employee(state).name],["対象期間",period.start+"〜"+period.end],["作業概要",state.settings.workSummary],["基準時間",state.settings.minHours+"〜"+state.settings.maxHours+"時間"],[],["日付","曜日","区分","出勤","退勤","休憩（分）","勤務時間","勤務場所","作業内容",...PROJECTS.map(k=>k+"（時間）"),"代休元の休日出勤日"]];
  for(const d of dates(period.start,period.end)){
   const r=state.records[d],future=d>now.day,p=state.settings.places.find(p=>p.id===r?.locationId),hasWork=!!r?.start&&!fullLeave(r);
-  const base=future?"これから":r?.leave?LEAVES[r.leave]:r?.end?"勤務":r?.start?"退勤未入力":holiday(d)|| (workday(d)?"未入力":holidayKnown(d)?"休日":"祝日未確認");
+  const base=!isDemo(state)&&d<firstDay(state)?"記録開始前":future?"これから":r?.leave?LEAVES[r.leave]:r?.end?"勤務":r?.start?"退勤未入力":holiday(d)|| (workday(d)?"未入力":holidayKnown(d)?"休日":"祝日未確認");
   const status=!future&&holiday(d)&&(r?.start||r?.leave)?base+"（"+holiday(d)+"）":base;
   rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[r.start,r.end+(r.end&&r.overnight?"（翌日）":""),hasWork?r.breakMinutes:"",durationCell(worked(r,d,now)),hasWork?p?.code||"":"",r.note,...PROJECTS.map(k=>r.allocation[k]),r.leave==="comp"?r.sourceDay||"":""]:["","","","","","",...PROJECTS.map(()=>""),""])]);
  }
@@ -285,5 +302,5 @@ function workbook(state,period,now){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,empty,validateRecord,validateRecordChange,compSources,validateSettings,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
+global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,empty,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
 })(window);

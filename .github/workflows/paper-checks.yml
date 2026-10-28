@@ -6,14 +6,14 @@ on:
     paths:
       - 'day-designs/paper-*.js'
       - 'day-designs/paper.css'
-      - 'day-designs/a-paper.html'
+      - 'day-designs/a-paper*.html'
       - 'tests/paper-*.cjs'
       - '.github/workflows/paper-checks.yml'
   pull_request:
     paths:
       - 'day-designs/paper-*.js'
       - 'day-designs/paper.css'
-      - 'day-designs/a-paper.html'
+      - 'day-designs/a-paper*.html'
       - 'tests/paper-*.cjs'
       - '.github/workflows/paper-checks.yml'
 
@@ -35,6 +35,8 @@ jobs:
           node tests/paper-submission-check.cjs
           node tests/paper-batch-check.cjs
           node tests/paper-planning-check.cjs
+          node tests/paper-initialization-check.cjs
+          node tests/paper-repository-check.cjs
       - name: Install browser test tools
         run: |
           npm install --prefix "$RUNNER_TEMP/paper-browser" --no-save --no-package-lock --ignore-scripts playwright@1.57.0
@@ -48,6 +50,7 @@ jobs:
           node tests/paper-submission-ui-check.cjs
           node tests/paper-batch-ui-check.cjs
           node tests/paper-planning-ui-check.cjs
+          node tests/paper-preparation-ui-check.cjs
       - name: Keep screenshots
         if: always()
         uses: actions/upload-artifact@v4
