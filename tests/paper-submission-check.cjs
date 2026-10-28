@@ -95,7 +95,7 @@ const holiday="2026-10-12",holidayPeriod={start:holiday,end:holiday};
 assert.equal(C.holiday(holiday),"スポーツの日","tests load the real holiday calendar");
 for(const r of [undefined,C.empty(base),{...C.empty(base),note:""}])assert.equal(C.submissionCheck(stateFor(r,holiday),holidayPeriod,now).ok,true,"an ordinary holiday without actual work is ignored");
 assert.equal(C.submissionCheck(stateFor(record(),holiday),holidayPeriod,now).ok,true,"real holiday work has the same checks");
-assert.match(messages(C.submissionCheck(stateFor(fourHours,holiday),holidayPeriod,now)),/4時間以下/);
+assert.equal(C.submissionCheck(stateFor(fourHours,holiday),holidayPeriod,now).ok,true,"holiday work is exempt from the short-hours paid-leave check");
 assert.match(messages(C.submissionCheck(stateFor(record({note:"\u3000"}),holiday),holidayPeriod,now)),/作業内容/);
 assert.match(messages(C.submissionCheck(stateFor(unfinished,holiday),holidayPeriod,now)),/出勤・退勤/);
 const overnight=record({start:"22:00",end:"06:00",overnight:true,allocation:allocation(420)});

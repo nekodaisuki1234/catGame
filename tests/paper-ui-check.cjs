@@ -20,15 +20,15 @@ async function run(){
   const heading=title=>page.waitForFunction(t=>document.querySelector("main h1")?.textContent===t,title);
   await fill("startTime","09:00");await fill("endTime","18:00");
   await page.locator("[data-detail=allocation]").click();await page.locator("#allocP1").fill("8");await page.locator("#allocationForm button[type=submit]").click();
-  await fill("endTime","18:15");assert.equal((await state()).records["2026-10-27"].end,"18:15");assert.equal((await state()).records["2026-10-27"].allocation.P1,8);
-  assert.match(await page.locator("#studyToast").innerText(),/工数合計/);assert.equal(await page.locator("dialog[open]").count(),0);
-  console.log("PASS positive time corrections retain allocation and warn without blocking");
+  await fill("endTime","18:15");assert.equal((await state()).records["2026-10-27"].end,"18:15");assert.equal((await state()).records["2026-10-27"].allocation.P1,8.25);
+  assert.doesNotMatch(await page.locator("#studyToast").innerText(),/工数合計/);assert.equal(await page.locator("dialog[open]").count(),0);
+  console.log("PASS positive time corrections automatically adjust P1 without a mismatch warning");
   // Unsaved allocation and rest must survive partial home updates and tab switches.
   await page.locator("#allocP1").fill("7.5");await page.locator("[data-detail=summary]").click();await page.locator("[data-detail=allocation]").click();assert.equal(await page.locator("#allocP1").inputValue(),"7.5");
   await page.locator("[data-action=rest]").click();await page.locator("#restMinutes").fill("37");await page.locator("#nav-records").click();await page.locator("#nav-home").click();
   await page.locator("[data-action=rest]").click();assert.equal(await page.locator("#restMinutes").inputValue(),"37");assert.equal(await page.locator("#allocP1").inputValue(),"7.5");
-  await page.locator("#restForm button[type=submit]").click();assert.equal((await state()).records["2026-10-27"].breakMinutes,97);assert.equal(await page.locator("#allocP1").inputValue(),"7.5");
-  console.log("PASS rest and allocation drafts survive navigation and unrelated saves");
+  await page.locator("#restForm button[type=submit]").click();assert.equal((await state()).records["2026-10-27"].breakMinutes,97);assert.equal(Math.round(Number(await page.locator("#allocP1").inputValue())*60),458);assert.equal(Math.round((await state()).records["2026-10-27"].allocation.P1*60),458);
+  console.log("PASS rest and allocation drafts survive navigation, with P1 recalculated when working time changes");
   // A failed auto-save must keep text and expose a working retry action.
   await page.evaluate(()=>{window.originalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error("quota")};});
   await fill("workNote","保存失敗でも残す文章 <test>");assert.equal(await page.locator("#workNote").inputValue(),"保存失敗でも残す文章 <test>");assert.match(await page.locator("#workSaveStatus").innerText(),/未保存/);

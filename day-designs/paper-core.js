@@ -2,7 +2,7 @@
 "use strict";
 const VERSION=1,KEY="day-paper-attendance-v1",FIRST="2026-04-01";
 const PROJECTS=["P1","P2","P3","P4","SET"],WEEK=["日","月","火","水","木","金","土"];
-const LEAVES={"":"休暇なし",paid:"有給休暇",am:"午前半休",pm:"午後半休",holiday:"公休",special:"特別休暇"};
+const LEAVES={"":"休暇なし",paid:"有給休暇",am:"午前半休",pm:"午後半休",holiday:"公休",special:"特別休暇",comp:"代休"};
 const pad=n=>String(n).padStart(2,"0"),clone=value=>JSON.parse(JSON.stringify(value));
 const iso=d=>d.toISOString().slice(0,10),date=day=>new Date(day+"T00:00:00Z");
 const validDay=day=>/^\d{4}-\d{2}-\d{2}$/.test(day||"")&&Number.isFinite(+date(day))&&iso(date(day))===day;
@@ -33,18 +33,21 @@ const time=n=>pad(Math.floor(n/60)%24)+":"+pad(n%60);
 const short=n=>(n<0?"−":"")+Math.floor(Math.abs(n)/60)+":"+pad(Math.round(Math.abs(n))%60);
 const duration=n=>(n<0?"−":"")+Math.floor(Math.abs(n)/60)+"時間"+pad(Math.round(Math.abs(n))%60)+"分";
 const hours=n=>Number((n/60).toFixed(2));
-const fullLeave=r=>["paid","holiday","special"].includes(r?.leave);
+const fullLeave=r=>["paid","holiday","special","comp"].includes(r?.leave);
+const restDay=day=>validDay(day)&&(weekday(day)===0||weekday(day)===6||holidayKnown(day)&&!!holiday(day));
 function worked(r,day,now){
  if(!r||fullLeave(r)||timeToMin(r.start)==null)return 0;
  const end=r.end?timeToMin(r.end)+(r.overnight?1440:0):day===now.day?now.minutes:null;
- return end==null?0:end-timeToMin(r.start)-r.breakMinutes;
+ const net=end==null?0:end-timeToMin(r.start)-r.breakMinutes;
+ return r.end?net:Math.max(0,net);
 }
-function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,leave:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
+function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,leave:"",sourceDay:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
 function validateRecord(r,day,now,settings,options={}){
  const bad=error=>({ok:false,error});
  if(!validDay(day)||day<FIRST||day>now.day)return bad("今日までの日付を選んでください。");
  if(!r||typeof r.start!=="string"||typeof r.end!=="string"||typeof r.overnight!=="boolean")return bad("時刻を確認してください。");
  if(!Object.hasOwn(LEAVES,r.leave))return bad("休暇区分を選んでください。");
+ if(r.sourceDay!==undefined&&(typeof r.sourceDay!=="string"||r.sourceDay&&(!validDay(r.sourceDay)||r.sourceDay<FIRST)))return bad("代休元の休日出勤日を確認してください。");
  if(!Number.isInteger(r.breakMinutes)||r.breakMinutes<0||r.breakMinutes>1440)return bad("休憩時間は0〜1440分で入力してください。");
  if(typeof r.note!=="string"||r.note.length>1000)return bad("作業内容は1000文字以内で入力してください。");
  if(!settings.places.some(p=>p.id===r.locationId))return bad("勤務場所を選んでください。");
@@ -58,11 +61,40 @@ function validateRecord(r,day,now,settings,options={}){
  }
  if(!r.allocation||PROJECTS.some(k=>!Number.isFinite(r.allocation[k])||r.allocation[k]<0||r.allocation[k]>24||Math.abs(r.allocation[k]*60-Math.round(r.allocation[k]*60))>1e-5))return bad("工数は0〜24時間で、分単位で入力してください。");
  const allocated=PROJECTS.reduce((sum,k)=>sum+Math.round(r.allocation[k]*60),0);
- if(allocated&&(!r.start||!r.end))return bad("工数は出勤・退勤を入力してから設定してください。");
- const net=worked(r,day,now);
- if(options.strictAllocation&&net>=0&&allocated!==net)return bad("勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）を一致させてください。");
- const warnings=net<0?["休憩時間を引いた勤務時間が「"+duration(net)+"」になっています。記録は保存しました。出退勤と休憩時間を確認してください。"+(allocated?" 工数は入力済みの値を保持しています。":"")]:allocated&&allocated!==net?["勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）が一致していません。記録は保存しました。工数の振り分けを確認してください。"]:[];
+ if(allocated&&!r.start)return bad("工数は出勤時刻を入力してから設定してください。");
+ const net=worked(r,day,now),complete=!!r.start&&!!r.end;
+ if(options.strictAllocation&&complete&&net>=0&&allocated!==net)return bad("勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）を一致させてください。");
+ const warnings=!complete?[]:net<0?["休憩時間を引いた勤務時間が「"+duration(net)+"」になっています。記録は保存しました。出退勤と休憩時間を確認してください。"+(allocated?" 工数は入力済みの値を保持しています。":"")]:allocated&&allocated!==net?["勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）が一致していません。記録は保存しました。工数の振り分けを確認してください。"]:[];
  return {ok:true,value:clone(r),warnings};
+}
+function eligibleCompSource(state,sourceDay,day,now){
+ if(!validDay(sourceDay)||sourceDay<FIRST||sourceDay>=day||sourceDay>now.day||!restDay(sourceDay))return false;
+ const r=state.records[sourceDay];
+ return !!r?.start&&!!r.end&&!fullLeave(r)&&validateRecord(r,sourceDay,now,state.settings).ok&&worked(r,sourceDay,now)>0;
+}
+function compLinkError(state,day,r,now){
+ if(!r?.sourceDay)return "代休元の休日出勤日を選んでください。";
+ if(!eligibleCompSource(state,r.sourceDay,day,now))return "代休元は、代休日より前の土日・祝日に出退勤を記録した、実働がプラスの日を選んでください。";
+ const used=Object.entries(state.records).find(([d,other])=>d!==day&&other?.leave==="comp"&&other.sourceDay===r.sourceDay);
+ return used?r.sourceDay+"は"+used[0]+"の代休に使用済みです。1日の休日出勤に対して代休は1日だけ登録できます。":"";
+}
+function compSources(state,day,now){
+ if(!state?.records||!Array.isArray(state.settings?.places)||!validDay(day)||day<FIRST||!now||!validDay(now.day)||day>now.day)return [];
+ const used=new Set(Object.entries(state.records).filter(([d,r])=>d!==day&&r?.leave==="comp").map(([,r])=>r.sourceDay));
+ return Object.keys(state.records).filter(d=>!used.has(d)&&eligibleCompSource(state,d,day,now)).sort().reverse();
+}
+function validateRecordChange(state,day,nextOrNull,now){
+ const bad=error=>({ok:false,error});
+ if(!state?.records||!now||!validDay(day)||day<FIRST||day>now.day)return bad("今日までの日付を選んでください。");
+ if(nextOrNull!==null){const shape=validateRecord(nextOrNull,day,now,state.settings);if(!shape.ok)return bad(shape.error);}
+ const candidate={...state,records:{...state.records}};
+ if(nextOrNull===null)delete candidate.records[day];else candidate.records[day]=nextOrNull;
+ if(nextOrNull?.leave==="comp"){const error=compLinkError(candidate,day,nextOrNull,now);if(error)return bad(error);}
+ for(const [compDay,r] of Object.entries(candidate.records)){
+  if(r?.leave!=="comp"||r.sourceDay!==day)continue;
+  if(compLinkError(candidate,compDay,r,now))return bad(compDay+"の代休に紐づく休日出勤です。先にその日の代休を解除してから変更・取消してください。");
+ }
+ return {ok:true};
 }
 function validateSettings(s){
  if(!s||!Number.isFinite(s.minHours)||!Number.isFinite(s.maxHours)||s.minHours<0||s.maxHours>744||s.minHours>s.maxHours)return "基準時間は0〜744時間で、下限≦上限にしてください。";
@@ -120,6 +152,7 @@ function submissionCheck(state,period,now,options={}){
   if(r!==undefined){
    const shape=validateRecord(r,day,now,state.settings);
    if(!shape.ok){errors.push({day,messages:[shape.error]});continue;}
+   if(r.leave==="comp"){const linkError=compLinkError(state,day,r,now);if(linkError)messages.push(linkError);}
   }
   if(missingDays.has(day))messages.push("出勤・退勤が未入力です。勤務記録または休暇を登録してください。");
   if(r&&!fullLeave(r)&&(r.start||r.end)){
@@ -128,12 +161,18 @@ function submissionCheck(state,period,now,options={}){
     const net=worked(r,day,now),allocated=PROJECTS.reduce((sum,k)=>sum+Math.round(r.allocation[k]*60),0);
     if(net<0)messages.push("休憩時間を引いた勤務時間がマイナスです。出退勤と休憩時間を確認してください。");
     else{
-     if(net<=240&&!(halfLeaveExemptsShortHours&&["am","pm"].includes(r.leave)))messages.push("実働が4時間以下です。有給休暇または半休を登録してください。");
+     if(net<=240&&!restDay(day)&&!(halfLeaveExemptsShortHours&&["am","pm"].includes(r.leave)))messages.push("実働が4時間以下です。有給休暇または半休を登録してください。");
      if(allocated!==net)messages.push("勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）を一致させてください。");
     }
    }
   }
   if(messages.length)errors.push({day,messages});
+ }
+ // Recheck dependent leave even when its date falls outside the source's period.
+ for(const [day,r] of Object.entries(state.records)){
+  if(r?.leave!=="comp"||!validDay(day)||!validDay(r.sourceDay)||day>now.day||day>=start&&day<=end||r.sourceDay<start||r.sourceDay>end)continue;
+  const linkError=compLinkError(state,day,r,now);
+  if(linkError)errors.push({day,messages:[linkError]});
  }
  return {ok:errors.length===0,errors};
 }
@@ -142,8 +181,10 @@ function prepareSubmission(state,period,now,options={}){
  return check.ok?{ok:true,bytes:workbook(state,period,now),errors:[]}:check;
 }
 function allocateToP1(record,day,now){
- const next=clone(record),minutes=Math.max(0,worked(record,day,now));
- next.allocation=Object.fromEntries(PROJECTS.map(k=>[k,k==="P1"?minutes/60:0]));
+ const next=clone(record);
+ if(!record.start||!record.end)return next;
+ const other=PROJECTS.slice(1).reduce((sum,k)=>sum+Math.round(record.allocation[k]*60),0);
+ next.allocation.P1=Math.max(0,worked(record,day,now)-other)/60;
  return next;
 }
 function pastMissing(state,now){
@@ -166,16 +207,19 @@ function summary(state,period,now){
  return result;
 }
 function submissionStatus(state,period){return state.submissions[periodKey(period)]?(state.submissions[periodKey(period)].test?"テスト提出済":"出力済"):"未提出";}
-function invalidateSubmissions(state,day){for(const key of Object.keys(state.submissions)){const [start,end]=key.split("|");if(day>=start&&day<=end)delete state.submissions[key];}}
+function invalidateSubmissions(state,day){
+ const affected=[day,...Object.entries(state.records).filter(([,r])=>r?.leave==="comp"&&r.sourceDay===day).map(([d])=>d)];
+ for(const key of Object.keys(state.submissions)){const [start,end]=key.split("|");if(affected.some(d=>d>=start&&d<=end))delete state.submissions[key];}
+}
 const durationCell=n=>n<0?short(n):{v:n/1440,duration:true};
 function workbook(state,period,now){
  const summaryData=summary(state,period,now);
- const rows=[["勤怠表（A. Paper 操作デモ）"],["氏名","田中 花子"],["対象期間",period.start+"〜"+period.end],["作業概要",state.settings.workSummary],["基準時間",state.settings.minHours+"〜"+state.settings.maxHours+"時間"],[],["日付","曜日","区分","出勤","退勤","休憩（分）","勤務時間","勤務場所","作業内容",...PROJECTS.map(k=>k+"（時間）")]];
+ const rows=[["勤怠表（A. Paper 操作デモ）"],["氏名","田中 花子"],["対象期間",period.start+"〜"+period.end],["作業概要",state.settings.workSummary],["基準時間",state.settings.minHours+"〜"+state.settings.maxHours+"時間"],[],["日付","曜日","区分","出勤","退勤","休憩（分）","勤務時間","勤務場所","作業内容",...PROJECTS.map(k=>k+"（時間）"),"代休元の休日出勤日"]];
  for(const d of dates(period.start,period.end)){
   const r=state.records[d],future=d>now.day,p=state.settings.places.find(p=>p.id===r?.locationId),hasWork=!!r?.start&&!fullLeave(r);
   const base=future?"これから":r?.leave?LEAVES[r.leave]:r?.end?"勤務":r?.start?"退勤未入力":holiday(d)|| (workday(d)?"未入力":holidayKnown(d)?"休日":"祝日未確認");
   const status=!future&&holiday(d)&&(r?.start||r?.leave)?base+"（"+holiday(d)+"）":base;
-  rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[r.start,r.end+(r.end&&r.overnight?"（翌日）":""),hasWork?r.breakMinutes:"",durationCell(worked(r,d,now)),hasWork?p?.code||"":"",r.note,...PROJECTS.map(k=>r.allocation[k])]:["","","","","","",...PROJECTS.map(()=>"")])]);
+  rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[r.start,r.end+(r.end&&r.overnight?"（翌日）":""),hasWork?r.breakMinutes:"",durationCell(worked(r,d,now)),hasWork?p?.code||"":"",r.note,...PROJECTS.map(k=>r.allocation[k]),r.leave==="comp"?r.sourceDay||"":""]:["","","","","","",...PROJECTS.map(()=>""),""])]);
  }
  rows.push([], ["合計","","","","","",durationCell(summaryData.minutes),"","",...PROJECTS.map(k=>Number(summaryData.allocation[k].toFixed(4)))]);
  const config=[["勤務表設定"],["PJ","PJ略称","PJ概要"],...state.settings.projects.map(p=>[p.id,p.name,p.description]),[],["場所","作業場所","作業場所名称","作業場所住所"],...state.settings.places.map((p,i)=>["場所"+(i+1),p.code,p.name,p.address])];
@@ -225,5 +269,5 @@ function workbook(state,period,now){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,empty,validateRecord,validateSettings,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
+global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,empty,validateRecord,validateRecordChange,compSources,validateSettings,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
 })(window);

@@ -49,7 +49,7 @@ async function run(){
   await p.clock.setSystemTime(new Date("2026-10-27T09:00:00Z"));await p.locator("#endPunch").click();await p.clock.runFor(900);assert.equal((await record()).allocation.P1,8);for(const key of ["P2","P3","P4","SET"])assert.equal((await record()).allocation[key],0);
   await p.locator("[data-detail=allocation]").click();await p.locator("#allocP1").fill("4");await p.locator("#allocP2").fill("4");await p.locator("#allocationForm button[type=submit]").click();assert.equal((await record()).allocation.P2,4);
   await p.locator("#allocP1").fill("3");await p.locator("#allocationForm button[type=submit]").click();assert.equal((await record()).allocation.P1,4);
-  await p.clock.setSystemTime(new Date("2026-10-27T09:01:00Z"));await p.locator("#endPunch").click();await p.clock.runFor(900);assert.equal(Math.round((await record()).allocation.P1*60),481);assert.equal((await record()).allocation.P2,0);
+  await p.clock.setSystemTime(new Date("2026-10-27T09:01:00Z"));await p.locator("#endPunch").click();await p.clock.runFor(900);assert.equal(Math.round((await record()).allocation.P1*60),241);assert.equal((await record()).allocation.P2,4);
   await p.locator("#endTime").fill("09:30");await p.locator("#endTime").dispatchEvent("change");assert.equal((await record()).end,"09:30");await p.locator("#nav-submit").click();await p.locator("[data-action=submit-period][data-index='2']").click();assert.match(await p.locator(".submission-issue").filter({has:p.locator("[data-day='2026-10-27']")}).innerText(),/マイナス/);
   assert.deepEqual(errors,[]);console.log("PASS P1 auto allocation, valid manual redistribution, mismatch rejection and negative punch records blocked on submit");
  }finally{await browser.close();}

@@ -1,0 +1,56 @@
+name: Paper attendance checks
+
+on:
+  push:
+    branches: [main, 'codex/paper-batch9']
+    paths:
+      - 'day-designs/paper-*.js'
+      - 'day-designs/paper.css'
+      - 'day-designs/a-paper.html'
+      - 'tests/paper-*.cjs'
+      - '.github/workflows/paper-checks.yml'
+  pull_request:
+    paths:
+      - 'day-designs/paper-*.js'
+      - 'day-designs/paper.css'
+      - 'day-designs/a-paper.html'
+      - 'tests/paper-*.cjs'
+      - '.github/workflows/paper-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  attendance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Model and submission checks
+        run: |
+          node tests/paper-attendance-check.cjs
+          node tests/paper-submission-check.cjs
+          node tests/paper-batch-check.cjs
+      - name: Install browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/paper-browser" --no-save --no-package-lock --ignore-scripts playwright@1.57.0
+          node "$RUNNER_TEMP/paper-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Browser regressions and responsive checks
+        run: |
+          export PAPER_PLAYWRIGHT_MODULE="$RUNNER_TEMP/paper-browser/node_modules/playwright"
+          export PAPER_SCREENSHOT_DIR="$RUNNER_TEMP/paper-screenshots"
+          node tests/paper-ui-check.cjs
+          node tests/paper-holidays-ui-check.cjs
+          node tests/paper-submission-ui-check.cjs
+          node tests/paper-batch-ui-check.cjs
+      - name: Keep screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-browser-screenshots
+          path: ${{ runner.temp }}/paper-screenshots
+          if-no-files-found: ignore
+          retention-days: 7

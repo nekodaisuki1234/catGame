@@ -74,7 +74,7 @@ for(const breakMinutes of [0,30,45,60,90]){
 }
 for(const breakMinutes of [-1,1.5,1441,NaN])assert.equal(check({...fresh(),breakMinutes}).ok,false);
 const normal={...fresh(),start:"09:00",end:"18:00"};
-assert.equal(C.worked({...normal,end:""},now.day,{...now,minutes:9*60+30}),-30);
+assert.equal(C.worked({...normal,end:""},now.day,{...now,minutes:9*60+30}),0,"unfinished work does not go below zero before its planned break has elapsed");
 assert.equal(C.worked({...normal,end:""},"2026-10-26",now),0);
 assert.equal(check({...normal,leave:"paid"}).ok,false);
 assert.equal(check({...fresh(),leave:"paid"}).ok,true);
@@ -104,7 +104,7 @@ for(const change of [{end:"18:15"},{breakMinutes:30}]){
  assert.ok(C.hydrate(saved,now),"corrected allocation mismatch must survive reload");
 }
 assert.equal(check(normal).warnings.length,0,"unallocated time is not an allocation mismatch warning");
-assert.equal(check({...assigned,end:""}).ok,false);
+assert.equal(check({...assigned,end:""}).ok,true,"an unfinished workday can retain provisional allocations");
 assert.equal(check({...normal,end:"17:01",allocation:{P1:7.01666667,P2:0,P3:0,P4:0,SET:0}}).ok,true);
 assert.equal(check({...normal,allocation:{P1:7.123,P2:0,P3:0,P4:0,SET:0}}).ok,false);
 assert.equal(check({...normal,allocation:{P1:-1,P2:0,P3:0,P4:0,SET:0}}).ok,false);
