@@ -59,7 +59,7 @@ function repositoryMessage(issue,fallback){
 }
 function syncPendingControls(){
  if(!saving)return;
- const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="preset"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"]';
+ const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="quick-rest"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"]';
  const controls=[...root.querySelectorAll(selector),...dialog.querySelectorAll(selector),...document.querySelectorAll('[data-state],[data-action="reset"],[data-action="live"]')];
  for(const node of controls){if(node.id==="workNote")continue;if(!pendingControls.has(node))pendingControls.set(node,node.disabled);node.disabled=true;}
 }
@@ -137,7 +137,7 @@ function animatePunch(kind){
 function restEditor(){
  const r=record(now.day);
  const draft=homeDraft().rest||{hours:String(Math.floor(r.breakMinutes/60)),minutes:String(r.breakMinutes%60)};
- return '<div class="rest-row"><span>休憩時間</span><strong>'+C.duration(r.breakMinutes)+'</strong><button class="text-button" type="button" data-action="rest">'+(restOpen?'やめる':homeDraft().rest?'変更・未保存':'変更')+'</button></div>'+(restOpen?'<form id="restForm" class="rest-form"><div class="rest-inputs"><label class="sr-only" for="restHours">休憩の時間</label><input id="restHours" type="number" min="0" max="24" required value="'+h(draft.hours)+'"><span>時間</span><label class="sr-only" for="restMinutes">休憩の分</label><input id="restMinutes" type="number" min="0" max="59" required value="'+h(draft.minutes)+'"><span>分</span><button type="submit" class="small-save">保存</button></div><div class="rest-presets" aria-label="休憩時間の候補">'+PRESETS.map(n=>'<button type="button" data-action="preset" data-minutes="'+n+'">'+n+'分</button>').join("")+'</div></form>':'');
+ return '<div class="rest-row"><span>休憩時間</span><strong>'+C.duration(r.breakMinutes)+'</strong><button class="text-button" type="button" data-action="rest">'+(restOpen?'やめる':homeDraft().rest?'変更・未保存':'変更')+'</button></div><div class="rest-presets rest-quick-presets" role="group" aria-label="休憩時間を選んで保存">'+PRESETS.map(n=>'<button type="button" data-action="quick-rest" data-minutes="'+n+'" aria-pressed="'+(r.breakMinutes===n)+'">'+n+'分'+(n===60?'<span class="sr-only">（標準の1時間）</span>':'')+'</button>').join("")+'</div><p class="rest-quick-note">タップで保存・標準は60分（1時間）</p>'+(restOpen?'<form id="restForm" class="rest-form"><div class="rest-inputs"><label class="sr-only" for="restHours">休憩の時間</label><input id="restHours" type="number" min="0" max="24" required value="'+h(draft.hours)+'"><span>時間</span><label class="sr-only" for="restMinutes">休憩の分</label><input id="restMinutes" type="number" min="0" max="59" required value="'+h(draft.minutes)+'"><span>分</span><button type="submit" class="small-save">保存</button></div></form>':'');
 }
 function readRest(){
  if((!restOpen||!$("restHours"))&&!homeDraft().rest)return record(now.day).breakMinutes;
@@ -425,7 +425,15 @@ document.addEventListener("click",async event=>{
  if(action==="reset"){await sample('before');return;}
  if(action==="live"){if(!demoMode())return;sampleClock="";render();return;}
  if(action==="rest"){if(restOpen)clearHomeDraft("rest");restOpen=!restOpen;$("restEditor").innerHTML=restEditor();return;}
- if(action==="preset"){$("restHours").value=Math.floor(Number(button.dataset.minutes)/60);$("restMinutes").value=Number(button.dataset.minutes)%60;setHomeDraft("rest",{hours:$("restHours").value,minutes:$("restMinutes").value});return;}
+ if(action==="quick-rest"){
+  const minutes=Number(button.dataset.minutes);if(!PRESETS.includes(minutes))return;
+  const day=clockNow().day,draft=homeDraft(day).rest;
+  if(await updateToday({breakMinutes:minutes},'休憩時間を'+C.duration(minutes)+'に変更しました',{autoAllocate:true})){
+   if(homeDraft(day).rest===draft)clearSavedHomeDraft(day,{rest:draft});
+   if(view==="home"&&renderedDay===day&&clockNow().day===day){restOpen=false;syncHome();}
+  }
+  return;
+ }
  if(action==="detail"){detail=button.dataset.detail;error="";$("detailArea").innerHTML=detailPanel();syncAllocationTotal();document.querySelectorAll("[data-detail]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.detail===detail)));$("previewError").textContent="";return;}
  if(action==="allocate-rest"){
   const total=C.worked(record(now.day),now.day,now),other=C.PROJECTS.slice(1).reduce((n,k)=>n+Math.round(Number($("alloc"+k).value)*60),0);

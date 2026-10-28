@@ -327,6 +327,14 @@ html[data-theme=paper]{scroll-padding-bottom:calc(100px + env(safe-area-inset-bo
 [data-theme=paper] .home-time-card .rest-row{margin-top:0;border-top:1px solid #e3e3de;padding-top:4px}
 [data-theme=paper] .rest-presets{gap:5px}
 [data-theme=paper] .rest-presets button{background:#fff;border-radius:6px;font-variant-numeric:tabular-nums}
+[data-theme=paper] .rest-quick-presets{display:grid;grid-template-columns:repeat(5,minmax(44px,1fr));gap:5px;margin-top:4px}
+[data-theme=paper] .rest-quick-presets button{min-width:44px;min-height:44px;padding:5px 3px;line-height:1.5;white-space:nowrap}
+[data-theme=paper] .rest-quick-presets button[aria-pressed=true]{border-color:var(--secondary);background:#e6eeea;color:var(--secondary);font-weight:650;box-shadow:inset 0 0 0 1px var(--secondary)}
+[data-theme=paper] .rest-quick-presets button:focus-visible{outline:2px solid var(--secondary);outline-offset:2px}
+[data-theme=paper] .rest-quick-presets button:disabled{opacity:.55;cursor:default}
+[data-theme=paper] .rest-quick-note{margin:7px 0 0;color:var(--muted);font-size:10px;line-height:1.8}
+[data-theme=paper] .rest-quick-note+.rest-form{margin-top:9px;padding-top:12px;border-top:1px solid #e3e3de}
+@media(max-width:319px){[data-theme=paper] .rest-quick-presets{grid-template-columns:repeat(3,minmax(44px,1fr))}}
 [data-theme=paper] .work-fields.paper-form-card{gap:16px;padding-top:17px;border-top:1px solid #dedfda}
 [data-theme=paper] .work-fields.paper-form-card>.form-card-heading{margin-bottom:0}
 [data-theme=paper] .work-fields .work-save-status{margin-top:-5px;border-top:1px solid #e3e3de;padding-top:5px}
