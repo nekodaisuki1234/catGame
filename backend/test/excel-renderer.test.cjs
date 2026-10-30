@@ -119,6 +119,25 @@ test("an existing template comment survives ExcelJS comment and VML serializatio
   assert.deepEqual(templateBytes, originalBytes);
 });
 
+test("optional phase columns export canonical Japanese labels separately from the unchanged free note", async () => {
+  const input = state(), mapped = clone(mapping);
+  mapped.days.columns.phases = "S";
+  input.records[period.start].phases = ["meeting", "test", "design"];
+  input.records["2026-10-27"].phases = [];
+  const note = input.records[period.start].note;
+  const bytes = await template();
+  const output = await createExcelRenderer({ ExcelJS }).render({ templateBytes: bytes, mapping: mapped, state: input, period, now });
+  const sheet = (await load(output)).getWorksheet("勤務表");
+  assert.equal(sheet.getCell("S8").value, "設計・テスト・会議");
+  assert.equal(sheet.getCell("K8").value, note);
+  assert.equal(sheet.getCell("S10").value, "", "old records with no phase field remain exportable");
+  assert.equal(sheet.getCell("S11").value, "");
+  assert.equal(sheet.getCell("S12").value, "", "unused rows do not inherit phase content");
+  const untouched = await createExcelRenderer().render({ templateBytes: bytes, mapping, state: input, period, now });
+  assert.equal((await load(untouched)).getWorksheet("勤務表").getCell("S8").value, null, "an omitted phase mapping creates no new output column");
+  assert.deepEqual(input.records[period.start].phases, ["meeting", "test", "design"]);
+});
+
 test("negative actual hours remain numeric and do not become Excel date serials", async () => {
   const input = state();
   input.records["2026-10-27"] = { ...clone(C.empty(input)), start: "09:00", end: "09:30", breakMinutes: 60, note: "確認" };

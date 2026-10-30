@@ -2,6 +2,7 @@
 "use strict";
 const VERSION=1,KEY="day-paper-attendance-v1",FIRST="2026-04-01";
 const PROJECTS=["P1","P2","P3","P4","SET"],PROJECT_IDS=PROJECTS,WEEK=["日","月","火","水","木","金","土"];
+const PHASES=[{id:"requirements",label:"要件定義"},{id:"design",label:"設計"},{id:"implementation",label:"製造"},{id:"test",label:"テスト"},{id:"operations",label:"運用"},{id:"maintenance",label:"保守"},{id:"investigation",label:"調査"},{id:"meeting",label:"会議"}],PHASE_IDS=PHASES.map(phase=>phase.id);
 const LEAVES={"":"休暇なし",paid:"有給休暇",am:"午前半休",pm:"午後半休",holiday:"公休",special:"特別休暇",comp:"代休"};
 const DEMO_EMPLOYEE={name:"田中 花子",department:"営業",id:"E001"},EMPLOYEE_FIELDS=["name","department","id"];
 const pad=n=>String(n).padStart(2,"0"),clone=value=>JSON.parse(JSON.stringify(value));
@@ -63,7 +64,8 @@ function absenceMinutes(r,day,now){
  const credit=["am","pm"].includes(r.leave)?240:0;
  return Math.max(0,480-credit-Math.max(0,span-r.breakMinutes));
 }
-function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,leave:"",sourceDay:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
+function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,phases:[],leave:"",sourceDay:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
+const phaseText=record=>PHASES.filter(phase=>Array.isArray(record?.phases)&&record.phases.includes(phase.id)).map(phase=>phase.label).join("・");
 const validAllocationHours=value=>Number.isFinite(value)&&value>=0&&value<=24&&Math.abs(value*60-Math.round(value*60))<=1e-5;
 function legacyAllocationSource(record){
  const source=record?.legacyProjectAllocation,value=record?.allocation?.SET;
@@ -79,6 +81,7 @@ function validateRecord(r,day,now,settings,options={}){
  if(r.sourceDay!==undefined&&(typeof r.sourceDay!=="string"||r.sourceDay&&(!validDay(r.sourceDay)||r.sourceDay<first)))return bad("代休元の休日出勤日を確認してください。");
  if(!Number.isInteger(r.breakMinutes)||r.breakMinutes<0||r.breakMinutes>1440)return bad("休憩時間は0〜1440分で入力してください。");
  if(typeof r.note!=="string"||r.note.length>1000)return bad("作業内容は1000文字以内で入力してください。");
+ if(Object.hasOwn(r,"phases")&&(!Array.isArray(r.phases)||r.phases.length>PHASE_IDS.length||Array.from(r.phases).some(phase=>!PHASE_IDS.includes(phase))||new Set(r.phases).size!==r.phases.length))return bad("フェーズは表示されている項目から、重複せず選んでください。");
  if(!settings.places.some(p=>p.id===r.locationId))return bad("勤務場所を選んでください。");
  if(fullLeave(r)&&(r.start||r.end))return bad("打刻がある日は、先に打刻を取り消してから休暇を設定してください。");
  if(r.start&&timeToMin(r.start)==null||r.end&&timeToMin(r.end)==null)return bad("出勤・退勤時刻を確認してください。");
@@ -97,7 +100,7 @@ function validateRecord(r,day,now,settings,options={}){
  const warnings=!complete?[]:net<0?["休憩時間を引いた勤務時間が「"+duration(net)+"」になっています。記録は保存しました。出退勤と休憩時間を確認してください。"+(allocated?" 工数は入力済みの値を保持しています。":"")]:allocated&&allocated!==net?["勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）が一致していません。記録は保存しました。工数の振り分けを確認してください。"]:[];
  const absence=net>=0?absenceMinutes(r,day,now):0;
  if(absence)warnings.push((["am","pm"].includes(r.leave)?"半休4時間分を含めても、":"実働が")+"1日8時間に"+duration(absence)+"不足しています。欠勤時間として集計します。");
- return {ok:true,value:clone(r),warnings};
+ return {ok:true,value:{...clone(r),phases:clone(r.phases||[])},warnings};
 }
 function eligibleCompSource(state,sourceDay,day,now){
  if(!validDay(sourceDay)||sourceDay<firstDay(state)||sourceDay>=day||sourceDay>now.day||!restDay(sourceDay))return false;
@@ -285,12 +288,12 @@ function invalidateSubmissions(state,day){
 const durationCell=n=>n<0?short(n):{v:n/1440,duration:true};
 function workbook(state,period,now){
  const summaryData=summary(state,period,now);
- const rows=[[isDemo(state)?"勤怠表（A. Paper 操作デモ）":"勤怠表"],["氏名",employee(state).name],["対象期間",period.start+"〜"+period.end],["作業概要",state.settings.workSummary],["基準時間",state.settings.minHours+"〜"+state.settings.maxHours+"時間"],[],["日付","曜日","区分","出勤","退勤","休憩（分）","勤務時間","勤務場所","作業内容",...PROJECTS.map(k=>k+"（時間）"),"代休元の休日出勤日"]];
+ const rows=[[isDemo(state)?"勤怠表（A. Paper 操作デモ）":"勤怠表"],["氏名",employee(state).name],["対象期間",period.start+"〜"+period.end],["作業概要",state.settings.workSummary],["基準時間",state.settings.minHours+"〜"+state.settings.maxHours+"時間"],[],["日付","曜日","区分","出勤","退勤","休憩（分）","勤務時間","勤務場所","作業内容",...PROJECTS.map(k=>k+"（時間）"),"代休元の休日出勤日","フェーズ"]];
  for(const d of dates(period.start,period.end)){
   const r=state.records[d],future=d>now.day,p=state.settings.places.find(p=>p.id===r?.locationId),hasWork=!!r?.start&&!fullLeave(r);
   const base=!isDemo(state)&&d<firstDay(state)?"記録開始前":future?"これから":r?.leave?LEAVES[r.leave]:r?.end?"勤務":r?.start?"退勤未入力":holiday(d)|| (workday(d)?"未入力":holidayKnown(d)?"休日":"祝日未確認");
   const status=!future&&holiday(d)&&(r?.start||r?.leave)?base+"（"+holiday(d)+"）":base;
-  rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[r.start,r.end+(r.end&&r.overnight?"（翌日）":""),hasWork?r.breakMinutes:"",durationCell(worked(r,d,now)),hasWork?p?.code||"":"",r.note,...PROJECTS.map(k=>r.allocation[k]),r.leave==="comp"?r.sourceDay||"":""]:["","","","","","",...PROJECTS.map(()=>""),""])]);
+  rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[r.start,r.end+(r.end&&r.overnight?"（翌日）":""),hasWork?r.breakMinutes:"",durationCell(worked(r,d,now)),hasWork?p?.code||"":"",r.note,...PROJECTS.map(k=>r.allocation[k]),r.leave==="comp"?r.sourceDay||"":"",phaseText(r)]:["","","","","","",...PROJECTS.map(()=>""),"",""])]);
  }
  rows.push([], ["合計","","","","","",durationCell(summaryData.minutes),"","",...PROJECTS.map(k=>Number(summaryData.allocation[k].toFixed(4)))]);
  const config=[["勤務表設定"],["PJ","PJ略称","PJ概要"],...state.settings.projects.map(p=>[p.id,p.name,p.description]),[],["場所","作業場所","作業場所名称","作業場所住所"],...state.settings.places.map((p,i)=>["場所"+(i+1),p.code,p.name,p.address])];
@@ -341,5 +344,5 @@ function workbook(state,period,now){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,absenceMinutes,empty,allocationMax,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
+global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,PHASES,PHASE_IDS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,absenceMinutes,empty,phaseText,allocationMax,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
 })(window);

@@ -73,7 +73,7 @@ async function main(){
  const before=JSON.stringify(record),adjusted=C.allocateToP1({...record,end:"19:00"},day,now);assert.equal(adjusted.allocation.P1,3);
  for(const key of ["P2","P3","P4","SET"])assert.equal(adjusted.allocation[key],record.allocation[key]);assert.equal(JSON.stringify(record),before);
  const sheets=unzip(C.prepareSubmission(state,period,now).bytes),sheet=sheets["xl/worksheets/sheet1.xml"],config=sheets["xl/worksheets/sheet2.xml"];
- assert.doesNotMatch(sheet,/P5（時間）/);assert.match(sheet,/SET（時間）/);assert.match(sheet,/<c r="N8"[^>]*><v>3<\/v><\/c>/);assert.match(sheet,/<col min="3" max="15" width="15"/);assert.match(config,/>SET<\/t>/);
+ assert.doesNotMatch(sheet,/P5（時間）/);assert.match(sheet,/SET（時間）/);assert.match(sheet,/<c r="N8"[^>]*><v>3<\/v><\/c>/);assert.match(sheet,/<col min="3" max="16" width="15"/);assert.match(config,/>SET<\/t>/);
 
  // Exact legacy bytes and revisions stay untouched until an explicit save; conflicts remain protected.
  for(const initial of [oldFour(),shortLivedSix(),oversized]){

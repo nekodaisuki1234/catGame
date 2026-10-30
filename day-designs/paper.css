@@ -360,6 +360,17 @@ html[data-theme=paper]{scroll-padding-bottom:calc(100px + env(safe-area-inset-bo
 [data-theme=paper] .work-field-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:7px}
 [data-theme=paper] .work-field-heading label{margin:0}
 [data-theme=paper] .work-field-heading>span{color:var(--muted);font-size:10px;line-height:1.7;white-space:nowrap}
+[data-theme=paper] .work-field-heading>.phase-field-label{font-size:12px}
+[data-theme=paper] .work-phase-field{min-width:0}
+[data-theme=paper] .phase-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+[data-theme=paper] .phase-button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:56px;padding:7px 4px;border:1px solid #d4ddd5;border-radius:7px;background:#fff;color:var(--muted);font:500 11px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;transition:background-color .15s,border-color .15s,color .15s}
+[data-theme=paper] .phase-button svg{flex:none;width:15px;height:15px;color:var(--secondary)}
+[data-theme=paper] .phase-button[aria-pressed=true]{border-color:var(--secondary);background:#e6eeea;color:#36594e;box-shadow:inset 0 0 0 1px var(--secondary);font-weight:650}
+[data-theme=paper] .phase-button:focus-visible{outline:2px solid var(--secondary);outline-offset:2px}
+[data-theme=paper] .phase-button:disabled{opacity:.5;cursor:default}
+@media(max-width:319px){[data-theme=paper] .phase-choices{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(hover:hover){[data-theme=paper] .phase-button:not(:disabled):hover{border-color:var(--secondary)}}
+@media(prefers-reduced-motion:reduce){[data-theme=paper] .phase-button{transition:none}}
 [data-theme=paper] .work-note-field textarea.paper-input{min-height:112px;padding:12px 13px;border-color:#ccd5cc;line-height:1.8}
 [data-theme=paper] .work-note-field textarea::placeholder{color:#7b8580;opacity:1}
 [data-theme=paper] .work-fields :is(select,textarea).paper-input:focus{border-color:var(--secondary)}

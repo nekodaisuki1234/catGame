@@ -13,7 +13,7 @@ const CELL_FIELDS = new Set([
 const DAY_FIELDS = new Set([
   "day", "weekday", "holiday", "status", "leave", "sourceDay",
   "start", "end", "endWithOffset", "overnight", "breakMinutes",
-  "workedHours", "absenceHours", "locationCode", "locationName", "note",
+  "workedHours", "absenceHours", "locationCode", "locationName", "note", "phases",
   ...C.PROJECTS.map(id => `allocation.${id}`)
 ]);
 const SUMMARY_FIELDS = new Set([
@@ -132,7 +132,8 @@ function dayValues(state, day, now) {
     overnight: hasWork && record.end ? record.overnight : "", breakMinutes: hasWork ? record.breakMinutes : "",
     workedHours: hasWork ? C.worked(record, day, now) / 60 : "",
     absenceHours: record ? C.absenceMinutes(record, day, now) / 60 : "",
-    locationCode: hasWork ? place?.code ?? "" : "", locationName: hasWork ? place?.name ?? "" : "", note: record?.note ?? ""
+    locationCode: hasWork ? place?.code ?? "" : "", locationName: hasWork ? place?.name ?? "" : "", note: record?.note ?? "",
+    phases: C.phaseText(record)
   };
   for (const id of C.PROJECTS) values[`allocation.${id}`] = record ? record.allocation[id] : "";
   return values;

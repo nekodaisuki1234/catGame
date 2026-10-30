@@ -4,7 +4,7 @@ const { randomUUID } = require("node:crypto");
 const { C, RULES_VERSION } = require("./core.cjs");
 const { ApiError } = require("./errors.cjs");
 
-const RECORD_FIELDS = ["start", "end", "overnight", "breakMinutes", "locationId", "note", "leave", "sourceDay", "allocation"];
+const RECORD_FIELDS = ["start", "end", "overnight", "breakMinutes", "locationId", "note", "phases", "leave", "sourceDay", "allocation"];
 const SETTINGS_FIELDS = ["attendanceStartDay", "employee", "minHours", "maxHours", "plannedHours", "plannedHoursByMonth", "workSummary", "projects", "places"];
 const copy = value => JSON.parse(JSON.stringify(value));
 const fail = (status, code, message, details) => { throw new ApiError(status, code, message, details); };
@@ -38,7 +38,7 @@ function ownedIdentity(identity) {
 }
 
 function validateInputRecord(record) {
-  object(record, RECORD_FIELDS, RECORD_FIELDS.filter(key => key !== "sourceDay"));
+  object(record, RECORD_FIELDS, RECORD_FIELDS.filter(key => !["sourceDay", "phases"].includes(key)));
   object(record.allocation, [...C.PROJECTS]);
 }
 
@@ -88,6 +88,8 @@ function createAttendanceService({ store, templateProvider, renderer, exportStor
 
   async function persistDay(identity, day, expectedRevision, context, input, now, { strictAllocation }) {
     const previous = context.records[day], next = { ...input, allocation: { ...input.allocation } };
+    // Older clients do not know this optional field. Only an explicit [] clears a selection.
+    if (!Object.hasOwn(input, "phases")) next.phases = copy(previous?.phases || []);
     // Historical import metadata is owned by the server, never supplied by the caller.
     if (previous && C.allocationMax(previous, "SET") > 24 && next.allocation.SET === previous.allocation.SET) {
       next.legacyProjectAllocation = copy(previous.legacyProjectAllocation);

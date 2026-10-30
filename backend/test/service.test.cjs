@@ -79,6 +79,50 @@ test("client identity, clock, validation options and historical exception marker
   assert.equal(f.store.inspect(OWNER).revision, 0);
 });
 
+test("phases persist separately from notes through legacy full saves and time corrections, and explicit empty selection clears them", async () => {
+  const f = fixture();
+  const saved = await f.service.putDay(OWNER, DAY, { expectedRevision: 0, record: work({ phases: ["design", "test"] }) });
+  assert.deepEqual(saved.record.phases, ["design", "test"]);
+  assert.equal(saved.record.note, "開発作業");
+  const fetched = await f.service.readDays(OWNER, { start: DAY, end: DAY });
+  assert.deepEqual(fetched.records[DAY].phases, ["design", "test"]);
+  fetched.records[DAY].phases.push("meeting");
+  assert.deepEqual(f.store.inspect(OWNER).records[DAY].phases, ["design", "test"]);
+  const legacyRecord = { ...saved.record, note: "自由入力を修正" }; delete legacyRecord.phases;
+  const updated = await f.service.putDay(OWNER, DAY, { expectedRevision: 1, record: legacyRecord });
+  assert.deepEqual(updated.record.phases, ["design", "test"]);
+  assert.equal(updated.record.note, "自由入力を修正");
+  const timed = await f.service.updateDayTime(OWNER, DAY, { expectedRevision: 2, changes: { end: "18:30" } });
+  assert.deepEqual(timed.record.phases, ["design", "test"]);
+  assert.equal(timed.record.allocation.P1, 8.5);
+  const cleared = await f.service.putDay(OWNER, DAY, { expectedRevision: 3, record: { ...timed.record, phases: [] } });
+  assert.deepEqual(cleared.record.phases, []);
+  const legacy = work(); delete legacy.phases;
+  const oldClient = fixture();
+  assert.deepEqual((await oldClient.service.putDay(OWNER, DAY, { expectedRevision: 0, record: legacy })).record.phases, []);
+});
+
+test("invalid phase selections cannot be saved or supplied through the narrow time route", async () => {
+  const f = fixture({ [DAY]: work({ phases: ["design"] }) });
+  for (const phases of [undefined, null, "test", ["unknown"], ["design", "design"], [1], ["design", null], Array(1)]) {
+    await assert.rejects(() => f.service.putDay(OWNER, DAY, { expectedRevision: 0, record: work({ phases }) }), expected(422, "invalid_record"));
+  }
+  await assert.rejects(() => f.service.updateDayTime(OWNER, DAY, { expectedRevision: 0, changes: { phases: ["test"] } }), expected(400, "invalid_request"));
+  assert.equal(f.store.inspect(OWNER).revision, 0);
+  assert.deepEqual(f.store.inspect(OWNER).records[DAY].phases, ["design"]);
+});
+
+test("selected phases are included in the export snapshot but do not satisfy a missing work note", async () => {
+  const f = fixture({ [DAY]: work({ note: "　 ", phases: ["test"] }) });
+  await assert.rejects(() => f.service.createExport(OWNER, { expectedRevision: 0, period: { start: DAY, end: DAY } }), error =>
+    expected(422, "validation_failed")(error) && error.details.errors.some(issue => issue.day === DAY && issue.messages.some(message => message.includes("作業内容"))));
+  assert.equal(f.calls.loads, 0); assert.equal(f.calls.writes.length, 0);
+  const saved = await f.service.putDay(OWNER, DAY, { expectedRevision: 0, record: work({ note: "境界値を確認", phases: ["test"] }) });
+  await f.service.createExport(OWNER, { expectedRevision: saved.revision, period: { start: DAY, end: DAY } });
+  assert.deepEqual(f.calls.writes[0].snapshot.state.records[DAY].phases, ["test"]);
+  assert.equal(f.calls.writes[0].snapshot.state.records[DAY].note, "境界値を確認");
+});
+
 test("time-only updates recalculate P1, preserve manual allocations and cannot edit allocation through that route", async () => {
   const f = fixture({ [DAY]: work({ allocation: { ...allocation(6), P2: 2 } }) });
   const saved = await f.service.updateDayTime(OWNER, DAY, { expectedRevision: 0, changes: { breakMinutes: 90 } });
