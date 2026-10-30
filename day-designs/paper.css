@@ -7,6 +7,11 @@
 [data-theme=paper] .app-nav .nav-button[aria-current=page]{border-color:#d8e3dc;background:#e6eeea;color:#36594e}
 [data-theme=paper] .app-nav .nav-button:focus-visible{outline:2px solid var(--secondary);outline-offset:2px}
 [data-theme=paper] .wordmark{min-height:44px}
+[data-theme=paper] .account-controls{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0}
+[data-theme=paper] .account-controls .employee{min-width:0;overflow-wrap:anywhere}
+[data-theme=paper] .logout-button{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none;gap:3px;min-width:60px;min-height:44px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--primary);font-size:9px;line-height:1.4}
+[data-theme=paper] .logout-button:focus-visible{outline:2px solid var(--secondary);outline-offset:3px}
+[data-theme=paper] .logout-button:disabled{opacity:.45;cursor:default}
 [data-theme=paper] .hero-composition{padding:14px 0 20px}
 [data-theme=paper] .hero-date{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;column-gap:8px;row-gap:0}
 [data-theme=paper] .clock-wrap{padding-top:4px}

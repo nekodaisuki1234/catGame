@@ -164,7 +164,7 @@ function repositoryMessage(issue,fallback){
 }
 function syncPendingControls(){
  if(!saving)return;
- const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="quick-rest"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"],[data-action="project-tab"],[data-action="project-step"],[data-action="place-tab"],[data-action="default-break"],[data-action="editor-phase"],[data-action="home-leave"],[data-action="editor-leave"],[data-action="default-phase"],[data-action="confirm-leave-request"],[data-action="editor-leave-request"]';
+ const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="quick-rest"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"],[data-action="project-tab"],[data-action="project-step"],[data-action="place-tab"],[data-action="default-break"],[data-action="editor-phase"],[data-action="home-leave"],[data-action="editor-leave"],[data-action="default-phase"],[data-action="confirm-leave-request"],[data-action="editor-leave-request"],[data-action="logout"],[data-action="confirm-logout"]';
  const controls=[...root.querySelectorAll(selector),...dialog.querySelectorAll(selector),...document.querySelectorAll('[data-state],[data-action="reset"],[data-action="live"]')];
  for(const node of controls){if(node.id==="workNote")continue;if(!pendingControls.has(node))pendingControls.set(node,node.disabled);node.disabled=true;}
 }
@@ -462,19 +462,30 @@ function settings(){
  let body;
  if(settingsTab==='defaults')body=defaultsSettings(d);
  else body='<section class="settings-section"><form id="settingsForm"><section class="paper-form-card"><div class="settings-card-heading"><h2 class="form-card-heading">勤務時間</h2><p>勤務表に使う時間を設定します。</p></div><div class="hours-range"><div class="form-field"><label for="minHours"><span>基準時間の下限</span></label><div class="field-unit"><input id="minHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.minHours)?s.minHours:'')+'" aria-label="基準時間の下限（時間）"><span aria-hidden="true">時間</span></div></div><span aria-hidden="true">〜</span><div class="form-field"><label for="maxHours"><span>基準時間の上限</span></label><div class="field-unit"><input id="maxHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.maxHours)?s.maxHours:'')+'" aria-label="基準時間の上限（時間）"><span aria-hidden="true">時間</span></div></div></div>'+planningSettings(s)+'</section>'+projectSettings(s)+placeSettings(s)+'<div class="settings-save-row settings-sheet-actions"><p class="settings-save-hint">勤務予定・プロジェクト・作業場所をまとめて保存します。</p><button class="paper-button full-width" type="submit">更新</button></div></form></section>';
- return '<section class="subpage"><h1>設定</h1><p class="subpage-lede">いつもの入力と、勤務表に使う情報を整えます。</p><a class="login-preview-link" href="./a-paper-login.html?v=paper-login29" target="_blank" rel="noopener" aria-label="Microsoft 365ログイン画面のプレビュー（新しいタブで開く）"><span>Microsoft 365ログイン</span><span>プレビュー <span aria-hidden="true">↗</span></span></a><div class="settings-tabs" aria-label="設定項目">'+[['defaults','いつもの勤務'],['sheet','勤務表の設定']].map(([id,label])=>'<button type="button" data-action="settings-tab" data-tab="'+id+'" aria-pressed="'+(settingsTab===id)+'">'+label+'</button>').join('')+'</div>'+body+'</section>';
+ return '<section class="subpage"><h1>設定</h1><p class="subpage-lede">いつもの入力と、勤務表に使う情報を整えます。</p><a class="login-preview-link" href="./a-paper-login.html?v=paper-logout30" target="_blank" rel="noopener" aria-label="Microsoft 365ログイン画面のプレビュー（新しいタブで開く）"><span>Microsoft 365ログイン</span><span>プレビュー <span aria-hidden="true">↗</span></span></a><div class="settings-tabs" aria-label="設定項目">'+[['defaults','いつもの勤務'],['sheet','勤務表の設定']].map(([id,label])=>'<button type="button" data-action="settings-tab" data-tab="'+id+'" aria-pressed="'+(settingsTab===id)+'">'+label+'</button>').join('')+'</div>'+body+'</section>';
 }
 function nav(){return '<nav class="app-nav" aria-label="メインナビゲーション">'+[["home","home","ホーム"],["records","calendar","勤怠"],["submit","send","提出"],["settings","settings","設定"]].map(([id,ic,label])=>'<button id="nav-'+id+'" type="button" class="nav-button" data-action="tab" data-tab="'+id+'" '+(view===id||view==="editor"&&id==="records"||view==="missing"&&id==="home"?'aria-current="page"':'')+'>'+icon(ic)+'<span>'+label+'</span></button>').join("")+'</nav>';}
+function logoutButton(){return '<button type="button" class="logout-button" data-action="logout"'+(saving?' disabled':'')+'><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H4v16h6m4-13 5 5-5 5m-6-5h13"/></svg><span>ログアウト</span></button>';}
+function openLogout(){
+ if(saving){toast('保存が完了してからログアウトしてください。',{warning:true});return;}
+ openDialog(dialogHeader('ログアウトしますか？')+'<p id="logoutDetails" class="panel-note">保存済みの勤怠データは、このブラウザに残ります。<br>未保存の入力は破棄されます。</p><p class="panel-note">現在は認証未接続のため、ログイン画面に戻ります。</p><div class="paper-actions"><button type="button" class="paper-button secondary" data-action="close-dialog" autofocus>キャンセル</button><button type="button" class="paper-button" data-action="confirm-logout">ログアウト</button></div>');
+}
+function confirmLogout(button){
+ if(saving){toast('保存が完了してからログアウトしてください。',{warning:true});return;}
+ if(!dialog.open||!$('logoutDetails')||!dialog.contains(button))return;
+ cancelPhaseSave();
+ location.replace('./a-paper-login.html?v=paper-logout30&from='+(config.mode==='local'?'local':'demo'));
+}
 function render(){
  if(!data){
   root.setAttribute("aria-busy",String(loading));
-  root.innerHTML='<header class="app-masthead"><span class="wordmark">SET</span></header><main class="preview-main"><section class="subpage"><h1>勤怠記録</h1><p id="previewError" class="preview-error" role="alert">'+h(storageProblem)+'</p><p class="subpage-lede">'+(loading?'保存した記録を読み込んでいます。':'記録を読み込めるまで操作を停止しています。保存内容は変更していません。')+'</p>'+(!loading?'<button type="button" class="paper-button" data-action="retry-load">再読み込み</button>':'')+'</section></main>';
+  root.innerHTML='<header class="app-masthead"><span class="wordmark">SET</span>'+logoutButton()+'</header><main class="preview-main"><section class="subpage"><h1>勤怠記録</h1><p id="previewError" class="preview-error" role="alert">'+h(storageProblem)+'</p><p class="subpage-lede">'+(loading?'保存した記録を読み込んでいます。':'記録を読み込めるまで操作を停止しています。保存内容は変更していません。')+'</p>'+(!loading?'<button type="button" class="paper-button" data-action="retry-load">再読み込み</button>':'')+'</section></main>';
   if(embed)root.inert=true;
   return;
  }
  now=clockNow();renderedDay=now.day;
  const employee=C.employee(data),employeeMeta=[employee.department,employee.id].filter(Boolean).join(' / ');
- root.innerHTML='<header class="app-masthead"><button type="button" class="wordmark" data-action="home" aria-label="SET ホーム">SET</button><div class="employee"><b>'+h(employee.name||'利用者未設定')+'</b>'+h(employeeMeta)+'</div></header><main class="preview-main"><div id="previewError" class="preview-error" role="alert">'+h(error||storageProblem)+'</div>'+({home,records,submit,settings,editor,missing}[view])()+'<p class="local-data-note">'+(demoMode()?'架空の社員の操作デモ · このブラウザに保存':'このブラウザに保存 · API・認証は未接続')+'</p></main>'+nav();
+ root.innerHTML='<header class="app-masthead"><button type="button" class="wordmark" data-action="home" aria-label="SET ホーム">SET</button><div class="account-controls"><div class="employee"><b>'+h(employee.name||'利用者未設定')+'</b>'+h(employeeMeta)+'</div>'+logoutButton()+'</div></header><main class="preview-main"><div id="previewError" class="preview-error" role="alert">'+h(error||storageProblem)+'</div>'+({home,records,submit,settings,editor,missing}[view])()+'<p class="local-data-note">'+(demoMode()?'架空の社員の操作デモ · このブラウザに保存':'このブラウザに保存 · API・認証は未接続')+'</p></main>'+nav();
  root.setAttribute("aria-busy",String(saving));
  if(view==="editor"){editorTimeSignatures.set(editDay,timeSignature(readEditor().record));syncEditor();}
  if(embed)root.inert=true;
@@ -612,6 +623,8 @@ document.addEventListener("click",async event=>{
  if((event.target.matches?.(".time-input")||event.target.id==="editDate")&&!event.target.disabled){try{event.target.showPicker?.();}catch{}return;}
  const button=event.target.closest?.("[data-action],[data-state]");if(!button||button.disabled)return;
  if(button.dataset.action==="retry-load"){await loadData();return;}
+ if(button.dataset.action==='logout'){openLogout();return;}
+ if(button.dataset.action==='confirm-logout'){confirmLogout(button);return;}
  if(!data)return;
  if(button.dataset.state){await sample(button.dataset.state);return;}
  const action=button.dataset.action;

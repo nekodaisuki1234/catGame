@@ -75,6 +75,70 @@ async function run(){
   assert.deepEqual(await snapshot(page),before,"opening the explicit demo must not create an auth session or rewrite existing records");
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
   console.log("PASS explicit demo navigation retains demo mode and all previously saved data without browser errors");
+  let returnedApp;
+  for(const [mode,entry] of [["demo","a-paper.html?screen=1"],["local","a-paper-app.html"]]){
+   const current=await context.newPage();current.on("pageerror",error=>errors.push(error.message));
+   await current.addInitScript(()=>{
+    const control=window.__logoutAdapter={calls:0,hold:false};
+    window.PaperRepositoryFactory=options=>{
+     const repository=window.PaperRepository.createLocal(options);
+     return {...repository,async save(next,saveOptions){control.calls++;if(control.hold)await new Promise(resolve=>{control.release=resolve;});return repository.save(next,saveOptions);}};
+    };
+   });
+   await current.clock.install({time:new Date("2026-10-27T12:00:00Z")});
+   await current.goto(origin+"/day-designs/"+entry);await current.locator("#startPunch").waitFor();
+   const storedBefore=await snapshot(current),logout=current.locator("button[data-action=logout]");
+   assert.match(await logout.innerText(),/ログアウト/);
+   await current.setViewportSize({width:320,height:568});
+   const target=await logout.boundingBox();assert.ok(target.width>=44&&target.height>=44,"logout needs a44px target");
+   assert.ok(await current.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),mode+" masthead must fit320px");
+   await current.setViewportSize({width:390,height:844});
+   if(screenshotDir&&mode==="demo")await current.screenshot({path:path.join(screenshotDir,"paper-logout30-home.png")});
+   await current.locator("#nav-settings").click();await current.locator("#defaultNote").fill("保存しない下書き・"+mode);
+   await logout.focus();await current.keyboard.press("Enter");
+   assert.equal(await current.locator("#paperDialog").evaluate(node=>node.open),true);
+   assert.match(await current.locator("#paperDialog").innerText(),/未保存/);
+   if(screenshotDir&&mode==="demo")await current.screenshot({path:path.join(screenshotDir,"paper-logout30-confirm.png")});
+   assert.deepEqual(await snapshot(current),storedBefore,"opening logout confirmation cannot change saved data");
+   await current.locator("#paperDialog [data-action=close-dialog]").last().click();
+   assert.equal(await current.locator("#defaultNote").inputValue(),"保存しない下書き・"+mode,"cancel must retain unsaved form input");
+   await logout.click();await current.locator("[data-action=confirm-logout]").click();
+   await current.locator("#microsoftLogin").waitFor();
+   assert.equal(new URL(current.url()).pathname,"/day-designs/a-paper-login.html");
+   assert.equal(new URL(current.url()).searchParams.get("from"),mode,"logout return mode follows the actual HTML entry");
+   assert.deepEqual(await snapshot(current),storedBefore,"logout cannot erase or rewrite attendance, other-mode data or unrelated storage");
+   if(mode==="local"){
+    assert.match(await current.locator("#loginReturn").getAttribute("href"),/a-paper-app\.html/);
+    await current.locator("#loginReturn").click();
+   }else await current.locator("#loginDemo").click();
+   await current.locator("#startPunch").waitFor();
+   assert.equal(await current.evaluate(()=>window.PaperConfig.mode),mode,"return must preserve demo/local separation");
+   await current.locator("#nav-settings").click();
+   assert.notEqual(await current.locator("#defaultNote").inputValue(),"保存しない下書き・"+mode,"unaccepted form drafts are not persisted by logout");
+   assert.deepEqual(await snapshot(current),storedBefore);
+   await current.locator("#nav-home").click();returnedApp=current;
+  }
+  console.log("PASS demo/local logout confirmation, cancellation retains drafts, keyboard/mobile control and data-preserving login return");
+
+  const pending=returnedApp,pendingUrl=pending.url();
+  await pending.evaluate(()=>window.__logoutAdapter.hold=true);
+  const beforePending=await snapshot(pending);await pending.locator("#startPunch").click();
+  await pending.waitForFunction(()=>window.__logoutAdapter.calls===1&&document.querySelector("#previewApp").getAttribute("aria-busy")==="true");
+  assert.equal(await pending.locator("[data-action=logout]").isDisabled(),true,"logout must wait for an in-flight save");
+  await pending.evaluate(()=>{
+   document.querySelector("[data-action=logout]").dispatchEvent(new MouseEvent("click",{bubbles:true}));
+   const confirm=document.createElement("button");confirm.dataset.action="confirm-logout";document.body.append(confirm);confirm.click();confirm.remove();
+  });
+  assert.equal(pending.url(),pendingUrl,"even synthetic logout actions cannot abandon an in-flight save");
+  assert.equal(await pending.locator("#paperDialog").evaluate(node=>node.open),false);
+  assert.deepEqual(await snapshot(pending),beforePending,"pending saves cannot be treated as already accepted");
+  await pending.evaluate(()=>window.__logoutAdapter.release());
+  await pending.waitForFunction(()=>document.querySelector("#previewApp").getAttribute("aria-busy")==="false");
+  const accepted=await snapshot(pending);assert.notEqual(accepted["day-paper-local-v1"],beforePending["day-paper-local-v1"]);
+  await pending.locator("[data-action=logout]").click();await pending.locator("[data-action=confirm-logout]").click();await pending.locator("#microsoftLogin").waitFor();
+  assert.deepEqual(await snapshot(pending),accepted,"a completed save must survive the following logout");
+  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+  console.log("PASS pending-save logout guard and preservation of the accepted record after logout without auth traffic");
   await context.close();
  }finally{await browser.close();}
 }
