@@ -120,6 +120,7 @@ function openLeaveRequest(editorMode=false){
  now=current;const day=editorMode?editDay:renderedDay,leave=$(editorMode?'editLeave':'leaveType').value,sourceDay=leave==='comp'?$(editorMode?'editSourceDay':'leaveSourceDay').value:'',r=record(day),last=latestLeaveRequest(day);
  if(!leave&&!r.leave){toast('申請する休暇を選んでください。',{warning:true});return;}
  if(last&&last.leave===leave&&last.sourceDay===sourceDay&&r.leave===leave&&(r.sourceDay||'')===sourceDay){toast('同じ内容の申請は、この端末に保存済みです。勤怠の変更は「更新」で保存してください。管理者への送信先は未接続です。');return;}
+ if(editorMode&&C.PROJECTS.some(key=>$("editAlloc"+key).value.trim()===""||!$("editAlloc"+key).validity.valid)){toast("工数を0〜24時間で入力してください。",{warning:true});return;}
  if(editorMode)captureEditor();
  const edited=editorMode?C.clone(readEditor().record):null,id='lr-'+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12)),snapshot={id,day,leave,sourceDay,revision:data.revision,editor:editorMode,record:edited,homeDraft:homeDraft(day)};
  const checked=C.prepareLeaveRequest(data,{id,day,leave,sourceDay,requestedAt:leaveRequestedAt(current)},current,editorMode?{record:edited,strictAllocation:true}:{});
