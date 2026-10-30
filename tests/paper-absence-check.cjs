@@ -1,4 +1,5 @@
 "use strict";
+const {unknownDay,unknownNextDay}=require("./paper-calendar-fixture.cjs");
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
 const context={window:{},Intl,Date};vm.createContext(context);
 for(const file of ["paper-holidays.js","paper-core.js"])vm.runInContext(fs.readFileSync(path.join(__dirname,"../day-designs",file),"utf8"),context);
@@ -31,7 +32,7 @@ assert.equal(C.absenceMinutes({...work(180),end:""},now.day,now),0,"clock-in doe
 assert.equal(warnings({...work(180),end:""},now.day).warnings.length,0,"no clock-in shortage toast");
 assert.equal(C.absenceMinutes(work(420),now.day,now),60,"today counts after clock-out");
 assert.equal(C.absenceMinutes(work(420),"2026-10-29",now),0,"a saved future fixture does not count");
-assert.equal(C.absenceMinutes(work(420),"2028-01-03",{day:"2028-01-04",minutes:1200}),0,"unpublished weekday calendars cannot invent a target");
+assert.equal(C.absenceMinutes(work(420),unknownDay,{day:unknownNextDay,minutes:1200}),0,"unpublished weekday calendars cannot invent a target");
 assert.equal(C.absenceMinutes({...work(420),breakMinutes:null},day,now),0,"an invalid edit draft cannot produce NaN");
 assert.equal(C.absenceMinutes({...work(420),start:"18:00",end:"09:00"},day,now),0,"invalid reversed times wait for correction");
 

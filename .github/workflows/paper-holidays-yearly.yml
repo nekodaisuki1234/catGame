@@ -1,0 +1,86 @@
+name: Yearly official holiday update
+
+on:
+  schedule:
+    # The Cabinet Office publishes the following year's calendar in February.
+    - cron: '0 0 1 3 *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: paper-holidays-yearly
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate importer and fetch officially published calendar
+        id: holidays
+        run: |
+          node tests/paper-holiday-update-check.cjs
+          node scripts/update-paper-holidays.cjs
+          if git diff --quiet -- day-designs/paper-holidays.js day-designs/a-paper.html day-designs/a-paper-app.html; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Check updated calendar against attendance rules
+        if: steps.holidays.outputs.changed == 'true'
+        run: |
+          node tests/paper-holiday-update-check.cjs
+          node tests/paper-attendance-check.cjs
+          node tests/paper-submission-check.cjs
+          node tests/paper-batch-check.cjs
+          node tests/paper-planning-check.cjs
+          node tests/paper-initialization-check.cjs
+          node tests/paper-repository-check.cjs
+          node tests/paper-absence-check.cjs
+          node tests/paper-projects-check.cjs
+          node tests/paper-phases-check.cjs
+          node tests/paper-leave-request-check.cjs
+          npm ci --prefix backend --ignore-scripts
+          npm test --prefix backend
+      - name: Open an update pull request
+        if: steps.holidays.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          branch="automation/paper-holidays-$(node -e 'const u=require("./scripts/update-paper-holidays.cjs"),c=u.currentCalendar();console.log(c.end.slice(0,4)+"-"+require("node:crypto").createHash("sha256").update(JSON.stringify(c.days)).digest("hex").slice(0,12))')"
+          if ! git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            git switch -c "$branch"
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -- day-designs/paper-holidays.js day-designs/a-paper.html day-designs/a-paper-app.html
+            git commit -m 'Update officially published Japanese holiday calendar'
+            git push origin "HEAD:refs/heads/$branch"
+          fi
+          # Retry PR creation if an earlier run pushed successfully but could not open a PR.
+          existing="$(gh pr list --head "$branch" --base "$BASE_BRANCH" --state open --json number --jq 'length')"
+          if [ "$existing" != '0' ]; then
+            echo "An update pull request is already open for $branch."
+            exit 0
+          fi
+          cat > "$RUNNER_TEMP/holiday-update-pr.md" <<'BODY'
+          内閣府の公式CSVを取り込み、祝日データとAデザイン2画面の祝日ファイルのキャッシュキーを更新します。過去の対象年は保持し、未公表の翌年を推測して追加しません。
+
+          振替休日・国民の休日の分類、年の欠落、翌年の公表有無を検証し、勤怠モデルとバックエンドのテストを実行済みです。公式発表との差分を確認してマージしてください。自動マージは行いません。
+
+          出典: https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html
+          CSV: https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv
+          利用規約: https://www.cao.go.jp/notice/rule.html
+
+          GITHUB_TOKENで作成したPRでは別のCIが起動しない場合があるため、この年次workflow内で検証を実行しています。
+          BODY
+          gh pr create --base "$BASE_BRANCH" --head "$branch" --title '祝日データの年次更新' --body-file "$RUNNER_TEMP/holiday-update-pr.md"

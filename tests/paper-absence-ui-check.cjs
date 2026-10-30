@@ -1,4 +1,5 @@
 "use strict";
+const {unknownTime}=require("./paper-calendar-fixture.cjs");
 // Run with Playwright/Chromium; PAPER_PLAYWRIGHT_MODULE can point to an installed module.
 const {chromium}=require(process.env.PAPER_PLAYWRIGHT_MODULE||"playwright");
 const assert=require("node:assert/strict"),http=require("node:http"),fs=require("node:fs"),path=require("node:path");
@@ -118,7 +119,7 @@ async function run(){
    assert.match(await page.locator("#studyToast").innerText(),/マイナス|休憩時間を引いた/);assert.doesNotMatch(await page.locator("#studyToast").innerText(),/欠勤/);
    await home(page);await absence(page,"#homeAbsence","8時間00分");
    assert.equal(await page.locator("#todayWorked").innerText(),"−1:00");
-   await page.clock.setSystemTime(new Date("2028-06-15T12:00:00Z"));await page.reload();await ready(page);await absence(page,"#homeAbsence","—");
+   await page.clock.setSystemTime(new Date(unknownTime));await page.reload();await ready(page);await absence(page,"#homeAbsence","—");
    console.log("PASS "+label+" preserved negative-save warning priority, bounded absence and unknown-calendar display");
    await context.close();
   }

@@ -1,4 +1,5 @@
 "use strict";
+const {unknownDay,unknownNextDay}=require("../../tests/paper-calendar-fixture.cjs");
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -155,7 +156,7 @@ test("holiday name and unknown calendar dates use core calendar rather than inve
   const sheet = (await load(output)).getWorksheet("勤務表");
   assert.equal(sheet.getCell("C8").value, "敬老の日");
   assert.equal(sheet.getCell("D8").value, "敬老の日");
-  const futurePeriod = { start: "2028-01-03", end: "2028-01-03" }, futureNow = { day: "2028-01-04", minutes: 600 };
+  const futurePeriod = { start: unknownDay, end: unknownDay }, futureNow = { day: unknownNextDay, minutes: 600 };
   const future = await createExcelRenderer().render({ templateBytes: await template(), mapping: single, state: holidayState, period: futurePeriod, now: futureNow });
   assert.equal((await load(future)).getWorksheet("勤務表").getCell("D8").value, "祝日未確認");
 });

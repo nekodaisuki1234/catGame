@@ -1,4 +1,5 @@
 "use strict";
+const {unknownDay}=require("./paper-calendar-fixture.cjs");
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
 const source=fs.readFileSync(path.join(__dirname,"../day-designs/paper-core.js"),"utf8");
 const context={window:{},Intl,Date};vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,"../day-designs/paper-holidays.js"),"utf8"),context);vm.runInContext(source,context);
@@ -36,8 +37,8 @@ assert.equal(C.monthWorkdays("2026-10-27"),21);
 assert.equal(C.monthWorkdays("2026-11-03"),19);
 assert.equal(C.monthWorkdays("2026-05-10"),18);
 assert.equal(C.monthWorkdays("2026-09-10"),19);
-assert.equal(C.monthWorkdays("2028-01-01"),null,"do not invent unpublished holidays");
-assert.equal(C.holidayKnown("2028-01-01"),false);
+assert.equal(C.monthWorkdays(unknownDay),null,"do not invent unpublished holidays");
+assert.equal(C.holidayKnown(unknownDay),false);
 assert.equal(JSON.stringify(C.fiscalPeriod("2027-03-31")),JSON.stringify({start:"2026-04-01",end:"2027-03-31"}));
 assert.equal(JSON.stringify(C.fiscalPeriod("2027-04-01")),JSON.stringify({start:"2027-04-01",end:"2028-03-31"}));
 const missingState=C.clone(data);missingState.records={};

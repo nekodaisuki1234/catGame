@@ -1,4 +1,5 @@
 "use strict";
+const {unknownDay}=require("../../tests/paper-calendar-fixture.cjs");
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -331,7 +332,7 @@ test("an ambiguous transaction timeout does not delete an artifact that may alre
 });
 
 test("unpublished holiday calendars block checked exports instead of inventing missing-day rules", async () => {
-  const future = { day: "2028-06-15", minutes: 1200, full: "20:00:00" }, day = future.day;
+  const future = { day: unknownDay, minutes: 1200, full: "20:00:00" }, day = future.day;
   const f = fixture({ [day]: work() }, { clock: () => future });
   await assert.rejects(() => f.service.createExport(OWNER, { expectedRevision: 0, period: { start: day, end: day } }), expected(422, "validation_failed"));
   const reviewed = await f.service.createExport(OWNER, { expectedRevision: 0, period: { start: day, end: day }, purpose: "review" });

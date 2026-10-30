@@ -1,4 +1,5 @@
 "use strict";
+const {unknownMonth,unknownTime}=require("./paper-calendar-fixture.cjs");
 // Run with Playwright/Chromium; PAPER_PLAYWRIGHT_MODULE can point to an installed module.
 const {chromium}=require(process.env.PAPER_PLAYWRIGHT_MODULE||"playwright");
 const assert=require("node:assert/strict"),http=require("node:http"),fs=require("node:fs"),path=require("node:path");
@@ -196,12 +197,12 @@ async function run(){
    await page.reload();await ready(page);await expectSummary(page,176);
 
    // Outside the known holiday calendar an automatic blank remains a valid reset.
-   await page.clock.setSystemTime(new Date("2028-06-15T12:00:00Z"));await page.reload();await ready(page);await openPlan(page,"2028-06");
+   await page.clock.setSystemTime(new Date(unknownTime));await page.reload();await ready(page);await openPlan(page,unknownMonth);
    assert.equal(await page.locator("#planHoursInput").inputValue(),"");assert.equal(await page.locator("#planHoursInput").evaluate(node=>node.required),false);
-   await savePlan(page);assert.equal(Object.hasOwn((await stored(page)).settings.plannedHoursByMonth,"2028-06"),false);
-   await openPlan(page,"2028-06");await page.locator("#planHoursInput").fill("120");await savePlan(page);await expectSummary(page,120);
-   await openPlan(page,"2028-06");await page.locator("[data-action=plan-auto]").click();await savePlan(page);await expectSummary(page,"—");
-   assert.equal(Object.hasOwn((await stored(page)).settings.plannedHoursByMonth,"2028-06"),false);
+   await savePlan(page);assert.equal(Object.hasOwn((await stored(page)).settings.plannedHoursByMonth,unknownMonth),false);
+   await openPlan(page,unknownMonth);await page.locator("#planHoursInput").fill("120");await savePlan(page);await expectSummary(page,120);
+   await openPlan(page,unknownMonth);await page.locator("[data-action=plan-auto]").click();await savePlan(page);await expectSummary(page,"—");
+   assert.equal(Object.hasOwn((await stored(page)).settings.plannedHoursByMonth,unknownMonth),false);
    console.log("PASS "+label+" direct plan edit/reload, automatic reset, isolated invalid-settings draft, numeric bounds, conflict toast and unknown-calendar reset");
    await context.close();
 

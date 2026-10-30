@@ -1,4 +1,5 @@
 "use strict";
+const {unknownMonth,unknownTime}=require("./paper-calendar-fixture.cjs");
 // Run with Playwright/Chromium; PAPER_PLAYWRIGHT_MODULE can point to an installed module.
 const {chromium}=require(process.env.PAPER_PLAYWRIGHT_MODULE||"playwright");
 const assert=require("node:assert/strict"),http=require("node:http"),fs=require("node:fs"),path=require("node:path");
@@ -148,15 +149,15 @@ async function run(){
   console.log("PASS blank rejection, blank draft preservation, explicit zero, finite progress, and 320/390/430px home/settings layouts");
 
   // Dates outside the published holiday calendar cannot invent an automatic plan.
-  const unknown=await fresh("2028-06-15T12:00:00Z",{overrides:{"2026-11":144}});
+  const unknown=await fresh(unknownTime,{overrides:{"2026-11":144}});
   assert.equal(await unknown.locator("#homeWorkdays").innerText(),"—日");await expectSummary(unknown,"—","—","予定未設定",100);await noOverflow(unknown,"unknown-calendar home");
   await openPlan(unknown);await expectMode(unknown,"auto","");assert.match(await unknown.locator("#plannedHoursHint").innerText(),/未収録/);await noOverflow(unknown,"unknown-calendar settings");
   await setMode(unknown,"manual");assert.equal(await unknown.locator("#plannedHours").isEnabled(),true);await unknown.locator("#plannedHours").fill("120");await savePlan(unknown);
-  assert.deepEqual((await state(unknown)).settings.plannedHoursByMonth,{"2026-11":144,"2028-06":120});await unknown.locator("#nav-home").click();await expectSummary(unknown,120,"0%","予定まで 120時間",100);
+  assert.deepEqual((await state(unknown)).settings.plannedHoursByMonth,{"2026-11":144,[unknownMonth]:120});await unknown.locator("#nav-home").click();await expectSummary(unknown,120,"0%","予定まで 120時間",100);
   await unknown.reload();await expectSummary(unknown,120,"0%","予定まで 120時間",100);await openPlan(unknown);await expectMode(unknown,"manual","120");
   await setMode(unknown,"auto");await expectMode(unknown,"auto","");await savePlan(unknown);assert.deepEqual((await state(unknown)).settings.plannedHoursByMonth,{"2026-11":144});
   await unknown.locator("#nav-home").click();await expectSummary(unknown,"—","—","予定未設定",100);
-  console.log("PASS unknown 2028 automatic plan stays unavailable, manual plans save/reload, and automatic reset can save an editable blank field");
+  console.log("PASS unknown-calendar automatic plan stays unavailable, manual plans save/reload, and automatic reset can save an editable blank field");
 
   // The former global 168 default becomes automatic; a customized legacy value is retained for the migration month.
   const legacyDefault=await fresh("2026-11-03T12:00:00Z",{legacy:168});await expectSummary(legacyDefault,152,"0%","予定まで 152時間",100);

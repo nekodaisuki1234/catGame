@@ -1,4 +1,5 @@
 "use strict";
+const {unknownTime}=require("./paper-calendar-fixture.cjs");
 const {chromium}=require(process.env.PAPER_PLAYWRIGHT_MODULE||"playwright");
 const assert=require("node:assert/strict"),http=require("node:http"),fs=require("node:fs"),path=require("node:path");
 const root=path.resolve(__dirname,".."),server=http.createServer((req,res)=>{
@@ -69,7 +70,7 @@ async function run(){
   assert.match(await page.locator(".month-holidays").innerText(),/11\/23\s+勤労感謝の日/);
   await holiday.click();assert.equal(await page.locator(".editor-holiday-name").innerText(),"文化の日");await page.locator("#editStart").fill("09:00");await page.locator("#editEnd").fill("18:00");await page.locator("#editAllocP1").fill("8");await page.locator("#dayForm button[type=submit]").click();if(await page.locator("[data-action=confirm-leave-request]").count())await page.locator("[data-action=confirm-leave-request]").click();
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem(window.PaperAttendance.KEY)).records["2026-11-03"].end),"18:00");
-  await page.clock.setFixedTime(new Date("2028-06-15T12:00:00Z"));await page.reload();await page.locator("#nav-records").click();
+  await page.clock.setFixedTime(new Date(unknownTime));await page.reload();await page.locator("#nav-records").click();
   assert.equal(await page.locator(".month-holiday-empty").innerText(),"この月の祝日データは未収録です");
   assert.equal(await page.locator(".month-holiday-list li").count(),0);
   await page.clock.setFixedTime(new Date("2026-11-03T12:00:00Z"));await page.reload();await page.locator("#nav-records").click();

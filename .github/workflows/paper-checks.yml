@@ -5,17 +5,21 @@ on:
     branches: [main, 'codex/paper-batch9']
     paths:
       - 'day-designs/paper-*.js'
-      - 'day-designs/paper.css'
+      - 'day-designs/paper*.css'
       - 'day-designs/a-paper*.html'
       - 'tests/paper-*.cjs'
       - '.github/workflows/paper-checks.yml'
+      - '.github/workflows/paper-holidays-yearly.yml'
+      - 'scripts/update-paper-holidays.cjs'
   pull_request:
     paths:
       - 'day-designs/paper-*.js'
-      - 'day-designs/paper.css'
+      - 'day-designs/paper*.css'
       - 'day-designs/a-paper*.html'
       - 'tests/paper-*.cjs'
       - '.github/workflows/paper-checks.yml'
+      - '.github/workflows/paper-holidays-yearly.yml'
+      - 'scripts/update-paper-holidays.cjs'
 
 permissions:
   contents: read
@@ -31,6 +35,7 @@ jobs:
           node-version: 22
       - name: Model and submission checks
         run: |
+          node tests/paper-holiday-update-check.cjs
           node tests/paper-attendance-check.cjs
           node tests/paper-submission-check.cjs
           node tests/paper-batch-check.cjs
@@ -49,6 +54,7 @@ jobs:
         run: |
           export PAPER_PLAYWRIGHT_MODULE="$RUNNER_TEMP/paper-browser/node_modules/playwright"
           export PAPER_SCREENSHOT_DIR="$RUNNER_TEMP/paper-screenshots"
+          node tests/paper-login-ui-check.cjs
           node tests/paper-leave-parity-ui-check.cjs
           node tests/paper-leave-request-ui-check.cjs
           node tests/paper-defaults-ui-check.cjs

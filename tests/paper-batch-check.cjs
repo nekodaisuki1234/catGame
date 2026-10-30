@@ -1,4 +1,5 @@
 "use strict";
+const {unknownDay,unknownWeekend,unknownAfterWeekend}=require("./paper-calendar-fixture.cjs");
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
 const context={window:{},Intl,Date};vm.createContext(context);
 for(const file of ["paper-holidays.js","paper-core.js"])vm.runInContext(fs.readFileSync(path.join(__dirname,"../day-designs",file),"utf8"),context);
@@ -66,9 +67,9 @@ candidates.records["2026-10-20"]=comp("2026-10-12");
 assert.ok(C.compSources(candidates,"2026-10-20",now).includes("2026-10-12"),"the currently edited leave may retain its own source");
 assert.equal(C.compSources(candidates,"2026-10-21",now).includes("2026-10-12"),false,"another leave cannot reuse that full day");
 assert.ok(C.compSources(candidates,"2026-10-21",now).includes("2026-10-10"),"stale source metadata on a work record does not consume a day");
-const unknown=state({"2028-01-03":work(),"2028-01-08":work()});
-assert.equal(C.workday("2028-01-03"),null);
-assert.equal(C.compSources(unknown,"2028-01-10",{day:"2028-01-10",minutes:1080}).join(),"2028-01-08","unpublished weekdays must not be invented as official holidays");
+const unknown=state({[unknownDay]:work(),[unknownWeekend]:work()});
+assert.equal(C.workday(unknownDay),null);
+assert.equal(C.compSources(unknown,unknownAfterWeekend,{day:unknownAfterWeekend,minutes:1080}).join(),unknownWeekend,"unpublished weekdays must not be invented as official holidays");
 
 const source="2026-09-26",leaveDay="2026-10-26",nextDay="2026-10-27",linked=state({[source]:work(),[leaveDay]:comp(source)}),linkedBefore=JSON.stringify(linked);
 assert.equal(check(linked,leaveDay,comp(source)).ok,true,"an existing valid link can be saved without being mistaken for a duplicate");

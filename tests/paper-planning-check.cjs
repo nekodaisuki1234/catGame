@@ -1,4 +1,5 @@
 "use strict";
+const {unknownYear}=require("./paper-calendar-fixture.cjs");
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
 const context={window:{},Intl,Date};vm.createContext(context);
 for(const file of ["paper-holidays.js","paper-core.js"])vm.runInContext(fs.readFileSync(path.join(__dirname,"../day-designs",file),"utf8"),context);
@@ -14,7 +15,7 @@ for(const [day,expected] of [
  ["2026-11-01",152],["2026-11-30",152],["2026-12-31",184],
  ["2027-01-01",152],["2027-02-28",144],["2027-03-22",176]
 ])assert.equal(C.plannedHours(seed.settings,day),expected,"full-month weekdays minus published holidays: "+day);
-for(const day of ["2025-12-31","2028-01-01","2028-02-29"]){
+for(const day of ["2025-12-31",`${unknownYear}-01-01`,`${unknownYear}-02-01`]){
  assert.equal(C.plannedHours(seed.settings,day),null,"unpublished months cannot receive an invented total: "+day);
 }
 for(const day of ["2026-02-30","2026-13-01","2026-10",""])assert.equal(C.plannedHours(seed.settings,day),null);
@@ -27,9 +28,9 @@ for(const manual of [0,160,160.5,168,744]){
  assert.equal(C.plannedHours(settings,"2026-11-01"),152,"the following month returns to automatic hours");
  assert.equal(JSON.stringify(settings),before,"resolution must not change saved settings");
 }
-const future={...plain(seed.settings),plannedHoursByMonth:{"2028-01":160}};
-assert.equal(C.plannedHours(future,"2028-01-31"),160,"manual hours work before the holiday calendar is published");
-assert.equal(C.plannedHours(future,"2028-02-01"),null,"a manual value must not leak into an unpublished neighbor month");
+const future={...plain(seed.settings),plannedHoursByMonth:{[`${unknownYear}-01`]:160}};
+assert.equal(C.plannedHours(future,`${unknownYear}-01-31`),160,"manual hours work before the holiday calendar is published");
+assert.equal(C.plannedHours(future,`${unknownYear}-02-01`),null,"a manual value must not leak into an unpublished neighbor month");
 const inherited={...plain(seed.settings),plannedHoursByMonth:Object.create({"2026-10":9})};
 assert.equal(C.plannedHours(inherited,"2026-10-28"),168,"only saved own keys are overrides");
 
