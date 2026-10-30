@@ -151,6 +151,21 @@ async function run(){
    await page.locator("[data-action=retry-work]").click();await saved(page,["design","maintenance"]);
    assert.equal((await record(page)).note,"失敗しても残す自由入力");assert.equal((await record(page)).locationId,"place2");assert.equal(await page.locator("[data-action=retry-work]").count(),0);
    console.log("PASS "+label+" failed phase/note/place saves preserve drafts across navigation and retry all work fields together");
+
+   // An explicit editor correction supersedes the unchanged failed home draft.
+   await fixture(page,{phases:["design"]});
+   await page.evaluate(()=>{window.phaseOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error("quota")};});
+   await phase(page,"maintenance").click();await page.clock.runFor(40);await settle(page);
+   assert.deepEqual(sorted(await selected(page)),sorted(["design","maintenance"]));assert.match(await page.locator("#workSaveStatus").innerText(),/未保存/);
+   await page.evaluate(()=>Storage.prototype.setItem=window.phaseOriginalSetItem);
+   await page.locator("#nav-records").click();await page.locator('#recordList [data-day="'+DAY+'"]').click();
+   assert.deepEqual(sorted(await selected(page,true)),sorted(["design","maintenance"]));
+   await phase(page,"maintenance",true).click();await phase(page,"test",true).click();
+   await page.locator("#dayForm button[type=submit]").click();await saved(page,["design","test"]);
+   await page.locator("#nav-home").click();await ready(page);
+   assert.deepEqual(sorted(await selected(page)),sorted(["design","test"]),"the accepted editor selection replaces the unchanged failed home selection");
+   assert.doesNotMatch(await page.locator("#workSaveStatus").innerText(),/未保存/);assert.equal(await page.locator("[data-action=retry-work]").count(),0);
+   console.log("PASS "+label+" editor correction replaces a failed home phase draft without reviving stale selection or unsaved status");
    await context.close();
 
    // A note's blur save cannot swallow a phase tap; later phase choices coalesce.

@@ -26,6 +26,10 @@ function rememberRoute(replace=false){try{history[replace?'replaceState':'pushSt
 function restorePosition(){if(view==="records"&&listPositions.has(selectedMonth))window.scrollTo(0,listPositions.get(selectedMonth).page);else root.scrollIntoView({block:"start"});}
 const record=day=>data.records[day]||C.empty(data);
 function editorRecord(day){const saved=record(day),draft=homeDraft(day);return {...saved,...Object.fromEntries(['note','locationId','phases'].filter(key=>Object.hasOwn(draft,key)).map(key=>[key,draft[key]]))};}
+function sameRecord(a,b){
+ if(!a||!b)return false;
+ return ['start','end','overnight','breakMinutes','locationId','note','leave'].every(key=>a[key]===b[key])&&(a.sourceDay||'')===(b.sourceDay||'')&&C.PROJECTS.every(key=>a.allocation?.[key]===b.allocation?.[key])&&C.PHASE_IDS.every(id=>(a.phases||[]).includes(id)===(b.phases||[]).includes(id))&&['P5','SET'].every(key=>a.legacyProjectAllocation?.[key]===b.legacyProjectAllocation?.[key]);
+}
 const demoMode=()=>config.mode==="demo"&&C.isDemo(data);
 const clockNow=()=>{const real=C.clock();return config.mode==="demo"&&sampleClock?{...real,time:sampleClock.slice(0,5),full:sampleClock,minutes:C.timeToMin(sampleClock.slice(0,5))}:real;};
 const firstMonth=()=>C.month(C.firstDay(data)).start;
@@ -131,7 +135,7 @@ async function saveRecord(day,next,message,options={}){
  const changed=["start","end","overnight","breakMinutes","leave"].some(k=>previous?.[k]!==next[k])||C.PROJECTS.some(k=>previous?.allocation[k]!==next.allocation[k]);
  const candidate=C.clone(data);candidate.records[day]=check.value;C.invalidateSubmissions(candidate,day);
  const saved=await commit(candidate,message);
- if(saved&&editorDraft&&editorDrafts.get(day)===editorDraft&&Object.keys(check.value).every(key=>JSON.stringify(editorDraft.record[key])===JSON.stringify(check.value[key])))editorDrafts.delete(day);
+ if(saved&&editorDraft&&editorDrafts.get(day)===editorDraft&&(sameRecord(editorDraft.record,check.value)||sameRecord(editorDraft.record,previous||C.empty(data))))editorDrafts.delete(day);
  if(saved&&changed){clearTimeout(warningTimer);if(check.warnings?.length){const revision=data.revision;warningTimer=setTimeout(()=>{if(!saving&&data.revision===revision)showWarning(dayLabel(day)+"："+check.warnings.join(" "));},0);}}
  return saved;
 }
@@ -673,9 +677,12 @@ document.addEventListener("submit",async event=>{
   if(await updateToday({allocation},'工数を保存しました',{strictAllocation:true})){clearHomeDraft("allocation");syncHome();}return;
  }
  if(id==="dayForm"){
-  now=clockNow();const day=editDay,r=readEditor().record;
+  now=clockNow();const day=editDay,r=readEditor().record,workDraftAtSave=homeDraft(day);
   if(r.breakMinutes==null)return showError("休憩時間は 01:00 のように、0:00〜24:00で入力してください。");
-  if(await saveRecord(day,r,'勤怠を更新しました',{strictAllocation:true})){clearSavedHomeDraft(day,r);render();}return;
+  if(await saveRecord(day,r,'勤怠を更新しました',{strictAllocation:true})){
+   const resolved=homeDraft(day)===workDraftAtSave?{...r,...Object.fromEntries(['note','locationId','phases'].filter(key=>Object.hasOwn(workDraftAtSave,key)).map(key=>[key,workDraftAtSave[key]]))}:r;
+   clearSavedHomeDraft(day,resolved);render();
+  }return;
  }
  if(id==="defaultsForm"){
   captureDefaults();
