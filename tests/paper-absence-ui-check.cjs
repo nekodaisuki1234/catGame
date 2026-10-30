@@ -29,7 +29,7 @@ async function run(){
   assert.match(await toast.innerText(),/欠勤/);assert.match(await toast.innerText(),value);
  };
  const noShortfallWarning=async page=>assert.doesNotMatch(await page.locator("#studyToast").innerText(),/欠勤時間|不足しています/);
- const positions=page=>page.evaluate(()=>Object.fromEntries([".hero-composition","#punchActions",".time-area","#restEditor",".work-fields",".performance-panel"].map(selector=>{const box=document.querySelector(selector).getBoundingClientRect();return[selector,{top:box.top+scrollY,height:box.height}];})));
+ const positions=page=>page.evaluate(()=>Object.fromEntries([".hero-composition","#punchActions",".time-area","#restEditor",".detail-tabs",".performance-panel"].map(selector=>{const box=document.querySelector(selector).getBoundingClientRect();return[selector,{top:box.top+scrollY,height:box.height}];})));
  const noOverflow=async(page,label)=>assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+" must not overflow the viewport");
  const fresh=async entry=>{
   const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,locale:"ja-JP"}),page=await context.newPage();

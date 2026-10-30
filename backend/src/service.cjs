@@ -89,7 +89,7 @@ function createAttendanceService({ store, templateProvider, renderer, exportStor
   async function persistDay(identity, day, expectedRevision, context, input, now, { strictAllocation }) {
     const previous = context.records[day], next = { ...input, allocation: { ...input.allocation } };
     // Older clients do not know this optional field. Only an explicit [] clears a selection.
-    if (!Object.hasOwn(input, "phases")) next.phases = copy(previous?.phases || []);
+    if (!Object.hasOwn(input, "phases")) next.phases = copy(previous ? previous.phases || [] : context.defaults.phases || []);
     // Historical import metadata is owned by the server, never supplied by the caller.
     if (previous && C.allocationMax(previous, "SET") > 24 && next.allocation.SET === previous.allocation.SET) {
       next.legacyProjectAllocation = copy(previous.legacyProjectAllocation);
@@ -170,16 +170,24 @@ function createAttendanceService({ store, templateProvider, renderer, exportStor
     }
     const error = C.validateSettings(request.settings);
     if (error) fail(422, "invalid_settings", error);
-    object(request.defaults, ["locationId", "note", "breakMinutes"]);
-    const defaults = request.defaults;
+    object(request.defaults, ["locationId", "note", "breakMinutes", "phases"], ["locationId", "note", "breakMinutes"]);
+    const defaults = copy(request.defaults), settings = copy(request.settings);
+    if (Object.hasOwn(request.defaults, "phases") && !C.validPhases(request.defaults.phases)) {
+      fail(422, "invalid_defaults", "初期フェーズを表示されている項目から重複せず選んでください。");
+    }
+    if (!Object.hasOwn(request.defaults, "phases")) defaults.phases = copy(context.defaults.phases || []);
     if (!request.settings.places.some(place => place.id === defaults.locationId) ||
         typeof defaults.note !== "string" || defaults.note.length > 1000 ||
         !Number.isInteger(defaults.breakMinutes) || defaults.breakMinutes < 0 || defaults.breakMinutes > 1440) {
       fail(422, "invalid_defaults", "新しい日の初期値を確認してください。");
     }
+    // The common summary is the new-day memo default. Prefer an explicitly edited memo;
+    // older clients can still edit the former summary field without losing that behavior.
+    if (defaults.note !== context.defaults.note) settings.workSummary = defaults.note;
+    else if (settings.workSummary !== context.settings.workSummary) defaults.note = settings.workSummary;
     const nextRevision = await store.commit(identity, { expectedRevision: request.expectedRevision,
-      settings: copy(request.settings), defaults: copy(defaults), recordChanges: [], linkChanges: [] });
-    return { revision: nextRevision, settings: copy(request.settings), defaults: copy(defaults) };
+      settings, defaults, recordChanges: [], linkChanges: [] });
+    return { revision: nextRevision, settings: copy(settings), defaults: copy(defaults) };
   }
 
   function validation(state, period, now) {

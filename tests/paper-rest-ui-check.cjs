@@ -86,7 +86,7 @@ async function run(){
 
    // A failed note save leaves a real unsaved draft, which a break change must preserve.
    await page.evaluate(()=>{window.restOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error("quota")};});
-   await page.locator("#workNote").fill("再保存する作業内容");await page.locator("#workNote").dispatchEvent("change");await settle(page);
+   await page.locator("[data-detail=work]").click();await page.locator("#workNote").fill("再保存する作業内容");await page.locator("#workNote").dispatchEvent("change");await settle(page);
    await page.locator("#workNote").evaluate(node=>node.blur());await settle(page);
    assert.match(await page.locator("#workSaveStatus").innerText(),/未保存/);
    await page.evaluate(()=>Storage.prototype.setItem=window.restOriginalSetItem);

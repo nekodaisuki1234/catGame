@@ -56,6 +56,27 @@ async function main(){
   assert.deepEqual(plain(cleared.records[day].phases),[]);assert.equal(cleared.records[day].note,record.note);
  }
 
+ // Default phases belong to each person's configuration, never to existing records.
+ for(const mode of ["local","demo"]){
+  const initial=state(mode),legacy=C.clone(initial);delete legacy.defaults.phases;
+  assert.ok(C.hydrate(legacy,now));assert.equal(Object.hasOwn(C.hydrate(legacy,now).defaults,'phases'),false);
+  initial.defaults.phases=['design','test'];initial.defaults.note='共通の作業概要';
+  const before=JSON.stringify(initial.records),first=C.empty(initial),second=C.empty(initial);
+  assert.deepEqual(plain(first.phases),['design','test']);assert.equal(first.note,'共通の作業概要');
+  first.phases.push('meeting');assert.deepEqual(plain(second.phases),['design','test']);assert.deepEqual(plain(initial.defaults.phases),['design','test']);
+  assert.equal(JSON.stringify(initial.records),before,'editing defaults cannot rewrite existing daily selections or free text');
+  for(const phases of [null,undefined,'test',['other'],['test','test'],new Array(1)])assert.equal(C.hydrate({...initial,defaults:{...initial.defaults,phases}},now),null);
+ }
+ const worked={...C.empty(state()),start:'09:00',end:'18:00',allocation:{P1:6,P2:2,P3:0,P4:0,SET:0},note:'時刻は残す'};
+ for(const leave of ['paid','holiday','special','comp']){
+  const off=C.changeLeave(worked,leave,day,now);assert.equal(off.start,'09:00');assert.equal(off.end,'18:00');
+  assert.deepEqual(plain(off.allocation),{P1:0,P2:0,P3:0,P4:0,SET:0});assert.equal(C.worked(off,day,now),0);
+  assert.equal(C.validateRecord(off,day,now,state().settings,{strictAllocation:true}).ok,true);
+  const totals=C.summary({...state(),records:{[day]:off}},period,now);assert.equal(totals.minutes,0);assert.equal(totals.days,0);assert.equal(totals.absenceMinutes,0);
+  assert.deepEqual(plain(totals.allocation),{P1:0,P2:0,P3:0,P4:0,SET:0});
+  const resumed=C.changeLeave(off,'',day,now);assert.equal(C.worked(resumed,day,now),480);assert.equal(resumed.allocation.P1,8);
+ }
+ for(const leave of ['am','pm']){const half=C.changeLeave(worked,leave,day,now);assert.equal(C.worked(half,day,now),480);assert.equal(half.allocation.P2,2);}
  const current=state(),record=current.records[day];
  for(const phases of [undefined,null,"test",{},false,1,["unknown"],["test","test"],["test",null],[undefined],new Array(1),Array(9).fill("test"),["設計"],[{id:"design"}]]){
   const invalid={...record,phases};assert.equal(C.validateRecord(invalid,day,now,current.settings).ok,false,"invalid phase list: "+String(phases));

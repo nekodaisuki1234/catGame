@@ -16,7 +16,7 @@ async function run(){
   await page.clock.install({time:new Date("2026-10-27T12:00:00Z")});
   await page.goto("http://127.0.0.1:"+server.address().port+"/day-designs/a-paper.html?screen=1");
   const state=()=>page.evaluate(()=>JSON.parse(localStorage.getItem("day-paper-attendance-v1")));
-  const fill=async(id,value)=>{await page.locator("#"+id).fill(value);await page.locator("#"+id).dispatchEvent("change");await page.clock.runFor(300);};
+  const fill=async(id,value)=>{if(id==="workNote"||id==="workPlace")await page.locator("[data-detail=work]").click();await page.locator("#"+id).fill(value);await page.locator("#"+id).dispatchEvent("change");await page.clock.runFor(300);};
   const heading=title=>page.waitForFunction(t=>document.querySelector("main h1")?.textContent===t,title);
   await fill("startTime","09:00");await fill("endTime","18:00");
   await page.locator("[data-detail=allocation]").click();await page.locator("#allocP1").fill("8");await page.locator("#allocationForm button[type=submit]").click();

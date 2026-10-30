@@ -48,6 +48,7 @@ const short=n=>(n<0?"−":"")+Math.floor(Math.abs(n)/60)+":"+pad(Math.round(Math
 const duration=n=>(n<0?"−":"")+Math.floor(Math.abs(n)/60)+"時間"+pad(Math.round(Math.abs(n))%60)+"分";
 const hours=n=>Number((n/60).toFixed(2));
 const fullLeave=r=>["paid","holiday","special","comp"].includes(r?.leave);
+const validPhases=value=>Array.isArray(value)&&value.length<=PHASE_IDS.length&&Array.from(value).every(id=>PHASE_IDS.includes(id))&&new Set(value).size===value.length;
 const restDay=day=>validDay(day)&&(weekday(day)===0||weekday(day)===6||holidayKnown(day)&&!!holiday(day));
 function worked(r,day,now){
  if(!r||fullLeave(r)||timeToMin(r.start)==null)return 0;
@@ -64,7 +65,13 @@ function absenceMinutes(r,day,now){
  const credit=["am","pm"].includes(r.leave)?240:0;
  return Math.max(0,480-credit-Math.max(0,span-r.breakMinutes));
 }
-function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,phases:[],leave:"",sourceDay:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
+function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,phases:clone(state.defaults.phases||[]),leave:"",sourceDay:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
+function changeLeave(record,leave,day,now){
+ const next={...clone(record),leave,sourceDay:leave==='comp'?(record.sourceDay||''):''};
+ if(fullLeave(next)){next.allocation=Object.fromEntries(PROJECTS.map(k=>[k,0]));delete next.legacyProjectAllocation;}
+ else if(fullLeave(record))return allocateToP1(next,day,now);
+ return next;
+}
 const phaseText=record=>PHASES.filter(phase=>Array.isArray(record?.phases)&&record.phases.includes(phase.id)).map(phase=>phase.label).join("・");
 const validAllocationHours=value=>Number.isFinite(value)&&value>=0&&value<=24&&Math.abs(value*60-Math.round(value*60))<=1e-5;
 function legacyAllocationSource(record){
@@ -81,19 +88,19 @@ function validateRecord(r,day,now,settings,options={}){
  if(r.sourceDay!==undefined&&(typeof r.sourceDay!=="string"||r.sourceDay&&(!validDay(r.sourceDay)||r.sourceDay<first)))return bad("代休元の休日出勤日を確認してください。");
  if(!Number.isInteger(r.breakMinutes)||r.breakMinutes<0||r.breakMinutes>1440)return bad("休憩時間は0〜1440分で入力してください。");
  if(typeof r.note!=="string"||r.note.length>1000)return bad("作業内容は1000文字以内で入力してください。");
- if(Object.hasOwn(r,"phases")&&(!Array.isArray(r.phases)||r.phases.length>PHASE_IDS.length||Array.from(r.phases).some(phase=>!PHASE_IDS.includes(phase))||new Set(r.phases).size!==r.phases.length))return bad("フェーズは表示されている項目から、重複せず選んでください。");
+ if(Object.hasOwn(r,"phases")&&!validPhases(r.phases))return bad("フェーズは表示されている項目から、重複せず選んでください。");
  if(!settings.places.some(p=>p.id===r.locationId))return bad("勤務場所を選んでください。");
- if(fullLeave(r)&&(r.start||r.end))return bad("打刻がある日は、先に打刻を取り消してから休暇を設定してください。");
  if(r.start&&timeToMin(r.start)==null||r.end&&timeToMin(r.end)==null)return bad("出勤・退勤時刻を確認してください。");
- if(r.end&&!r.start)return bad("先に出勤時刻を入力してください。");
- if(r.start&&!r.end&&day===now.day&&timeToMin(r.start)>now.minutes)return bad("出勤時刻は現在時刻より前にしてください。");
- if(r.start&&r.end){
+ if(!fullLeave(r)&&r.end&&!r.start)return bad("先に出勤時刻を入力してください。");
+ if(!fullLeave(r)&&r.start&&!r.end&&day===now.day&&timeToMin(r.start)>now.minutes)return bad("出勤時刻は現在時刻より前にしてください。");
+ if(!fullLeave(r)&&r.start&&r.end){
   const span=timeToMin(r.end)+(r.overnight?1440:0)-timeToMin(r.start);
   if(span<0)return bad("翌日の退勤は「翌日に退勤」を選んでください。");
  }
  if(r.legacyProjectAllocation!==undefined&&!legacyAllocationSource(r))return bad("統合前の工数の保存情報を確認してください。");
  if(!r.allocation||Object.hasOwn(r.allocation,"P5")||PROJECTS.some(k=>!Number.isFinite(r.allocation[k])||r.allocation[k]<0||r.allocation[k]>allocationMax(r,k)||Math.abs(r.allocation[k]*60-Math.round(r.allocation[k]*60))>1e-5))return bad("工数は0〜24時間で、分単位で入力してください。");
  const allocated=PROJECTS.reduce((sum,k)=>sum+Math.round(r.allocation[k]*60),0);
+ if(fullLeave(r)&&allocated)return bad("全日休暇の実働と工数は0時間です。工数を0時間にしてください。");
  if(allocated&&!r.start)return bad("工数は出勤時刻を入力してから設定してください。");
  const net=worked(r,day,now),complete=!!r.start&&!!r.end;
  if(options.strictAllocation&&complete&&net>=0&&allocated!==net)return bad("勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）を一致させてください。");
@@ -149,11 +156,11 @@ function validateSettings(s){
 function createState(now,{startDay=now.day,employee:identity={name:"",department:"",id:""}}={}){
  const settings={attendanceStartDay:startDay,employee:identity,minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"",projects:PROJECT_IDS.map((id,i)=>({id,name:id==="SET"?"SET":"プロジェクト"+(i+1),description:""})),places:[1,2,3].map(n=>({id:"place"+n,code:"場所"+n,name:"勤務場所"+n,address:""}))};
  const error=validateSettings(settings);if(error)throw new TypeError(error);
- return {version:VERSION,revision:0,mode:"local",defaults:{locationId:"place1",note:"",breakMinutes:60},settings:clone(settings),records:{},submissions:{}};
+ return {version:VERSION,revision:0,mode:"local",defaults:{locationId:"place1",note:"",phases:[],breakMinutes:60},settings:clone(settings),records:{},submissions:{}};
 }
 function seed(now){
  const settings={minHours:140,maxHours:180,plannedHours:168,plannedHoursByMonth:{},workSummary:"ことら送金対応",projects:PROJECT_IDS.map((id,i)=>({id,name:id==="SET"?"SET":i?"プロジェクト"+(i+1):"デビプリ",description:i?"":"アプラス、千葉銀行など開発案件"})),places:[{id:"place1",code:"TIS1",name:"TIS本社1",address:"大阪堂北ビル"},{id:"place2",code:"クロノス",name:"クロノス",address:""},{id:"place3",code:"在宅",name:"在宅勤務",address:""}]};
- const state={version:VERSION,revision:0,mode:"demo",defaults:{locationId:"place2",note:"テスト対応",breakMinutes:60},settings,records:{},submissions:{}};
+ const state={version:VERSION,revision:0,mode:"demo",defaults:{locationId:"place2",note:"テスト対応",phases:[],breakMinutes:60},settings,records:{},submissions:{}};
  // Clearly marked fictional history, isolated from every other design and the main app.
  const totals=[10395,9630,10260,9660,11085,9150,5310];
  for(let i=0;i<totals.length;i++){
@@ -178,6 +185,7 @@ function hydrate(raw,now){
  if(raw.mode!==undefined&&raw.mode!=="demo"&&raw.mode!=="local")return null;
  if(raw.mode==="local"&&(!validDay(settings.attendanceStartDay)||settings.employee===undefined))return null;
  const d=raw.defaults;
+ if(Object.hasOwn(d,"phases")&&!validPhases(d.phases))return null;
  if(!settings.places.some(p=>p.id===d.locationId)||typeof d.note!=="string"||d.note.length>1000||!Number.isInteger(d.breakMinutes)||d.breakMinutes<0||d.breakMinutes>1440)return null;
  // Validate stored dates against end-of-day, so a saved record survives clock changes.
  const migratedRecords={};
@@ -254,6 +262,7 @@ function prepareSubmission(state,period,now,options={}){
 }
 function allocateToP1(record,day,now){
  const next=clone(record);
+ if(fullLeave(record)){next.allocation=Object.fromEntries(PROJECTS.map(k=>[k,0]));delete next.legacyProjectAllocation;return next;}
  if(!record.start||!record.end)return next;
  const other=PROJECTS.slice(1).reduce((sum,k)=>sum+Math.round(record.allocation[k]*60),0);
  next.allocation.P1=Math.max(0,worked(record,day,now)-other)/60;
@@ -272,7 +281,7 @@ function summary(state,period,now){
  const result={minutes:0,leave:0,days:0,absenceMinutes:0,absenceDays:0,allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};
  for(const d of dates(period.start,period.end)){
   const r=state.records[d];if(!r||d>now.day)continue;
-  result.minutes+=worked(r,d,now);if(r.start)result.days++;
+  result.minutes+=worked(r,d,now);if(r.start&&!fullLeave(r))result.days++;
   result.leave+=r.leave==="paid"?1:["am","pm"].includes(r.leave)?.5:0;
   const absence=d>=firstDay(state)?absenceMinutes(r,d,now):0;
   result.absenceMinutes+=absence;if(absence)result.absenceDays++;
@@ -344,5 +353,5 @@ function workbook(state,period,now){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,PHASES,PHASE_IDS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,worked,absenceMinutes,empty,phaseText,allocationMax,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
+global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,PHASES,PHASE_IDS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,validPhases,changeLeave,worked,absenceMinutes,empty,phaseText,allocationMax,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
 })(window);

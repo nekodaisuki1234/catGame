@@ -197,6 +197,53 @@ test("configuration updates preserve server-owned employee identity and attendan
   await assert.rejects(() => f.service.putConfig(OWNER, { expectedRevision: 1, settings: { ...settings, administrator: true }, defaults }), expected(400, "invalid_request"));
 });
 
+test("personal default phases and common summary apply to new days while legacy clients preserve selections", async () => {
+  const f = fixture({ [DAY]: work({ phases: ["maintenance"] }) });
+  const other = initial(); f.store.seed(OTHER, other, { now: NOW });
+  let saved = await f.service.putConfig(OWNER, { expectedRevision: 0, settings: f.state.settings,
+    defaults: { ...f.state.defaults, note: "共通の作業概要", phases: ["design", "test"] } });
+  assert.equal(saved.settings.workSummary, "共通の作業概要");
+  assert.deepEqual(saved.defaults.phases, ["design", "test"]);
+  assert.deepEqual(f.store.inspect(OWNER).records[DAY].phases, ["maintenance"]);
+  assert.deepEqual(f.store.inspect(OTHER).defaults.phases, []);
+  const legacyDefaults = { ...saved.defaults }; delete legacyDefaults.phases;
+  saved = await f.service.putConfig(OWNER, { expectedRevision: 1,
+    settings: { ...saved.settings, workSummary: "旧入力欄から変更" }, defaults: legacyDefaults });
+  assert.deepEqual(saved.defaults.phases, ["design", "test"]); assert.equal(saved.defaults.note, "旧入力欄から変更");
+  const input = work(); delete input.phases;
+  const newDay = await f.service.putDay(OWNER, "2026-10-27", { expectedRevision: 2, record: input });
+  assert.deepEqual(newDay.record.phases, ["design", "test"]);
+  const oldDay = await f.service.putDay(OWNER, DAY, { expectedRevision: 3, record: input });
+  assert.deepEqual(oldDay.record.phases, ["maintenance"]);
+  const cleared = await f.service.putConfig(OWNER, { expectedRevision: 4, settings: saved.settings, defaults: { ...saved.defaults, phases: [] } });
+  assert.deepEqual(cleared.defaults.phases, []);
+});
+
+test("invalid default phases never change configuration or records", async () => {
+  const f = fixture();
+  for (const phases of [undefined, null, "test", ["unknown"], ["test", "test"], Array(1)]) {
+    await assert.rejects(() => f.service.putConfig(OWNER, { expectedRevision: 0, settings: f.state.settings,
+      defaults: { ...f.state.defaults, phases } }), expected(422, "invalid_defaults"));
+  }
+  assert.equal(f.store.inspect(OWNER).revision, 0);
+});
+
+test("full-day leave retains clock times with zero work and project hours, while half-day work remains calculated", async () => {
+  for (const leave of ["paid", "holiday", "special"]) {
+    const f = fixture({ [DAY]: work() });
+    const next = work({ leave, allocation: allocation(0) });
+    const saved = await f.service.putDay(OWNER, DAY, { expectedRevision: 0, record: next });
+    assert.equal(saved.record.start, "09:00"); assert.equal(saved.record.end, "18:00"); assert.deepEqual(saved.warnings, []);
+    assert.equal(C.worked(saved.record, DAY, NOW), 0); assert.equal(saved.absenceMinutes, 0);
+    const result = await f.service.createExport(OWNER, { expectedRevision: 1, period: { start: DAY, end: DAY } });
+    assert.equal(result.validation.ok, true);
+    assert.equal(C.summary(f.calls.writes[0].snapshot.state, { start: DAY, end: DAY }, NOW).days, 0);
+    await assert.rejects(() => f.service.putDay(OWNER, DAY, { expectedRevision: 1, record: work({ leave }) }), expected(422, "invalid_record"));
+    const half = await f.service.putDay(OWNER, DAY, { expectedRevision: 1, record: work({ leave: "am", end: "14:00", allocation: allocation(4) }) });
+    assert.equal(C.worked(half.record, DAY, NOW), 240); assert.equal(half.absenceMinutes, 0);
+  }
+});
+
 test("checked Excel export repeats short-work, half-leave, blank-note and allocation validation", async () => {
   const records = [
     [work({ end: "14:00", allocation: allocation(4) }), false],

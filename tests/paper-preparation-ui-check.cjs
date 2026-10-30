@@ -52,7 +52,7 @@ async function run(){
   assert.match(await demo.locator(".employee").innerText(),/田中 花子/);
   assert.deepEqual(await demo.evaluate(()=>({mode:window.PaperConfig.mode,key:window.PaperConfig.storageKey})),{mode:"demo",key:DEMO_KEY});
   const paperAppearance=await appearance(demo);
-  await demo.locator("#workNote").fill(DEMO_NOTE);await demo.locator("#workNote").dispatchEvent("change");
+  await demo.locator("[data-detail=work]").click();await demo.locator("#workNote").fill(DEMO_NOTE);await demo.locator("#workNote").dispatchEvent("change");
   await saved(demo,DEMO_KEY,DAY,"note",DEMO_NOTE);
   const demoJSON=await raw(demo,DEMO_KEY),demoState=JSON.parse(demoJSON);
   assert.ok(Object.keys(demoState.records).some(day=>day<DAY),"the demo must retain its fictional history");
@@ -178,11 +178,11 @@ async function run(){
 
   // Typing may continue in the work note while its previous value is being saved.
   const note1="保存を待つ作業内容",note2="保存待ちの間に追記した作業内容";
-  await asynchronous.locator("#workNote").fill(note1);await asynchronous.locator("#workNote").dispatchEvent("change");
+  await asynchronous.locator("[data-detail=work]").click();await asynchronous.locator("#workNote").fill(note1);await asynchronous.locator("#workNote").dispatchEvent("change");
   await asynchronous.waitForFunction(()=>window.__paperAdapter.saveCalls===3);
   assert.equal(await asynchronous.locator("#workNote").isDisabled(),false,"the work note must remain editable during its save");
   assert.equal(await raw(asynchronous,LOCAL_KEY),acceptedJSON);
-  await asynchronous.locator("#workNote").fill(note2);
+  await asynchronous.locator("[data-detail=work]").click();await asynchronous.locator("#workNote").fill(note2);
   // A real blur also attempts auto-save, and must retain the draft without a concurrent write.
   await asynchronous.locator("#workNote").evaluate(node=>node.blur());
   assert.equal(await asynchronous.evaluate(()=>window.__paperAdapter.saveCalls),3);

@@ -16,7 +16,7 @@ const local=C.createState(now),demo=C.seed(now);
 assert.equal(local.mode,"local");assert.equal(C.isDemo(local),false);assert.equal(C.firstDay(local),now.day);
 assert.deepEqual(plain(local.records),{});assert.deepEqual(plain(local.submissions),{});
 assert.deepEqual(plain(C.employee(local)),{name:"",department:"",id:""});
-assert.deepEqual(plain(local.defaults),{locationId:"place1",note:"",breakMinutes:60});
+assert.deepEqual(plain(local.defaults),{locationId:"place1",note:"",phases:[],breakMinutes:60});
 assert.equal(local.settings.workSummary,"");assert.deepEqual(plain(local.settings.plannedHoursByMonth),{});
 assert.equal(C.validateSettings(local.settings),"");assert.ok(C.hydrate(local,now));
 assert.doesNotMatch(JSON.stringify(local),/田中|花子|E001|TIS|クロノス|デビプリ|アプラス|千葉銀行|ことら送金|テスト対応/);

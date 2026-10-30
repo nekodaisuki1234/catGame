@@ -161,7 +161,7 @@ async function run(){
    await page.setViewportSize({width:390,height:844});await page.evaluate(()=>{window.placeDefaultOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error("quota")};});
    await page.locator("#defaultsForm button[type=submit]").click();await settled(page);assert.equal(await raw(page),beforeDefaults);assert.equal(await page.locator("#defaultNote").inputValue(),defaultNote);assert.equal(await page.locator("#defaultBreak").inputValue(),"75");assert.match(await page.locator("#studyToast").innerText(),/保存/);
    await page.evaluate(()=>Storage.prototype.setItem=window.placeDefaultOriginalSetItem);await saveDefaults(page);
-   assert.deepEqual((await stored(page)).defaults,{locationId:"place3",note:defaultNote,breakMinutes:75});assert.deepEqual((await stored(page)).records[DAY],todayBeforeDefaults,"saving initial values must preserve today's record");
+   assert.deepEqual((await stored(page)).defaults,{locationId:"place3",note:defaultNote,phases:[],breakMinutes:75});assert.deepEqual((await stored(page)).records[DAY],todayBeforeDefaults,"saving initial values must preserve today's record");
    await page.reload();await ready(page);await openDefaults(page);assert.equal(await page.locator("#defaultBreak").inputValue(),"75");assert.equal(await page.locator("#defaultNote").inputValue(),defaultNote);
    console.log("PASS "+label+" initial-value presets require explicit save, blank and unsaved drafts survive navigation, failed saves preserve inputs and today's record remains intact");
 

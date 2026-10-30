@@ -31,7 +31,8 @@ for(const leave of ["paid","holiday","special"]){
  const r={...C.empty(base),leave,note:"\u3000"};
  assert.equal(check(r).ok,true,"full-day leave needs neither a work note nor hours: "+leave);
  assert.equal(check({...r,note:42}).ok,false,"full-day leave still validates record shape");
- assert.equal(check({...r,start:"09:00"}).ok,false,"full-day leave cannot hide punches");
+ assert.equal(check({...r,start:"09:00",end:"18:00"}).ok,true,"full-day leave retains clock times with zero labor");
+ assert.equal(check({...r,allocation:{...r.allocation,P1:1}}).ok,false,"full-day leave requires zero project hours");
  assert.equal(check({...r,allocation:{...r.allocation,P1:-1}}).ok,false,"full-day leave still validates allocation ranges");
 }
 

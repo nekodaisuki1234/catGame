@@ -74,7 +74,7 @@ async function run(){
   // A monthly plan is a small, independent edit, even with an invalid settings draft elsewhere.
   const compact=await fresh("2026-10-27T12:00:00Z",{overrides:{"2026-09":152,"2026-11":144}});
   await openPlan(compact);await compact.locator("#minHours").fill("");await compact.locator("#projectName").fill("");
-  await compact.locator("#workSummary").fill("保存しない設定の下書き");await compact.locator("#nav-home").click();
+  await compact.locator("#maxHours").fill("186");await compact.locator("#nav-home").click();
   const beforeCompact=await state(compact);await openPlanDialog(compact);
   assert.equal(await compact.locator("#planMode").inputValue(),"auto");assert.equal(await compact.locator("#planHoursInput").isEditable(),true);
   await compact.locator("#planHoursInput").fill("160");
@@ -84,7 +84,7 @@ async function run(){
   assert.deepEqual(afterCompact.settings,{...beforeCompact.settings,plannedHoursByMonth:{"2026-09":152,"2026-10":160,"2026-11":144}},"the dialog must save only this month's override");
   assert.deepEqual(afterCompact.submissions,beforeCompact.submissions);await expectSummary(compact,160,"50%","予定まで 80時間",50);
   await openPlan(compact);assert.equal(await compact.locator("#minHours").inputValue(),"");assert.equal(await compact.locator("#projectName").inputValue(),"");
-  assert.equal(await compact.locator("#workSummary").inputValue(),"保存しない設定の下書き");await expectMode(compact,"manual","160");
+  assert.equal(await compact.locator("#maxHours").inputValue(),"186");await expectMode(compact,"manual","160");
   await compact.locator("#nav-home").click();await compact.reload();await expectSummary(compact,160,"50%","予定まで 80時間",50);
   await openPlanDialog(compact);await compact.locator("[data-action=plan-auto]").click();
   assert.equal(await compact.locator("#planMode").inputValue(),"auto");assert.equal(await compact.locator("#planHoursInput").inputValue(),"168");
@@ -106,8 +106,8 @@ async function run(){
   await setMode(page,"auto");await page.locator('[data-action="project-tab"][data-index="1"]').click();await page.locator('[data-action="place-tab"][data-index="1"]').click();
   await expectMode(page,"auto","168");await setMode(page,"manual");await expectMode(page,"manual","160");
   await page.locator('[data-action="project-tab"][data-index="0"]').click();await page.locator('[data-action="place-tab"][data-index="0"]').click();
-  await page.locator("#minHours").fill("150");await page.locator("#workSummary").fill("月予定と一緒に保存する下書き");await page.locator("#projectName").fill("PJの下書き");
-  await page.locator('[data-action="project-tab"][data-index="1"]').click();await expectMode(page,"manual","160");assert.equal(await page.locator("#minHours").inputValue(),"150");assert.equal(await page.locator("#workSummary").inputValue(),"月予定と一緒に保存する下書き");
+  await page.locator("#minHours").fill("150");await page.locator("#maxHours").fill("187");await page.locator("#projectName").fill("PJの下書き");
+  await page.locator('[data-action="project-tab"][data-index="1"]').click();await expectMode(page,"manual","160");assert.equal(await page.locator("#minHours").inputValue(),"150");assert.equal(await page.locator("#maxHours").inputValue(),"187");
   await page.locator('[data-action="place-tab"][data-index="1"]').click();await expectMode(page,"manual","160");await page.locator("#placeName").fill("場所の下書き");
   await page.locator('[data-action="project-tab"][data-index="0"]').click();assert.equal(await page.locator("#projectName").inputValue(),"PJの下書き");
   await page.locator('[data-action="place-tab"][data-index="0"]').click();await page.locator('[data-action="place-tab"][data-index="1"]').click();assert.equal(await page.locator("#placeName").inputValue(),"場所の下書き");await expectMode(page,"manual","160");

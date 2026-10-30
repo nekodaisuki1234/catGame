@@ -30,7 +30,7 @@ async function run(){
  const edit=async(page,day)=>{await page.locator("#nav-records").click();await page.locator(".paper-record[data-day='"+day+"']").click();assert.equal(await page.locator("#editDate").inputValue(),day);};
  const jump=async(page,day)=>{await change(page,"editDate",day);assert.equal(await page.locator("#editDate").inputValue(),day);};
  const save=page=>page.locator("#dayForm button[type=submit]").click();
- const positions=page=>page.evaluate(()=>Object.fromEntries([".hero-composition","#punchActions",".time-area","#restEditor",".work-fields"].map(selector=>{const box=document.querySelector(selector).getBoundingClientRect();return[selector,{top:box.top+scrollY,height:box.height}];})));
+ const positions=page=>page.evaluate(()=>Object.fromEntries([".hero-composition","#punchActions",".time-area","#restEditor",".detail-tabs"].map(selector=>{const box=document.querySelector(selector).getBoundingClientRect();return[selector,{top:box.top+scrollY,height:box.height}];})));
  try{
   // An ordinary first punch must not warn about a break that has not yet occurred.
   const page=await fresh("2026-10-27T00:00:00Z");

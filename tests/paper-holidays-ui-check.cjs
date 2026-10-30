@@ -24,7 +24,7 @@ async function run(){
    });await page.reload();
   }
   const heading=t=>page.waitForFunction(v=>document.querySelector("main h1")?.textContent===v,t);
-  const positions=()=>page.evaluate(()=>Object.fromEntries([".hero-composition","#punchActions",".time-area","#restEditor",".work-fields"].map(s=>{const r=document.querySelector(s).getBoundingClientRect();return[s,{top:r.top+scrollY,height:r.height}];})));
+  const positions=()=>page.evaluate(()=>Object.fromEntries([".hero-composition","#punchActions",".time-area","#restEditor",".detail-tabs"].map(s=>{const r=document.querySelector(s).getBoundingClientRect();return[s,{top:r.top+scrollY,height:r.height}];})));
   await fixture();
   assert.equal(await page.locator(".wordmark").innerText(),"SET");
   assert.equal(await page.locator("#homeOverview #homePaidLeave,#homeOverview #homeWorkdays").count(),0,"leave and workday metrics belong to performance, not the clock header");

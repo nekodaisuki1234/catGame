@@ -26,7 +26,7 @@ async function run(){
  const action=editor=>editor?"editor-phase":"work-phase";
  const choices=editor=>editor?"#editorPhaseChoices":"#homePhaseChoices";
  const phase=(page,id,editor=false)=>page.locator('[data-action="'+action(editor)+'"][data-phase="'+id+'"]');
- const reveal=async(page,editor=false,panel="phases")=>{await page.locator("#"+(editor?"editor":"home")+"WorkTab-"+panel).click();};
+ const reveal=async(page,editor=false,panel="phases")=>{await page.locator(editor?"#editorWorkTab-"+panel:"[data-detail=work]").click();};
  const tapPhase=async(page,id,editor=false)=>{await reveal(page,editor);await phase(page,id,editor).click();};
  const writeMemo=async(page,value,editor=false)=>{await reveal(page,editor,"note");await page.locator(editor?"#editNote":"#workNote").fill(value);};
  const selected=(page,editor=false)=>page.locator('[data-action="'+action(editor)+'"][aria-pressed="true"]').evaluateAll(nodes=>nodes.map(node=>node.dataset.phase));
@@ -91,10 +91,12 @@ async function run(){
     assert.ok(metric.scrollWidth<=metric.clientWidth+1,label+" phase "+metric.id+" content clips at "+width);
    }
    if(!editor){
+    await page.locator("[data-detail=summary]").click();
     const absent=await page.locator("#homeAbsence").boundingBox(),planned=await page.locator("#plannedHoursValue").boundingBox();
     assert.ok(absent.x<planned.x,label+" absence must be to the left of planned work at "+width);
     const card=await page.locator(".monthly-summary-card").boundingBox(),change=await page.locator("[data-action=edit-plan]").boundingBox();
     assert.ok(change.x+change.width/2>card.x+card.width/2,label+" planned-time edit must be in the right half at "+width);
+    await page.locator("[data-detail=work]").click();
    }
   }
   await page.setViewportSize({width:390,height:844});

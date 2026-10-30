@@ -76,7 +76,8 @@ for(const breakMinutes of [-1,1.5,1441,NaN])assert.equal(check({...fresh(),break
 const normal={...fresh(),start:"09:00",end:"18:00"};
 assert.equal(C.worked({...normal,end:""},now.day,{...now,minutes:9*60+30}),0,"unfinished work does not go below zero before its planned break has elapsed");
 assert.equal(C.worked({...normal,end:""},"2026-10-26",now),0);
-assert.equal(check({...normal,leave:"paid"}).ok,false);
+assert.equal(check({...normal,leave:"paid"}).ok,true);
+assert.equal(C.worked({...normal,leave:"paid"},now.day,now),0);
 assert.equal(check({...fresh(),leave:"paid"}).ok,true);
 assert.equal(check({...normal,leave:"am"}).ok,true);
 assert.equal(check({...normal,locationId:"invalid"}).ok,false);

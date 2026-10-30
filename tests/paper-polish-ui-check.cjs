@@ -120,7 +120,7 @@ async function run(){
   assert.equal(after.width,before.width,label+" focusing must not resize the field");assert.equal(after.height,before.height,label+" focusing must not resize the field");
  };
  const screenshot=async(page,name,width)=>{if(screenshots&&width===390)await page.screenshot({path:path.join(screenshots,name+".png"),fullPage:true});};
- const homePositions=page=>page.evaluate(()=>Object.fromEntries([".hero-composition",".hero-date","#paperClock","#punchActions",".time-area","#restEditor",".work-fields"].map(selector=>{
+ const homePositions=page=>page.evaluate(()=>Object.fromEntries([".hero-composition",".hero-date","#paperClock","#punchActions",".time-area","#restEditor",".detail-tabs"].map(selector=>{
   const rect=document.querySelector(selector).getBoundingClientRect();return [selector,{top:rect.top+scrollY,height:rect.height}];
  })));
  const clockGeometry=async(page,label,holiday)=>{
@@ -163,14 +163,14 @@ async function run(){
    // Global settings may contain an invalid draft; a monthly update still saves independently.
    await openSettings(page);assert.equal(await page.locator("#plannedHours").isEditable(),true);
    await page.locator("#plannedHours").fill("156");assert.equal(await page.locator("#plannedHoursMode").inputValue(),"manual");
-   await page.locator("#minHours").fill("");await page.locator("#projectName").fill("");await page.locator("#workSummary").fill("未保存の設定下書き");
+   await page.locator("#minHours").fill("");await page.locator("#projectName").fill("");await page.locator("#maxHours").fill("185");
    await page.locator("#nav-home").click();const beforeIndependent=await stored(page);await openPlan(page);
    assert.equal(await page.locator("#planHoursInput").inputValue(),"168","a plan dialog starts from saved state, independently of the settings draft");
    await page.locator("#planHoursInput").fill("164");await savePlan(page);const independent=await stored(page);
    assert.deepEqual(independent.settings,{...beforeIndependent.settings,plannedHoursByMonth:{"2026-09":152,"2026-10":164,"2026-11":144}});
    for(const key of ["records","defaults","submissions"])assert.deepEqual(independent[key],beforeIndependent[key],label+" plan save must preserve "+key);
    await openSettings(page);assert.equal(await page.locator("#minHours").inputValue(),"");assert.equal(await page.locator("#projectName").inputValue(),"");
-   assert.equal(await page.locator("#workSummary").inputValue(),"未保存の設定下書き");assert.equal(await page.locator("#plannedHours").inputValue(),"164");
+   assert.equal(await page.locator("#maxHours").inputValue(),"185");assert.equal(await page.locator("#plannedHours").inputValue(),"164");
    await page.locator("#nav-home").click();await page.reload();await ready(page);
 
    // Blank and out-of-range numbers cannot save; both inclusive endpoints can.
@@ -207,7 +207,7 @@ async function run(){
 
    const visual=await fresh(entry,HOLIDAY),layout=visual.page;
    for(const width of WIDTHS){
-    await layout.setViewportSize({width,height:844});await fixture(layout);const screen=label+" "+width+"px";
+    await layout.setViewportSize({width,height:844});await fixture(layout);await layout.locator("[data-detail=work]").click();const screen=label+" "+width+"px";
     await paperAppearance(layout);await clockGeometry(layout,screen,true);await controls(layout,homeControls,screen+" home");
     await aboveLabels(layout,"#startTime,#endTime,#workPlace,#workNote",screen+" home");
     await pairedTimes(layout,"#startTime","#endTime",screen+" home");
@@ -227,7 +227,7 @@ async function run(){
     await layout.locator("#nav-settings").click();await controls(layout,formControls("#defaultsForm"),screen+" defaults");
     await aboveLabels(layout,"#defaultPlace,#defaultNote,#defaultBreak",screen+" defaults");
     await layout.locator("[data-action=settings-tab][data-tab=sheet]").click();await controls(layout,formControls("#settingsForm"),screen+" settings");
-    await aboveLabels(layout,"#minHours,#maxHours,#plannedHoursMode,#plannedHours,#workSummary,#projectName,#projectDescription,#placeCode,#placeName,#placeAddress",screen+" settings");
+    await aboveLabels(layout,"#minHours,#maxHours,#plannedHoursMode,#plannedHours,#projectName,#projectDescription,#placeCode,#placeName,#placeAddress",screen+" settings");
     await groupedFields(layout,[["#minHours","#maxHours","#plannedHours"],["#projectName","#projectDescription"],["#placeCode","#placeName","#placeAddress"]],screen+" settings");
     await screenshot(layout,label+"-paper-forms-settings",width);
     await layout.locator("#nav-home").click();await layout.locator("[data-action=edit-day][data-day='2026-11-03']").click();
