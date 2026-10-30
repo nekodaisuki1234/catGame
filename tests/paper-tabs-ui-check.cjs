@@ -16,6 +16,7 @@ async function run(){
  const stored=page=>page.evaluate(()=>JSON.parse(localStorage.getItem(window.PaperConfig.storageKey)));
  const record=async page=>(await stored(page)).records[DAY];
  const settle=async page=>{await page.waitForFunction(()=>document.querySelector("#previewApp").getAttribute("aria-busy")!=="true");await page.clock.runFor(50);};
+ const sendLeave=async page=>{if(!await page.locator('#paperDialog').evaluate(node=>node.open))await page.locator('#leaveForm button[type=submit]').click();await page.locator('[data-action=confirm-leave-request]').click();await settle(page);};
  const tab=(page,panel,editor=false)=>page.locator(editor?"#editorWorkTab-"+panel:"#detailTab-"+panel);
  const leave=(page,value,editor=false)=>page.locator('[data-action="'+(editor?'editor-leave':'home-leave')+'"][data-leave="'+value+'"]');
  const fixture=async(page,complete=false)=>{
@@ -74,29 +75,29 @@ async function run(){
    console.log('PASS '+entry+' top-level work tab, shorter initial screen, keyboard navigation and retained memo/phase input');
 
    await page.locator('[data-detail="leave"]').click();const beforeLeave=(await stored(page)).revision;
-   await leave(page,'am').click();await settle(page);assert.equal((await record(page)).leave,'am');assert.equal((await stored(page)).revision,beforeLeave+1,'one tap saves exactly one revision');
+   await leave(page,'am').click();assert.equal((await stored(page)).revision,beforeLeave,'choosing a leave only stages it');await sendLeave(page);assert.equal((await record(page)).leave,'am');assert.equal((await stored(page)).revision,beforeLeave+1,'confirmed send saves exactly one revision');
    assert.equal((await record(page)).note,'タブを切り替えても残るメモ');assert.deepEqual((await record(page)).phases,['design','test','meeting']);
-   await leave(page,'paid').click();await settle(page);assert.equal((await record(page)).leave,'paid');assert.equal(await page.locator('#startPunch').isDisabled(),true);
+   await leave(page,'paid').click();await sendLeave(page);assert.equal((await record(page)).leave,'paid');assert.equal(await page.locator('#startPunch').isDisabled(),true);
    await page.reload();await ready(page);await page.locator('[data-detail="leave"]').click();assert.equal(await leave(page,'paid').getAttribute('aria-pressed'),'true');
-   await leave(page,'').click();await settle(page);assert.equal((await record(page)).leave,'');assert.equal(await page.locator('#startPunch').isDisabled(),false);
+   await leave(page,'').click();await sendLeave(page);assert.equal((await record(page)).leave,'');assert.equal(await page.locator('#startPunch').isDisabled(),false);
 
    const compRevision=(await stored(page)).revision;await leave(page,'comp').click();await settle(page);
    assert.equal((await stored(page)).revision,compRevision,'a comp day without a source cannot auto-save');assert.equal(await page.locator('#leaveSourceDay').isVisible(),true);
-   await page.locator('#leaveSourceDay').selectOption('2026-10-24');await page.locator('#leaveForm button[type=submit]').click();await settle(page);
+   await page.locator('#leaveSourceDay').selectOption('2026-10-24');await sendLeave(page);
    assert.equal((await record(page)).leave,'comp');assert.equal((await record(page)).sourceDay,'2026-10-24');
    await geometry(page);await tab(page,'leave').click();await screenshot(page,(entry.includes('-app')?'local':'demo')+'-paper-batch23-leave');
 
    const accepted=await stored(page);await page.evaluate(()=>{window.tabsOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota')};});
-   await leave(page,'special').click();await settle(page);assert.deepEqual(await stored(page),accepted);assert.match(await page.locator('#leaveSaveStatus').innerText(),/未保存/);
+   await leave(page,'special').click();await sendLeave(page);assert.deepEqual(await stored(page),accepted);assert.match(await page.locator('#leaveSaveStatus').innerText(),/未保存|未送信|選択中/);await page.locator('#paperDialog [data-action=close-dialog]').last().click();
    await page.locator('[data-detail="summary"]').click();await page.locator('[data-detail="leave"]').click();assert.equal(await leave(page,'special').getAttribute('aria-pressed'),'true');
-   await page.evaluate(()=>Storage.prototype.setItem=window.tabsOriginalSetItem);await page.locator('#leaveForm button[type=submit]').click();await settle(page);
-   assert.equal((await record(page)).leave,'special');assert.equal((await record(page)).sourceDay,'');assert.doesNotMatch(await page.locator('#leaveSaveStatus').innerText(),/未保存/);
-   console.log('PASS '+entry+' one-tap leave persistence, full-day punch state, explicit comp source and failed-save draft/retry');
+   await page.evaluate(()=>Storage.prototype.setItem=window.tabsOriginalSetItem);await sendLeave(page);
+   assert.equal((await record(page)).leave,'special');assert.equal((await record(page)).sourceDay,'');assert.doesNotMatch(await page.locator('#leaveSaveStatus').innerText(),/未保存|未送信|選択中/);
+   console.log('PASS '+entry+' staged leave choices and confirmed request persistence, full-day punch state, explicit comp source and failed-save draft/retry');
 
    await fixture(page,true);await tab(page,'leave').click();
    const beforeClear=await stored(page);await page.evaluate(()=>{window.clearOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota')};});
-   await leave(page,'paid').click();await settle(page);assert.deepEqual(await stored(page),beforeClear,'a rejected leave save cannot clear recorded punches');assert.equal(await page.locator('#startTime').inputValue(),'09:00');
-   await page.evaluate(()=>Storage.prototype.setItem=window.clearOriginalSetItem);await page.locator('#leaveForm button[type=submit]').click();await settle(page);
+   await leave(page,'paid').click();await sendLeave(page);assert.deepEqual(await stored(page),beforeClear,'a rejected leave save cannot clear recorded punches');assert.equal(await page.locator('#startTime').inputValue(),'09:00');
+   await page.evaluate(()=>Storage.prototype.setItem=window.clearOriginalSetItem);await sendLeave(page);
    const off=await record(page);assert.equal(off.leave,'paid');assert.equal(off.start,'');assert.equal(off.end,'');assert.equal(off.overnight,false);assert.equal(await page.locator('#startTime').inputValue(),'');assert.equal(await page.locator('#endTime').inputValue(),'');assert.deepEqual(off.allocation,{P1:0,P2:0,P3:0,P4:0,SET:0});
    assert.equal(await page.evaluate(day=>{const C=window.PaperAttendance,s=JSON.parse(localStorage.getItem(window.PaperConfig.storageKey));return C.worked(s.records[day],day,C.clock());},DAY),0);
    await page.locator('#nav-records').click();await page.locator('#recordList [data-day="'+DAY+'"]').click();const beforeEditor=await stored(page);
@@ -109,10 +110,10 @@ async function run(){
    await fixture(page,true);await page.locator('#nav-records').click();await page.locator('#recordList [data-day="'+DAY+'"]').click();await leave(page,'am',true).click();await page.locator('#dayForm button[type=submit]').click();await settle(page);assert.equal((await record(page)).allocation.P2,2,'half-day leave preserves manual allocations');
    await leave(page,'holiday',true).click();assert.equal(await page.locator('#editStart').inputValue(),'');assert.equal(await page.locator('#editEnd').inputValue(),'');assert.equal(await page.locator('#editOvernight').isChecked(),false);assert.match(await page.locator('#editWorked').innerText(),/^0/);await page.locator('#dayForm button[type=submit]').click();await settle(page);assert.equal((await record(page)).leave,'holiday');assert.equal((await record(page)).allocation.P2,0);
 
-   await fixture(page);await page.locator('[data-detail="leave"]').click();await page.evaluate(()=>window.__tabsAdapter.hold=true);await leave(page,'pm').click();
+   await fixture(page);await page.locator('[data-detail="leave"]').click();await page.evaluate(()=>window.__tabsAdapter.hold=true);await leave(page,'pm').click();await page.locator('#leaveForm button[type=submit]').click();await page.locator('[data-action=confirm-leave-request]').click();
    await page.waitForFunction(()=>document.querySelector('#previewApp').getAttribute('aria-busy')==='true');
    assert.equal((await record(page)).leave,'');for(const button of await page.locator('[data-action="home-leave"]').all())assert.equal(await button.isDisabled(),true);
-   await page.locator('#nav-records').click();await page.locator('#nav-home').click();assert.equal(await leave(page,'paid').isDisabled(),true);
+   await page.keyboard.press('Escape');await page.locator('#nav-records').click();await page.locator('#nav-home').click();assert.equal(await leave(page,'paid').isDisabled(),true);
    await page.evaluate(()=>window.__tabsAdapter.release());await settle(page);assert.equal((await record(page)).leave,'pm');assert.equal(await leave(page,'paid').isDisabled(),false);
    console.log('PASS '+entry+' zero-hour full leave clears clock times only on accepted saves, staged editor changes and serial pending-save controls');await context.close();
   }

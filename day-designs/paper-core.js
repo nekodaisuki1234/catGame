@@ -4,6 +4,9 @@ const VERSION=1,KEY="day-paper-attendance-v1",FIRST="2026-04-01";
 const PROJECTS=["P1","P2","P3","P4","SET"],PROJECT_IDS=PROJECTS,WEEK=["日","月","火","水","木","金","土"];
 const PHASES=[{id:"requirements",label:"要件定義"},{id:"design",label:"設計"},{id:"implementation",label:"製造"},{id:"test",label:"テスト"},{id:"operations",label:"運用"},{id:"maintenance",label:"保守"},{id:"investigation",label:"調査"},{id:"meeting",label:"管理"}],PHASE_IDS=PHASES.map(phase=>phase.id);
 const LEAVES={"":"休暇なし",paid:"有給休暇",am:"午前半休",pm:"午後半休",holiday:"公休",special:"特別休暇",comp:"代休"};
+const LEAVE_REQUEST_FIELDS=["id","day","leave","sourceDay","requestedAt"],LEAVE_RECEIPT_FIELDS=[...LEAVE_REQUEST_FIELDS,"delivery"];
+const validRequestId=value=>typeof value==="string"&&/^[A-Za-z0-9_-]{1,128}$/.test(value)&&!["__proto__","constructor","prototype"].includes(value);
+const exactObject=(value,keys)=>!!value&&typeof value==="object"&&!Array.isArray(value)&&Object.prototype.toString.call(value)==="[object Object]"&&Reflect.ownKeys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key)&&Object.prototype.propertyIsEnumerable.call(value,key));
 const DEMO_EMPLOYEE={name:"田中 花子",department:"営業",id:"E001"},EMPLOYEE_FIELDS=["name","department","id"];
 const pad=n=>String(n).padStart(2,"0"),clone=value=>JSON.parse(JSON.stringify(value));
 const iso=d=>d.toISOString().slice(0,10),date=day=>new Date(day+"T00:00:00Z");
@@ -138,6 +141,36 @@ function validateRecordChange(state,day,nextOrNull,now){
  }
  return {ok:true};
 }
+function leaveRequestStamp(value){
+ if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value))return null;
+ const instant=new Date(value);return Number.isFinite(+instant)&&instant.toISOString()===value?clock(instant):null;
+}
+function validLeaveRequest(request,first,receipt=false){
+ if(!exactObject(request,receipt?LEAVE_RECEIPT_FIELDS:LEAVE_REQUEST_FIELDS)||!validRequestId(request.id)||typeof request.day!=="string"||!validDay(request.day)||request.day<first||typeof request.leave!=="string"||!Object.hasOwn(LEAVES,request.leave)||typeof request.sourceDay!=="string")return false;
+ if(request.leave==='comp'?!validDay(request.sourceDay)||request.sourceDay<first||request.sourceDay>=request.day:request.sourceDay!=='')return false;
+ const submitted=leaveRequestStamp(request.requestedAt);
+ return !!submitted&&request.day<=submitted.day&&(!receipt||request.delivery==='local');
+}
+function validLeaveRequests(requests,first){
+ if(!requests||typeof requests!=="object"||Array.isArray(requests)||Object.prototype.toString.call(requests)!=="[object Object]"||Reflect.ownKeys(requests).length!==Object.keys(requests).length)return false;
+ return Object.entries(requests).every(([id,request])=>validRequestId(id)&&request?.id===id&&validLeaveRequest(request,first,true));
+}
+function prepareLeaveRequest(state,input,now){
+ const bad=error=>({ok:false,error});
+ if(!now||!validDay(now.day)||!Number.isInteger(now.minutes)||now.minutes<0||now.minutes>1439)return bad("現在の日付・時刻を確認してください。");
+ if(!validLeaveRequest(input,firstDay(state)))return bad("休暇申請の日付・区分・代休元・送信日時を確認してください。");
+ if(input.day>now.day)return bad("今日までの日付を選んでください。");
+ const submitted=leaveRequestStamp(input.requestedAt);
+ if(submitted.day!==now.day||submitted.minutes>now.minutes)return bad("送信日時が変わりました。もう一度確認してください。");
+ const current=hydrate(state,now);if(!current)return bad("保存した勤怠と申請履歴を読み直してください。");
+ if(Object.hasOwn(current.leaveRequests||{},input.id))return bad("この申請はすでに記録されています。重複して送信できません。");
+ const changed={...changeLeave(current.records[input.day]||empty(current),input.leave,input.day,now),sourceDay:input.sourceDay};
+ const checked=validateRecord(changed,input.day,now,current.settings);if(!checked.ok)return bad(checked.error);
+ const relation=validateRecordChange(current,input.day,checked.value,now);if(!relation.ok)return bad(relation.error);
+ const request={id:input.id,day:input.day,leave:input.leave,sourceDay:input.sourceDay,requestedAt:input.requestedAt,delivery:'local'},value=clone(current);
+ value.records[input.day]=checked.value;value.leaveRequests={...(value.leaveRequests||{}),[request.id]:request};invalidateSubmissions(value,input.day);
+ return {ok:true,value,request:clone(request),record:clone(checked.value),warnings:[...checked.warnings]};
+}
 function validateSettings(s){
  if(!s||!Number.isFinite(s.minHours)||!Number.isFinite(s.maxHours)||s.minHours<0||s.maxHours>744||s.minHours>s.maxHours)return "基準時間は0〜744時間で、下限≦上限にしてください。";
  if(s.attendanceStartDay!==undefined&&!validDay(s.attendanceStartDay))return "記録開始日を正しい日付で入力してください。";
@@ -184,6 +217,7 @@ function hydrate(raw,now){
  if(validateSettings(settings))return null;
  if(raw.mode!==undefined&&raw.mode!=="demo"&&raw.mode!=="local")return null;
  if(raw.mode==="local"&&(!validDay(settings.attendanceStartDay)||settings.employee===undefined))return null;
+ if(Object.hasOwn(raw,"leaveRequests")&&!validLeaveRequests(raw.leaveRequests,settings.attendanceStartDay||FIRST))return null;
  const d=raw.defaults;
  if(Object.hasOwn(d,"phases")&&!validPhases(d.phases))return null;
  if(!settings.places.some(p=>p.id===d.locationId)||typeof d.note!=="string"||d.note.length>1000||!Number.isInteger(d.breakMinutes)||d.breakMinutes<0||d.breakMinutes>1440)return null;
@@ -353,5 +387,5 @@ function workbook(state,period,now){
     ];
     sheets.forEach((s,i)=>files.push(["xl/worksheets/sheet"+(i+1)+".xml",worksheet(s.rows,s.headerRow||1)]));return zip(files);
   }
-global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,PHASES,PHASE_IDS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,validPhases,changeLeave,worked,absenceMinutes,empty,phaseText,allocationMax,validateRecord,validateRecordChange,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
+global.PaperAttendance={VERSION,KEY,FIRST,PROJECTS,PHASES,PHASE_IDS,WEEK,LEAVES,pad,clone,iso,date,validDay,firstDay,isDemo,employee,add,weekday,holidayKnown,holiday,workday,dates,month,monthWorkdays,plannedHours,fiscalPeriod,pastMissing,periods,periodKey,clock,timeToMin,time,short,duration,hours,fullLeave,validPhases,changeLeave,worked,absenceMinutes,empty,phaseText,allocationMax,validateRecord,validateRecordChange,prepareLeaveRequest,compSources,validateSettings,createState,seed,hydrate,missing,submissionCheck,prepareSubmission,allocateToP1,summary,submissionStatus,invalidateSubmissions,workbook};
 })(window);

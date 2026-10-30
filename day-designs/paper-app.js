@@ -18,7 +18,7 @@ let editorReturn="records";const editorDrafts=new Map();
 const editorTimeSignatures=new Map();
 const homeDrafts=new Map(),listPositions=new Map();let lastMinute="";
 const queuedPhaseDays=new Set();let phaseSaveTimer=null;
-let homeWorkTab='note',editorWorkTab='note';
+let homeWorkTab='note',editorWorkTab='note',leaveConfirmation=null;
 const homeDraft=(day=now.day)=>homeDrafts.get(day)||{};
 function setHomeDraft(key,value,day=now.day){homeDrafts.set(day,{...homeDraft(day),[key]:value});}
 function clearHomeDraft(...keys){const draft={...homeDraft()};keys.forEach(key=>delete draft[key]);homeDrafts.set(now.day,draft);}
@@ -105,18 +105,37 @@ function syncLeaveChoices(editorMode=false){
  const input=$(editorMode?'editLeave':'leaveType');if(!input)return;
  input.closest('.leave-choice-field').querySelectorAll('[data-leave]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.leave===input.value)));
 }
+function latestLeaveRequest(day){return Object.values(data.leaveRequests||{}).filter(request=>request.day===day).at(-1);}
 function syncLeaveStatus(){
  const node=$('leaveSaveStatus');if(!node)return;
  const r=record(now.day),draft=homeDraft(),dirty=(draft.leave??r.leave)!==r.leave||(draft.sourceDay??r.sourceDay??'')!==(r.sourceDay||'');
- node.dataset.saveState=saving?'saving':dirty?'dirty':'automatic';node.textContent=saving?'保存中です':dirty?'休暇の変更は未保存です':'タップで保存・代休は元の日付を選んで更新';
+ node.dataset.saveState=saving?'saving':dirty?'dirty':'automatic';node.textContent=saving?'保存中です':dirty?'選択中・送信で確定します':latestLeaveRequest(now.day)?'申請内容を保存済み・管理者送信は未接続':'休暇を選んで送信してください';
 }
-async function saveHomeLeave(){
- if(saving)return false;
- const day=renderedDay,leave=$('leaveType').value,sourceDay=leave==='comp'?$('leaveSourceDay').value:'';
- if(await updateToday({leave,sourceDay},'休暇設定を保存しました',{toastOnly:true})){
-  clearSavedHomeDraft(day,{leave,sourceDay});if(C.fullLeave(record(day)))clearSavedHomeDraft(day,{allocation:homeDraft(day).allocation});if(view==='home'&&renderedDay===day&&clockNow().day===day)syncHome();else render();return true;
- }
- syncLeaveStatus();return false;
+function leaveRequestedAt(current){return new Date(current.day+'T'+(current.full||C.time(current.minutes)+':00')+'+09:00').toISOString();}
+function openLeaveRequest(){
+ if(saving)return;
+ const current=clockNow();if(current.day!==renderedDay){render();toast('日付が変わりました。今日の画面を確認して再操作してください。',{warning:true});return;}
+ now=current;const day=renderedDay,leave=$('leaveType').value,sourceDay=leave==='comp'?$('leaveSourceDay').value:'',r=record(day),last=latestLeaveRequest(day);
+ if(!leave&&!r.leave){toast('申請する休暇を選んでください。',{warning:true});return;}
+ if(last&&last.leave===leave&&last.sourceDay===sourceDay&&r.leave===leave&&(r.sourceDay||'')===sourceDay){toast('同じ内容の申請は、この端末に保存済みです。管理者への送信先は未接続です。');return;}
+ const id='lr-'+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12)),snapshot={id,day,leave,sourceDay,revision:data.revision};
+ const checked=C.prepareLeaveRequest(data,{id,day,leave,sourceDay,requestedAt:leaveRequestedAt(current)},current);
+ if(!checked.ok){toast(checked.error,{warning:true});return;}
+ openDialog(dialogHeader(leave?'休暇申請の確認':'休暇の解除申請',dayLabel(day))+'<p class="leave-request-message">'+(leave?'管理者に休暇申請を行います':'管理者に休暇の解除を申請します')+'</p><dl class="summary-lines leave-request-summary"><div><dt>対象日</dt><dd>'+h(dayLabel(day))+'</dd></div><div><dt>休暇区分</dt><dd>'+h(C.LEAVES[leave])+'</dd></div>'+(sourceDay?'<div><dt>元の休日出勤</dt><dd>'+h(dayLabel(sourceDay))+'</dd></div>':'')+'</dl>'+(C.fullLeave({leave})?'<p class="panel-note">確定すると出勤・退勤時刻をクリアし、実働・工数を0時間にします。</p>':'')+'<div class="paper-notice"><strong>管理者への送信先は未接続です</strong><p>ここでは申請内容をこのブラウザに保存します。管理者にはまだ送信されません。承認待ちは行わず、確定した休暇を勤怠へ反映します。</p></div>'+dialogError()+'<div class="paper-actions"><button type="button" class="paper-button secondary" data-action="close-dialog">キャンセル</button><button type="button" class="paper-button" data-action="confirm-leave-request">送信する</button></div>');
+ leaveConfirmation=snapshot;
+}
+async function confirmLeaveRequest(){
+ const snapshot=leaveConfirmation;if(saving||!snapshot)return;
+ if(snapshot.revision!==data.revision){toast('記録が更新されています。確認画面を閉じ、内容を確認して再送信してください。',{warning:true});return;}
+ const current=clockNow(),{id,day,leave,sourceDay}=snapshot,prepared=C.prepareLeaveRequest(data,{id,day,leave,sourceDay,requestedAt:leaveRequestedAt(current)},current);
+ if(!prepared.ok){toast(prepared.error,{warning:true});return;}
+ const previous=record(day),editorDraft=editorDrafts.get(day);now=current;
+ if(!await commit(prepared.value,'申請内容をこの端末に保存しました。管理者への送信先は未接続です。',{expectedRevision:snapshot.revision})){syncLeaveStatus();return;}
+ if(editorDraft&&editorDrafts.get(day)===editorDraft&&(sameRecord(editorDraft.record,previous)||sameRecord(editorDraft.record,prepared.record)))editorDrafts.delete(day);
+ clearSavedHomeDraft(day,{leave,sourceDay});if(C.fullLeave(prepared.record))clearSavedHomeDraft(day,{allocation:homeDraft(day).allocation});
+ if(leaveConfirmation===snapshot)closeDialog();
+ if(view==='home'&&renderedDay===clockNow().day)syncHome();else render();
+ if(prepared.warnings?.length)showWarning(dayLabel(day)+'：'+prepared.warnings.join(' '));
 }
 function cancelPhaseSave(){queuedPhaseDays.clear();if(phaseSaveTimer!==null){clearTimeout(phaseSaveTimer);phaseSaveTimer=null;}}
 function schedulePhaseSave(){
@@ -140,7 +159,7 @@ function repositoryMessage(issue,fallback){
 }
 function syncPendingControls(){
  if(!saving)return;
- const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="quick-rest"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"],[data-action="project-tab"],[data-action="project-step"],[data-action="place-tab"],[data-action="default-break"],[data-action="editor-phase"],[data-action="home-leave"],[data-action="editor-leave"],[data-action="default-phase"]';
+ const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="quick-rest"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"],[data-action="project-tab"],[data-action="project-step"],[data-action="place-tab"],[data-action="default-break"],[data-action="editor-phase"],[data-action="home-leave"],[data-action="editor-leave"],[data-action="default-phase"],[data-action="confirm-leave-request"]';
  const controls=[...root.querySelectorAll(selector),...dialog.querySelectorAll(selector),...document.querySelectorAll('[data-state],[data-action="reset"],[data-action="live"]')];
  for(const node of controls){if(node.id==="workNote")continue;if(!pendingControls.has(node))pendingControls.set(node,node.disabled);node.disabled=true;}
 }
@@ -263,7 +282,7 @@ function syncPerformance(){
 }
 function leavePanel(){
  const r=record(now.day),leave=homeDraft().leave??r.leave,sourceDay=homeDraft().sourceDay??r.sourceDay??'';
- return '<section class="detail-panel" aria-labelledby="leaveTitle"><h2 id="leaveTitle">休暇の設定</h2><form id="leaveForm" class="paper-form-card">'+leaveChoices(leave)+'<div id="leaveSourceFields" class="comp-source-fields" '+(leave==='comp'?'':'hidden')+'><label class="paper-label" for="leaveSourceDay">元の休日出勤</label><select id="leaveSourceDay" class="paper-input">'+compSourceOptions(now.day,sourceDay)+'</select><p class="panel-note">代休より前の土日・祝日に勤務した日を選びます。1日の休日出勤につき1日分の代休を登録できます。</p></div><p class="panel-note">全日休暇は実働・工数が0時間になり、入力済みの出勤・退勤時刻もクリアします。半休は勤務時間と併せて記録できます。</p><div class="leave-save-row"><p id="leaveSaveStatus" class="leave-save-status" role="status"></p><div class="leave-form-actions"><button type="submit" class="paper-button">更新</button></div></div></form></section>';
+ return '<section class="detail-panel" aria-labelledby="leaveTitle"><h2 id="leaveTitle">休暇の申請</h2><form id="leaveForm" class="paper-form-card">'+leaveChoices(leave)+'<div id="leaveSourceFields" class="comp-source-fields" '+(leave==='comp'?'':'hidden')+'><label class="paper-label" for="leaveSourceDay">元の休日出勤</label><select id="leaveSourceDay" class="paper-input">'+compSourceOptions(now.day,sourceDay)+'</select><p class="panel-note">代休より前の土日・祝日に勤務した日を選びます。1日の休日出勤につき1日分の代休を登録できます。</p></div><p class="panel-note">全日休暇は実働・工数が0時間になり、入力済みの出勤・退勤時刻もクリアします。半休は勤務時間と併せて記録できます。</p><div class="leave-save-row"><p id="leaveSaveStatus" class="leave-save-status" role="status"></p><div class="leave-form-actions"><button type="submit" class="paper-button">'+icon('send')+'<span>送信</span></button></div></div></form></section>';
 }
 function allocationFields(r,prefix){return '<div class="allocation-grid">'+C.PROJECTS.map(k=>'<label for="'+prefix+k+'"><span>'+k+'</span><input class="paper-input" id="'+prefix+k+'" name="'+k+'" type="number" min="0" max="'+C.allocationMax(r,k)+'" step="any" inputmode="decimal" required value="'+h(C.fullLeave(r)?0:prefix==="alloc"?(homeDraft().allocation?.[k]??r.allocation[k]):r.allocation[k])+'" '+(C.fullLeave(r)?'disabled':'')+'></label>').join("")+'</div>';}
 function allocationPanel(){
@@ -477,7 +496,7 @@ function openDialog(content){
  error="";dialog.innerHTML=content;if(!dialog.open)dialog.showModal();syncPendingControls();
 }
 function dialogError(){return '<p id="dialogError" class="preview-error" role="alert"></p>';}
-function closeDialog(){dialog.close();dialog.innerHTML="";error="";}
+function closeDialog(){leaveConfirmation=null;dialog.close();dialog.innerHTML="";error="";}
 function dialogHeader(title,caption=""){return '<div class="dialog-heading"><div><h2 id="dialogTitle">'+h(title)+'</h2>'+(caption?'<p>'+h(caption)+'</p>':'')+'</div><button type="button" data-action="close-dialog" class="dialog-close" aria-label="閉じる">×</button></div>';}
 function openEditor(day){
  now=clockNow();if(!C.validDay(day)||day<C.firstDay(data)||day>now.day)return;
@@ -603,9 +622,9 @@ document.addEventListener("click",async event=>{
   $(editorMode?'editLeave':'leaveType').value=leave;
   if(editorMode){const next=C.changeLeave(prior,leave,editDay,clockNow());$('editStart').value=next.start;$('editEnd').value=next.end;$('editOvernight').checked=next.overnight;for(const key of C.PROJECTS)$('editAlloc'+key).value=next.allocation[key];if(C.fullLeave(next)&&next.breakMinutes==null)$('editBreak').value=breakText(record(editDay).breakMinutes);syncLeaveChoices(true);syncCompSourceFields(true);syncEditor();captureEditor();return;}
   setHomeDraft('leave',leave);setHomeDraft('sourceDay',leave==='comp'?(homeDraft().sourceDay??record(now.day).sourceDay??''):'');syncLeaveChoices();syncCompSourceFields();syncLeaveStatus();
-  if(leave==='comp'&&!$('leaveSourceDay').value){toast('元の休日出勤日を選んで、右下の「更新」で保存してください。');return;}
-  await saveHomeLeave();return;
+  return;
  }
+ if(action==='confirm-leave-request'){await confirmLeaveRequest();return;}
  if(action==='edit-plan'){openPlan();return;}
  if(action==='work-phase'){
   const phase=button.dataset.phase;if(!C.PHASE_IDS.includes(phase))return;
@@ -746,7 +765,7 @@ document.addEventListener("submit",async event=>{
  if(id==="restForm"){
   const total=readRest();if(total==null)return;if(await updateToday({breakMinutes:total},'休憩時間を保存しました',{autoAllocate:true})){clearHomeDraft("rest");restOpen=false;syncHome();}return;
  }
- if(id==="leaveForm"){await saveHomeLeave();return;}
+ if(id==="leaveForm"){openLeaveRequest();return;}
  if(id==="allocationForm"){
   const allocation=Object.fromEntries(C.PROJECTS.map(k=>[k,Number($("alloc"+k).value)]));
   if(await updateToday({allocation},'工数を保存しました',{strictAllocation:true})){clearHomeDraft("allocation");syncHome();}return;
@@ -775,7 +794,7 @@ document.addEventListener("submit",async event=>{
   if(await commit(next,'勤務表設定を更新しました')){settingsDraft=null;settingsPlanDrafts.clear();render();}
  }
 });
-dialog.addEventListener("close",()=>{if(!dialog.open)error="";});
+dialog.addEventListener("close",()=>{if(!dialog.open){leaveConfirmation=null;error="";}});
 window.addEventListener("popstate",event=>{
  if(!data)return;
  const route=event.state;if(!route?.paper)return;

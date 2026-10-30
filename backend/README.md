@@ -192,3 +192,8 @@ AWS仕様の参照先：
 - [HTTP APIのJWT authorizer](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-jwt-authorizer.html)
 - [SAM HttpApi Auth](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-httpapi-httpapiauth.html)
 - [Lambdaランタイム](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html)
+
+
+### フロントエンドの休暇申請プレビュー
+
+A画面の休暇申請は現在ブラウザ内の記録のみで、管理者へは送信されません。共有コアは任意の`leaveRequests`履歴を検証できますが、このAPIには休暇通知・管理者宛先・受信箱のエンドポイントを追加していません。既存の日別PUT/PATCHは勤怠修正です。実際の通知は、AWS/APIと通知先を用意してから接続します。

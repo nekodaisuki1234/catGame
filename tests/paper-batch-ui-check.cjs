@@ -64,11 +64,11 @@ async function run(){
 
   // The home leave editor and daily editor must share the same one-day source rules.
   const comp=await fresh("2026-10-27T12:00:00Z");await comp.locator("[data-detail=leave]").click();await comp.locator('[data-action="home-leave"][data-leave="comp"]').click();assert.equal(await comp.locator("#leaveSourceDay").isVisible(),true);
-  await comp.locator("#leaveSourceDay").selectOption("2026-10-24");await comp.locator("#leaveForm button[type=submit]").click();assert.equal((await record(comp)).leave,"comp");assert.equal((await record(comp)).sourceDay,"2026-10-24");
+  await comp.locator("#leaveSourceDay").selectOption("2026-10-24");await comp.locator("#leaveForm button[type=submit]").click();await comp.locator("[data-action=confirm-leave-request]").click();await comp.waitForFunction(()=>!document.querySelector("#paperDialog").open&&document.querySelector("#previewApp").getAttribute("aria-busy")!=="true");assert.equal((await record(comp)).leave,"comp");assert.equal((await record(comp)).sourceDay,"2026-10-24");
   await comp.reload();await comp.locator("[data-detail=leave]").click();assert.equal(await comp.locator("#leaveType").inputValue(),"comp");assert.equal(await comp.locator("#leaveSourceDay").inputValue(),"2026-10-24");
   for(const width of [320,390,430]){
    await comp.setViewportSize({width,height:844});assert.ok(await comp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"home comp overflow "+width);
-   const contentRight=await comp.locator("#leaveForm").evaluate(node=>{const rect=node.getBoundingClientRect(),style=getComputedStyle(node);return rect.right-parseFloat(style.paddingRight)-parseFloat(style.borderRightWidth);}),button=await comp.locator("#leaveForm button[type=submit]").boundingBox();assert.ok(Math.abs(contentRight-button.x-button.width)<=1,"leave update must align with the form content's right edge at "+width);
+   const contentRight=await comp.locator("#leaveForm").evaluate(node=>{const rect=node.getBoundingClientRect(),style=getComputedStyle(node);return rect.right-parseFloat(style.paddingRight)-parseFloat(style.borderRightWidth);}),button=await comp.locator("#leaveForm button[type=submit]").boundingBox();assert.ok(Math.abs(contentRight-button.x-button.width)<=1,"leave send must align with the form content's right edge at "+width);
   }
   await comp.setViewportSize({width:390,height:844});await comp.locator("[data-detail=summary]").click();assert.equal(await comp.locator("#homePaidLeave").innerText(),"1日");
   await edit(comp,"2026-10-26");await comp.locator('[data-action="editor-leave"][data-leave="comp"]').click();assert.equal(await comp.locator("#editSourceDay").isVisible(),true);assert.equal(await comp.locator("#editSourceDay option[value='2026-10-24']").count(),0,"already-used source must not be offered twice");
@@ -78,7 +78,7 @@ async function run(){
   await jump(comp,"2026-10-24");const linkedRevision=(await state(comp)).revision;await comp.locator("[data-action=clear-day]").click();assert.equal((await state(comp)).revision,linkedRevision);assert.equal((await record(comp,"2026-10-24")).start,"09:00");assert.match(await comp.locator("#studyToast").innerText(),/代休|紐付/);
   await change(comp,"editEnd","09:30");await save(comp);assert.equal((await state(comp)).revision,linkedRevision);assert.equal((await record(comp,"2026-10-24")).end,"18:00");
   await jump(comp,"2026-10-26");await comp.locator('[data-action="editor-leave"][data-leave="holiday"]').click();await save(comp);assert.equal((await record(comp,"2026-10-26")).sourceDay,"");await jump(comp,"2026-10-25");await comp.locator("[data-action=clear-day]").click();assert.equal(await record(comp,"2026-10-25"),undefined);
-  console.log("PASS one-to-one compensatory leave in both editors, right-aligned update, duplicate-save protection and safe source removal");
+  console.log("PASS one-to-one compensatory leave in both editors, right-aligned send, duplicate-save protection and safe source removal");
 
   // A comp day suppresses missing-entry warnings without becoming paid leave or shifting the home layout.
   await comp.locator("#nav-home").click();const clearPositions=await positions(comp);assert.equal(await comp.locator("#homeMissingNotice").isVisible(),false);assert.equal(await comp.locator("#homePaidLeave").innerText(),"1日");

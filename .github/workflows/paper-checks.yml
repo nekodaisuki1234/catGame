@@ -40,6 +40,7 @@ jobs:
           node tests/paper-absence-check.cjs
           node tests/paper-projects-check.cjs
           node tests/paper-phases-check.cjs
+          node tests/paper-leave-request-check.cjs
       - name: Install browser test tools
         run: |
           npm install --prefix "$RUNNER_TEMP/paper-browser" --no-save --no-package-lock --ignore-scripts playwright@1.57.0
@@ -48,6 +49,7 @@ jobs:
         run: |
           export PAPER_PLAYWRIGHT_MODULE="$RUNNER_TEMP/paper-browser/node_modules/playwright"
           export PAPER_SCREENSHOT_DIR="$RUNNER_TEMP/paper-screenshots"
+          node tests/paper-leave-request-ui-check.cjs
           node tests/paper-defaults-ui-check.cjs
           node tests/paper-tabs-ui-check.cjs
           node tests/paper-phases-ui-check.cjs

@@ -406,6 +406,10 @@ html[data-theme=paper]{scroll-padding-bottom:calc(100px + env(safe-area-inset-bo
 [data-theme=paper] .leave-save-status{flex:1;min-height:44px;display:flex;align-items:center;margin:0;color:var(--muted);font-size:10px;line-height:1.7}
 [data-theme=paper] .leave-save-status[data-save-state=dirty]{color:#856442}
 [data-theme=paper] .leave-save-row .leave-form-actions{flex:none;margin-top:0}
+[data-theme=paper] .leave-form-actions .paper-button>svg{flex:none;width:16px;height:16px}
+[data-theme=paper] .leave-request-message{font-size:15px;font-weight:550;line-height:1.9;margin:0 0 15px;color:var(--primary)}
+[data-theme=paper] .leave-request-summary{padding:9px 13px;border:1px solid #dce3dc;border-radius:8px;background:#fafbf8}
+[data-theme=paper] .leave-request-summary dd{font-size:12px;overflow-wrap:anywhere}
 @media(max-width:319px){[data-theme=paper] .leave-choices{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){[data-theme=paper] .leave-choice{transition:none}}
 [data-theme=paper] .paper-form-card>.panel-note:first-child{margin-top:0}
