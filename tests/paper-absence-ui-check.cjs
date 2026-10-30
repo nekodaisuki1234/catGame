@@ -23,7 +23,7 @@ async function run(){
  const save=async page=>{await page.locator("#dayForm button[type=submit]").click();await page.clock.runFor(30);};
  const home=async page=>{await page.locator("#nav-home").click();await page.locator("[data-detail=summary]").click();};
  const edit=async(page,day=DAY)=>{await page.locator("#nav-records").click();await page.locator(".paper-record[data-day='"+day+"']").click();assert.equal(await page.locator("#editDate").inputValue(),day);};
- const leave=async(page,value)=>{await page.locator("[data-detail=leave]").click();await page.locator("#leaveType").selectOption(value);await page.locator("#leaveForm button[type=submit]").click();await page.clock.runFor(30);await page.locator("[data-detail=summary]").click();};
+ const leave=async(page,value)=>{await page.locator("[data-detail=leave]").click();await page.locator('[data-action="home-leave"][data-leave="'+value+'"]').click();await page.clock.runFor(30);await page.locator("[data-detail=summary]").click();};
  const warning=async(page,value)=>{
   const toast=page.locator("#studyToast");assert.equal(await toast.evaluate(node=>node.classList.contains("is-warning")&&node.classList.contains("visible")),true);
   assert.match(await toast.innerText(),/欠勤/);assert.match(await toast.innerText(),value);
@@ -90,7 +90,7 @@ async function run(){
 
    // The daily editor shares the same leave credit and successful-save-only toast.
    await page.locator(".paper-record[data-day='"+DAY+"']").click();await change(page,"editEnd","14:00");await save(page);await warning(page,/4時間00分/);
-   await page.locator("#editLeave").selectOption("pm");await save(page);await absence(page,"#editAbsence","0時間00分");await noShortfallWarning(page);
+   await page.locator('[data-action="editor-leave"][data-leave="pm"]').click();await save(page);await absence(page,"#editAbsence","0時間00分");await noShortfallWarning(page);
    await home(page);await absence(page,"#homeAbsence","0時間00分");
 
    // All widths retain the same positions when a shortfall is added or resolved.
@@ -113,7 +113,7 @@ async function run(){
    console.log("PASS "+label+" saved-versus-draft totals, storage-failure protection, selected-month isolation, editor leave correction and 320/390/430px warning geometry");
 
    // Invalid negative actual time keeps its own warning and never becomes a successful shortage hint.
-   await edit(page);await page.locator("#editLeave").selectOption("");await change(page,"editEnd","10:00");await change(page,"editBreak","02:00");await save(page);
+   await edit(page);await page.locator('[data-action="editor-leave"][data-leave=""]').click();await change(page,"editEnd","10:00");await change(page,"editBreak","02:00");await save(page);
    assert.equal((await record(page)).breakMinutes,120);assert.equal((await record(page)).end,"10:00");
    assert.match(await page.locator("#studyToast").innerText(),/マイナス|休憩時間を引いた/);assert.doesNotMatch(await page.locator("#studyToast").innerText(),/欠勤/);
    await home(page);await absence(page,"#homeAbsence","8時間00分");

@@ -42,16 +42,16 @@ async function run(){
   if(process.env.PAPER_SCREENSHOT_DIR){fs.mkdirSync(process.env.PAPER_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.PAPER_SCREENSHOT_DIR,"paper-holiday-warning.png")});}
   await page.locator("#homeMissingNotice").click();await heading("過去の未入力");assert.equal(await page.locator(".missing-day-link").count(),1);
   await page.locator(".missing-day-link").click();await heading("勤怠の編集");assert.equal(await page.locator("#editDate").inputValue(),"2026-10-26");
-  await page.locator("#editLeave").selectOption("paid");await page.locator("#dayForm button[type=submit]").click();await page.locator("[data-action=editor-back]").click();await heading("過去の未入力");
+  await page.locator('[data-action="editor-leave"][data-leave="paid"]').click();await page.locator("#dayForm button[type=submit]").click();await page.locator("[data-action=editor-back]").click();await heading("過去の未入力");
   assert.equal(await page.locator(".missing-day-link").count(),0);assert.match(await page.locator(".missing-complete").innerText(),/未入力はありません/);
   await page.locator("[data-action=missing-back]").click();await heading("今日の勤怠");assert.equal(await page.locator("#homeMissingNotice").isVisible(),false);
   assert.equal(await page.locator("#homePaidLeave").textContent(),"2.5日");assert.deepEqual(await positions(),before,"resolving missing records must not move the clock, punches or fields");
   if(process.env.PAPER_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.PAPER_SCREENSHOT_DIR,"paper-holiday-clear.png")});
   console.log("PASS home fiscal leave, full-month business days, past-only missing list and paid-leave resolution with zero layout shift");
   // Public/company leave suppresses warnings; clearing it makes the warning return.
-  await page.locator("[data-action=edit-day][data-day='2026-10-26']").click();await page.locator("#editLeave").selectOption("holiday");await page.locator("#dayForm button[type=submit]").click();await page.locator("[data-action=editor-back]").click();await heading("今日の勤怠");
+  await page.locator("[data-action=edit-day][data-day='2026-10-26']").click();await page.locator('[data-action="editor-leave"][data-leave="holiday"]').click();await page.locator("#dayForm button[type=submit]").click();await page.locator("[data-action=editor-back]").click();await heading("今日の勤怠");
   assert.equal(await page.locator("#homeMissingNotice").isVisible(),false);assert.equal(await page.locator("#homePaidLeave").textContent(),"1.5日");
-  await page.locator("[data-action=edit-day][data-day='2026-10-26']").click();await page.locator("#editLeave").selectOption("");await page.locator("#dayForm button[type=submit]").click();await page.locator("[data-action=editor-back]").click();await heading("今日の勤怠");assert.equal(await page.locator("#homeMissingNotice").isVisible(),true);
+  await page.locator("[data-action=edit-day][data-day='2026-10-26']").click();await page.locator('[data-action="editor-leave"][data-leave=""]').click();await page.locator("#dayForm button[type=submit]").click();await page.locator("[data-action=editor-back]").click();await heading("今日の勤怠");assert.equal(await page.locator("#homeMissingNotice").isVisible(),true);
   for(const width of [320,390,430,1280]){
    await page.setViewportSize({width,height:844});await fixture();const withWarning=await positions();
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"home overflow "+width);

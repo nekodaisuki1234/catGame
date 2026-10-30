@@ -26,6 +26,9 @@ async function run(){
  const action=editor=>editor?"editor-phase":"work-phase";
  const choices=editor=>editor?"#editorPhaseChoices":"#homePhaseChoices";
  const phase=(page,id,editor=false)=>page.locator('[data-action="'+action(editor)+'"][data-phase="'+id+'"]');
+ const reveal=async(page,editor=false,panel="phases")=>{await page.locator("#"+(editor?"editor":"home")+"WorkTab-"+panel).click();};
+ const tapPhase=async(page,id,editor=false)=>{await reveal(page,editor);await phase(page,id,editor).click();};
+ const writeMemo=async(page,value,editor=false)=>{await reveal(page,editor,"note");await page.locator(editor?"#editNote":"#workNote").fill(value);};
  const selected=(page,editor=false)=>page.locator('[data-action="'+action(editor)+'"][aria-pressed="true"]').evaluateAll(nodes=>nodes.map(node=>node.dataset.phase));
  const settle=async page=>{await page.waitForFunction(()=>document.querySelector("#previewApp")?.getAttribute("aria-busy")!=="true");await page.clock.runFor(40);};
  const saved=async(page,expected)=>{
@@ -34,7 +37,7 @@ async function run(){
    return Array.isArray(actual)&&JSON.stringify([...actual].sort())===JSON.stringify([...expected].sort());
   },{day:DAY,expected});await settle(page);
  };
- const choose=async(page,id,expected)=>{await phase(page,id).click();await page.clock.runFor(40);await saved(page,expected);};
+ const choose=async(page,id,expected)=>{await tapPhase(page,id);await page.clock.runFor(40);await saved(page,expected);};
  const fixture=async(page,{complete=true,legacy=false,phases=[]}={})=>{
   await page.evaluate(({day,complete,legacy,phases,note})=>{
    const C=window.PaperAttendance,config=window.PaperConfig,now=C.clock(),state=config.mode==="local"?C.createState(now,{startDay:"2026-10-01"}):C.seed(now);
@@ -75,6 +78,7 @@ async function run(){
   }
  };
  const geometry=async(page,editor,label)=>{
+  await reveal(page,editor);
   for(const width of [320,390,430]){
    await page.setViewportSize({width,height:844});
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+" page overflow at "+width);
@@ -118,14 +122,14 @@ async function run(){
    console.log("PASS "+label+" optional legacy phases, multiple selection/removal, reload/navigation persistence, unchanged free text/allocation and phase-only saves before punching");
 
    // Selected phases complement the free memo; they do not satisfy the required work description.
-   await fixture(page,{phases:["test"]});await page.locator("#workNote").fill("");await page.locator("#workNote").dispatchEvent("change");await settle(page);
+   await fixture(page,{phases:["test"]});await writeMemo(page,"");await page.locator("#workNote").dispatchEvent("change");await settle(page);
    const validation=await page.evaluate(day=>{const C=window.PaperAttendance,state=JSON.parse(localStorage.getItem(window.PaperConfig.storageKey));return C.submissionCheck(state,{start:day,end:day},C.clock());},DAY);
    assert.equal((await record(page)).note,"");assert.equal(validation.ok,false);assert.match(JSON.stringify(validation.errors),/作業内容/);
    await fixture(page,{phases:["test"]});
 
    // Daily editing stages phase changes alongside the memo and saves them together.
    await page.locator("#nav-records").click();await page.locator('#recordList [data-day="'+DAY+'"]').click();await expectChoices(page,true);
-   const beforeEditor=await raw(page);await phase(page,"requirements",true).click();await page.locator("#editNote").fill("編集画面で自由に入力した内容");
+   const beforeEditor=await raw(page);await tapPhase(page,"requirements",true);await writeMemo(page,"編集画面で自由に入力した内容",true);
    assert.equal(await raw(page),beforeEditor,"phase buttons in the editor cannot auto-save a partially edited day");
    await page.locator("[data-action=editor-prev]").click();await page.locator("[data-action=editor-next]").click();
    assert.deepEqual(sorted(await selected(page,true)),sorted(["requirements","test"]));assert.equal(await page.locator("#editNote").inputValue(),"編集画面で自由に入力した内容");
@@ -139,9 +143,9 @@ async function run(){
    // Rejected saves retain all three work drafts, and the explicit retry commits them together.
    await fixture(page,{phases:["design"]});const beforeFailure=await raw(page);
    await page.evaluate(()=>{window.phaseOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error("quota")};});
-   await phase(page,"maintenance").click();await settle(page);assert.equal(await raw(page),beforeFailure);
+   await tapPhase(page,"maintenance");await settle(page);assert.equal(await raw(page),beforeFailure);
    assert.deepEqual(sorted(await selected(page)),sorted(["design","maintenance"]));assert.match(await page.locator("#workSaveStatus").innerText(),/未保存/);
-   await page.locator("#workNote").fill("失敗しても残す自由入力");await page.locator("#workNote").dispatchEvent("change");await settle(page);
+   await writeMemo(page,"失敗しても残す自由入力");await page.locator("#workNote").dispatchEvent("change");await settle(page);
    await page.locator("#workNote").evaluate(node=>node.blur());await settle(page);
    await page.locator("#workPlace").selectOption("place2");await settle(page);
    assert.equal(await raw(page),beforeFailure);
@@ -155,12 +159,12 @@ async function run(){
    // An explicit editor correction supersedes the unchanged failed home draft.
    await fixture(page,{phases:["design"]});
    await page.evaluate(()=>{window.phaseOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error("quota")};});
-   await phase(page,"maintenance").click();await page.clock.runFor(40);await settle(page);
+   await tapPhase(page,"maintenance");await page.clock.runFor(40);await settle(page);
    assert.deepEqual(sorted(await selected(page)),sorted(["design","maintenance"]));assert.match(await page.locator("#workSaveStatus").innerText(),/未保存/);
    await page.evaluate(()=>Storage.prototype.setItem=window.phaseOriginalSetItem);
    await page.locator("#nav-records").click();await page.locator('#recordList [data-day="'+DAY+'"]').click();
    assert.deepEqual(sorted(await selected(page,true)),sorted(["design","maintenance"]));
-   await phase(page,"maintenance",true).click();await phase(page,"test",true).click();
+   await tapPhase(page,"maintenance",true);await tapPhase(page,"test",true);
    await page.locator("#dayForm button[type=submit]").click();await saved(page,["design","test"]);
    await page.locator("#nav-home").click();await ready(page);
    assert.deepEqual(sorted(await selected(page)),sorted(["design","test"]),"the accepted editor selection replaces the unchanged failed home selection");
@@ -172,14 +176,14 @@ async function run(){
    const asyncView=await fresh(entry,{delayed:true}),pending=asyncView.page;
    await fixture(pending,{phases:["design"]});await pending.evaluate(()=>window.__phaseAdapter.holdSave=true);
    const accepted=await raw(pending),firstNote="フェーズを選ぶ直前に入力したメモ",newerNote="保存を待つ間に追記した自由入力";
-   await pending.locator("#workNote").fill(firstNote);await phase(pending,"requirements").click();await pending.waitForFunction(()=>window.__phaseAdapter.saveCalls===1);
+   await writeMemo(pending,firstNote);await tapPhase(pending,"requirements");await pending.waitForFunction(()=>window.__phaseAdapter.saveCalls===1);
    assert.equal(await raw(pending),accepted);assert.equal(await pending.locator("#workNote").isDisabled(),false);
    for(const id of PHASES)assert.equal(await phase(pending,id).isDisabled(),false,"phase taps remain available while a memo save is pending");
-   for(const id of ["test","maintenance","meeting"])await phase(pending,id).click();
+   for(const id of ["test","maintenance","meeting"])await tapPhase(pending,id);
    const combined=["requirements","design","test","maintenance","meeting"];
    assert.deepEqual(sorted(await selected(pending)),sorted(combined));
    assert.equal(await pending.evaluate(()=>window.__phaseAdapter.saveCalls),1,"rapid phase choices must not create concurrent repository saves");
-   await pending.locator("#workNote").fill(newerNote);await pending.locator("#workNote").evaluate(node=>node.blur());
+   await writeMemo(pending,newerNote);await pending.locator("#workNote").evaluate(node=>node.blur());
    assert.equal(await pending.evaluate(()=>window.__phaseAdapter.saveCalls),1);
    await pending.evaluate(()=>window.__phaseAdapter.releaseSave());
    await pending.waitForFunction(({day,note})=>JSON.parse(localStorage.getItem(window.PaperConfig.storageKey)).records[day].note===note,{day:DAY,note:firstNote});
@@ -194,8 +198,8 @@ async function run(){
    assert.equal((await record(pending)).note,newerNote);
 
    // A rejected phase save keeps the latest selection without an automatic retry loop.
-   const beforeNavigation=await raw(pending);await phase(pending,"investigation").click();await pending.clock.runFor(40);await pending.waitForFunction(()=>window.__phaseAdapter.saveCalls===4);
-   await phase(pending,"operations").click();const afterFailure=[...combined,"investigation","operations"];
+   const beforeNavigation=await raw(pending);await tapPhase(pending,"investigation");await pending.clock.runFor(40);await pending.waitForFunction(()=>window.__phaseAdapter.saveCalls===4);
+   await tapPhase(pending,"operations");const afterFailure=[...combined,"investigation","operations"];
    await pending.locator("#nav-records").click();await pending.locator("#nav-home").click();await ready(pending);
    for(const id of PHASES)assert.equal(await phase(pending,id).isDisabled(),false);
    await pending.evaluate(()=>window.__phaseAdapter.rejectSave());await settle(pending);assert.equal(await raw(pending),beforeNavigation);
@@ -210,7 +214,7 @@ async function run(){
    const editorView=await fresh(entry,{delayed:true}),editing=editorView.page;
    await fixture(editing,{phases:["design"]});await editing.evaluate(()=>window.__phaseAdapter.holdSave=true);
    const pendingNote="編集を開く直前に入力したメモ",editorNote="編集中に追記した自由入力";
-   await editing.locator("#workNote").fill(pendingNote);await phase(editing,"requirements").click();await editing.waitForFunction(()=>window.__phaseAdapter.saveCalls===1);
+   await writeMemo(editing,pendingNote);await tapPhase(editing,"requirements");await editing.waitForFunction(()=>window.__phaseAdapter.saveCalls===1);
    await editing.locator("#nav-records").click();await editing.locator('#recordList [data-day="'+DAY+'"]').click();
    assert.deepEqual(sorted(await selected(editing,true)),sorted(["requirements","design"]),"the editor must show the queued home selection before persistence");
    assert.equal(await editing.locator("#editNote").inputValue(),pendingNote);
@@ -222,7 +226,7 @@ async function run(){
    assert.equal(await editing.locator("#editNote").inputValue(),pendingNote);
    assert.deepEqual(sorted(await selected(editing,true)),sorted(["requirements","design"]));
    assert.equal((await record(editing)).note,pendingNote);
-   await editing.locator("#editNote").fill(editorNote);await editing.locator("#editPlace").selectOption("place2");
+   await writeMemo(editing,editorNote,true);await editing.locator("#editPlace").selectOption("place2");
    assert.equal((await record(editing)).note,pendingNote,"unrelated editor fields remain staged until explicit update");
    await editing.evaluate(()=>window.__phaseAdapter.holdSave=false);await editing.locator("#dayForm button[type=submit]").click();await saved(editing,["requirements","design"]);
    assert.equal((await record(editing)).note,editorNote);assert.equal((await record(editing)).locationId,"place2");
@@ -233,12 +237,12 @@ async function run(){
    // A held write spanning midnight keeps each day's pending phase intent separate.
    const midnightView=await fresh(entry,{delayed:true}),midnight=midnightView.page,nextDay="2026-10-28",oldNote="日付が変わる前の作業メモ";
    await fixture(midnight,{phases:["design"]});await midnight.evaluate(()=>window.__phaseAdapter.holdSave=true);
-   await midnight.locator("#workNote").fill(oldNote);await phase(midnight,"requirements").click();await midnight.waitForFunction(()=>window.__phaseAdapter.saveCalls===1);
+   await writeMemo(midnight,oldNote);await tapPhase(midnight,"requirements");await midnight.waitForFunction(()=>window.__phaseAdapter.saveCalls===1);
    await midnight.clock.setSystemTime(new Date("2026-10-27T15:01:00Z"));await midnight.clock.runFor(1100);
    await midnight.waitForFunction(day=>document.querySelector(".hero-date")?.getAttribute("datetime")===day,nextDay);
    assert.deepEqual(await selected(midnight),[],"the new day cannot inherit the previous day's selected phases");
    const nextNote=await midnight.locator("#workNote").inputValue();
-   await phase(midnight,"operations").click();assert.deepEqual(await selected(midnight),["operations"]);
+   await tapPhase(midnight,"operations");assert.deepEqual(await selected(midnight),["operations"]);
    assert.equal(await midnight.evaluate(()=>window.__phaseAdapter.saveCalls),1,"midnight cannot start a concurrent repository save");
    await midnight.evaluate(()=>window.__phaseAdapter.releaseSave());
    await midnight.waitForFunction(({day,note})=>JSON.parse(localStorage.getItem(window.PaperConfig.storageKey)).records[day].note===note,{day:DAY,note:oldNote});

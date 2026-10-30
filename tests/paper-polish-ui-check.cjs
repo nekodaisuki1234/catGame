@@ -218,7 +218,7 @@ async function run(){
     await fixture(layout,{missing:false});assert.equal(await layout.locator("#homeMissingNotice").isVisible(),false);
     assert.deepEqual(await homePositions(layout),warningPositions,screen+" resolving a warning must not move the clock, punches or fields");
     await layout.locator("[data-action=rest]").click();await controls(layout,homeControls,screen+" home rest editor");
-    await layout.locator("[data-action=detail][data-detail=leave]").click();await layout.locator("#leaveType").selectOption("comp");
+    await layout.locator("[data-action=detail][data-detail=leave]").click();await layout.locator('[data-action="home-leave"][data-leave="comp"]').click();
     await controls(layout,formControls("#leaveForm"),screen+" leave");
     await aboveLabels(layout,"#leaveType,#leaveSourceDay",screen+" leave");
     await layout.locator("[data-action=detail][data-detail=allocation]").click();
@@ -240,9 +240,9 @@ async function run(){
     await layout.locator("#editStart").fill("09:00");await layout.locator("#editEnd").fill("18:00");await layout.locator("#editBreak").fill("01:30");
     assert.equal(await layout.locator("#editWorked").evaluate(node=>node.textContent.replace(/\s+/g,"")),"7.5時間",screen+" grouped time controls must update calculated hours");
     await focusIndicator(layout,"#editNote",screen+" record editor");await screenshot(layout,label+"-paper-forms-editor",width);
-    await layout.locator("#editLeave").selectOption("comp");
+    await layout.locator('[data-action="editor-leave"][data-leave="comp"]').click();
     await controls(layout,"#editSourceDay",screen+" compensatory leave source");await aboveLabels(layout,"#editSourceDay",screen+" compensatory leave source");
-    await layout.locator("#editLeave").selectOption("");assert.equal(await layout.locator("#editSourceDay").isVisible(),false);
+    await layout.locator('[data-action="editor-leave"][data-leave=""]').click();assert.equal(await layout.locator("#editSourceDay").isVisible(),false);
     await layout.locator("#nav-home").click();await openPlan(layout,"2026-11");
     await controls(layout,formControls("#planForm")+",#paperDialog .dialog-close",screen+" monthly plan");
     await aboveLabels(layout,"#planHoursInput,#planMode",screen+" monthly plan");
