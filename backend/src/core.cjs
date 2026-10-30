@@ -10,4 +10,4 @@ for (const filename of ["paper-holidays.js", "paper-core.js"]) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../../day-designs", filename), "utf8"), context, { filename });
 }
 const C = window.PaperAttendance;
-module.exports = { C, RULES_VERSION: "paper-2026-10-30-defaults-leave-v2" };
+module.exports = { C, RULES_VERSION: "paper-2026-10-30-management-label-v3" };

@@ -2,7 +2,7 @@
 "use strict";
 const VERSION=1,KEY="day-paper-attendance-v1",FIRST="2026-04-01";
 const PROJECTS=["P1","P2","P3","P4","SET"],PROJECT_IDS=PROJECTS,WEEK=["日","月","火","水","木","金","土"];
-const PHASES=[{id:"requirements",label:"要件定義"},{id:"design",label:"設計"},{id:"implementation",label:"製造"},{id:"test",label:"テスト"},{id:"operations",label:"運用"},{id:"maintenance",label:"保守"},{id:"investigation",label:"調査"},{id:"meeting",label:"会議"}],PHASE_IDS=PHASES.map(phase=>phase.id);
+const PHASES=[{id:"requirements",label:"要件定義"},{id:"design",label:"設計"},{id:"implementation",label:"製造"},{id:"test",label:"テスト"},{id:"operations",label:"運用"},{id:"maintenance",label:"保守"},{id:"investigation",label:"調査"},{id:"meeting",label:"管理"}],PHASE_IDS=PHASES.map(phase=>phase.id);
 const LEAVES={"":"休暇なし",paid:"有給休暇",am:"午前半休",pm:"午後半休",holiday:"公休",special:"特別休暇",comp:"代休"};
 const DEMO_EMPLOYEE={name:"田中 花子",department:"営業",id:"E001"},EMPLOYEE_FIELDS=["name","department","id"];
 const pad=n=>String(n).padStart(2,"0"),clone=value=>JSON.parse(JSON.stringify(value));

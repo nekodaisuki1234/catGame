@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,".."),server=http.createServer((req,res)=>{
 });
 const DAY="2026-10-27",INSTANT="2026-10-27T12:00:00Z",NOTE="保存済みの自由入力メモ";
 const PHASES=["requirements","design","implementation","test","operations","maintenance","investigation","meeting"];
-const LABELS=["要件定義","設計","製造","テスト","運用","保守","調査","会議"];
+const LABELS=["要件定義","設計","製造","テスト","運用","保守","調査","管理"];
 const ENTRIES=[{file:"a-paper.html?screen=1",mode:"demo"},{file:"a-paper-app.html",mode:"local"}];
 const screenshots=process.env.PAPER_SCREENSHOT_DIR;
 if(screenshots)fs.mkdirSync(screenshots,{recursive:true});
