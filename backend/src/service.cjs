@@ -75,11 +75,12 @@ function createAttendanceService({ store, templateProvider, renderer, exportStor
     const context = await store.readContext(identity, { ...range, referenceDays });
     if (!context) fail(404, "profile_not_provisioned", "社員の利用設定が登録されていません。");
     if (!Number.isSafeInteger(context.revision) || context.revision < 0 || C.validateSettings(context.settings) ||
-        !context.defaults || !context.records || Array.isArray(context.records) ||
-        !C.hydrate(contextState(context), serverNow())) {
+        !context.defaults || !context.records || Array.isArray(context.records)) {
       fail(503, "invalid_stored_data", "保存データを確認できません。管理者に連絡してください。");
     }
-    return context;
+    const hydrated = C.hydrate(contextState(context), serverNow());
+    if (!hydrated) fail(503, "invalid_stored_data", "保存データを確認できません。管理者に連絡してください。");
+    return { ...context, records: hydrated.records };
   }
 
   const currentRevision = (context, expected) => {

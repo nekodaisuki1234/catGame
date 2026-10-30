@@ -228,12 +228,12 @@ test("invalid default phases never change configuration or records", async () =>
   assert.equal(f.store.inspect(OWNER).revision, 0);
 });
 
-test("full-day leave retains clock times with zero work and project hours, while half-day work remains calculated", async () => {
+test("full-day leave clears clock times with zero work and project hours, while half-day work remains calculated", async () => {
   for (const leave of ["paid", "holiday", "special"]) {
     const f = fixture({ [DAY]: work() });
     const next = work({ leave, allocation: allocation(0) });
     const saved = await f.service.putDay(OWNER, DAY, { expectedRevision: 0, record: next });
-    assert.equal(saved.record.start, "09:00"); assert.equal(saved.record.end, "18:00"); assert.deepEqual(saved.warnings, []);
+    assert.equal(saved.record.start, ""); assert.equal(saved.record.end, ""); assert.equal(saved.record.overnight, false); assert.deepEqual(saved.warnings, []);
     assert.equal(C.worked(saved.record, DAY, NOW), 0); assert.equal(saved.absenceMinutes, 0);
     const result = await f.service.createExport(OWNER, { expectedRevision: 1, period: { start: DAY, end: DAY } });
     assert.equal(result.validation.ok, true);

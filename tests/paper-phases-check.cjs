@@ -67,15 +67,21 @@ async function main(){
   assert.equal(JSON.stringify(initial.records),before,'editing defaults cannot rewrite existing daily selections or free text');
   for(const phases of [null,undefined,'test',['other'],['test','test'],new Array(1)])assert.equal(C.hydrate({...initial,defaults:{...initial.defaults,phases}},now),null);
  }
- const worked={...C.empty(state()),start:'09:00',end:'18:00',allocation:{P1:6,P2:2,P3:0,P4:0,SET:0},note:'時刻は残す'};
+ const worked={...C.empty(state()),start:'09:00',end:'18:00',allocation:{P1:6,P2:2,P3:0,P4:0,SET:0},note:'文章とフェーズは残す'};
  for(const leave of ['paid','holiday','special','comp']){
-  const off=C.changeLeave(worked,leave,day,now);assert.equal(off.start,'09:00');assert.equal(off.end,'18:00');
+  const off=C.changeLeave(worked,leave,day,now);assert.equal(off.start,'');assert.equal(off.end,'');assert.equal(off.overnight,false);assert.equal(off.note,worked.note);
   assert.deepEqual(plain(off.allocation),{P1:0,P2:0,P3:0,P4:0,SET:0});assert.equal(C.worked(off,day,now),0);
   assert.equal(C.validateRecord(off,day,now,state().settings,{strictAllocation:true}).ok,true);
   const totals=C.summary({...state(),records:{[day]:off}},period,now);assert.equal(totals.minutes,0);assert.equal(totals.days,0);assert.equal(totals.absenceMinutes,0);
   assert.deepEqual(plain(totals.allocation),{P1:0,P2:0,P3:0,P4:0,SET:0});
-  const resumed=C.changeLeave(off,'',day,now);assert.equal(C.worked(resumed,day,now),480);assert.equal(resumed.allocation.P1,8);
+  const resumed=C.changeLeave(off,'',day,now);assert.equal(C.worked(resumed,day,now),0);assert.equal(resumed.allocation.P1,0);assert.equal(resumed.start,'');assert.equal(resumed.end,'');
  }
+ const legacyOff={...worked,leave:'paid',overnight:true,allocation:{P1:0,P2:0,P3:0,P4:0,SET:0}};
+ const checkedOff=C.validateRecord(legacyOff,day,now,state().settings);assert.equal(checkedOff.ok,true);assert.equal(checkedOff.value.start,'');assert.equal(checkedOff.value.end,'');assert.equal(checkedOff.value.overnight,false);
+ const legacyState={...state(),records:{[day]:legacyOff}},legacyRaw=JSON.stringify(legacyState),loadedOff=C.hydrate(legacyState,now);
+ assert.equal(loadedOff.records[day].start,'');assert.equal(loadedOff.records[day].end,'');assert.equal(loadedOff.records[day].overnight,false);assert.equal(JSON.stringify(legacyState),legacyRaw,'normalizing old full-leave times cannot mutate input storage');
+ assert.equal(C.changeLeave(legacyOff,'',day,now).start,'','removing legacy full leave cannot resurrect old times');
+ const offSheet=unzip(C.workbook(legacyState,period,now))['xl/worksheets/sheet1.xml'];assert.doesNotMatch(offSheet,/09:00|18:00|翌日/,'full-leave exports must omit legacy clock times');
  for(const leave of ['am','pm']){const half=C.changeLeave(worked,leave,day,now);assert.equal(C.worked(half,day,now),480);assert.equal(half.allocation.P2,2);}
  const current=state(),record=current.records[day];
  for(const phases of [undefined,null,"test",{},false,1,["unknown"],["test","test"],["test",null],[undefined],new Array(1),Array(9).fill("test"),["設計"],[{id:"design"}]]){

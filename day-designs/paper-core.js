@@ -67,8 +67,8 @@ function absenceMinutes(r,day,now){
 }
 function empty(state){return {start:"",end:"",overnight:false,breakMinutes:state.defaults.breakMinutes,locationId:state.defaults.locationId,note:state.defaults.note,phases:clone(state.defaults.phases||[]),leave:"",sourceDay:"",allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))};}
 function changeLeave(record,leave,day,now){
- const next={...clone(record),leave,sourceDay:leave==='comp'?(record.sourceDay||''):''};
- if(fullLeave(next)){next.allocation=Object.fromEntries(PROJECTS.map(k=>[k,0]));delete next.legacyProjectAllocation;}
+ const next={...clone(record),...(fullLeave(record)?{start:'',end:'',overnight:false}:{}),leave,sourceDay:leave==='comp'?(record.sourceDay||''):''};
+ if(fullLeave(next)){Object.assign(next,{start:"",end:"",overnight:false,allocation:Object.fromEntries(PROJECTS.map(k=>[k,0]))});delete next.legacyProjectAllocation;}
  else if(fullLeave(record))return allocateToP1(next,day,now);
  return next;
 }
@@ -107,7 +107,7 @@ function validateRecord(r,day,now,settings,options={}){
  const warnings=!complete?[]:net<0?["休憩時間を引いた勤務時間が「"+duration(net)+"」になっています。記録は保存しました。出退勤と休憩時間を確認してください。"+(allocated?" 工数は入力済みの値を保持しています。":"")]:allocated&&allocated!==net?["勤務時間（"+duration(net)+"）と工数合計（"+duration(allocated)+"）が一致していません。記録は保存しました。工数の振り分けを確認してください。"]:[];
  const absence=net>=0?absenceMinutes(r,day,now):0;
  if(absence)warnings.push((["am","pm"].includes(r.leave)?"半休4時間分を含めても、":"実働が")+"1日8時間に"+duration(absence)+"不足しています。欠勤時間として集計します。");
- return {ok:true,value:{...clone(r),phases:clone(r.phases||[])},warnings};
+ return {ok:true,value:{...clone(r),...(fullLeave(r)?{start:"",end:"",overnight:false}:{}),phases:clone(r.phases||[])},warnings};
 }
 function eligibleCompSource(state,sourceDay,day,now){
  if(!validDay(sourceDay)||sourceDay<firstDay(state)||sourceDay>=day||sourceDay>now.day||!restDay(sourceDay))return false;
@@ -199,7 +199,7 @@ function hydrate(raw,now){
    if(minutes>1440)candidate.legacyProjectAllocation={P5:allocation.P5,SET:originalSET};
   }else if(oldFive&&!Object.hasOwn(allocation||{},"P5"))return null;
   if(!validateRecord(candidate,day,{day:day>now.day?day:now.day,minutes:1439},settings).ok)return null;
-  migratedRecords[day]=candidate;
+  migratedRecords[day]=fullLeave(candidate)?{...candidate,start:"",end:"",overnight:false}:candidate;
  }
  for(const [key,s] of Object.entries(raw.submissions))if(!/^\d{4}-\d{2}-\d{2}\|\d{4}-\d{2}-\d{2}$/.test(key)||!s||typeof s.at!=="string"||!Number.isFinite(Date.parse(s.at))||typeof s.test!=="boolean")return null;
  let state;try{state=clone({...raw,settings,records:migratedRecords});}catch{return null;}
@@ -302,7 +302,7 @@ function workbook(state,period,now){
   const r=state.records[d],future=d>now.day,p=state.settings.places.find(p=>p.id===r?.locationId),hasWork=!!r?.start&&!fullLeave(r);
   const base=!isDemo(state)&&d<firstDay(state)?"記録開始前":future?"これから":r?.leave?LEAVES[r.leave]:r?.end?"勤務":r?.start?"退勤未入力":holiday(d)|| (workday(d)?"未入力":holidayKnown(d)?"休日":"祝日未確認");
   const status=!future&&holiday(d)&&(r?.start||r?.leave)?base+"（"+holiday(d)+"）":base;
-  rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[r.start,r.end+(r.end&&r.overnight?"（翌日）":""),hasWork?r.breakMinutes:"",durationCell(worked(r,d,now)),hasWork?p?.code||"":"",r.note,...PROJECTS.map(k=>r.allocation[k]),r.leave==="comp"?r.sourceDay||"":"",phaseText(r)]:["","","","","","",...PROJECTS.map(()=>""),"",""])]);
+  rows.push([d,WEEK[weekday(d)],status,...(r&&!future?[hasWork?r.start:"",hasWork?r.end+(r.end&&r.overnight?"（翌日）":""):"",hasWork?r.breakMinutes:"",durationCell(worked(r,d,now)),hasWork?p?.code||"":"",r.note,...PROJECTS.map(k=>r.allocation[k]),r.leave==="comp"?r.sourceDay||"":"",phaseText(r)]:["","","","","","",...PROJECTS.map(()=>""),"",""])]);
  }
  rows.push([], ["合計","","","","","",durationCell(summaryData.minutes),"","",...PROJECTS.map(k=>Number(summaryData.allocation[k].toFixed(4)))]);
  const config=[["勤務表設定"],["PJ","PJ略称","PJ概要"],...state.settings.projects.map(p=>[p.id,p.name,p.description]),[],["場所","作業場所","作業場所名称","作業場所住所"],...state.settings.places.map((p,i)=>["場所"+(i+1),p.code,p.name,p.address])];

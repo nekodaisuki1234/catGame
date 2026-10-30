@@ -94,24 +94,27 @@ async function run(){
    console.log('PASS '+entry+' one-tap leave persistence, full-day punch state, explicit comp source and failed-save draft/retry');
 
    await fixture(page,true);await tab(page,'leave').click();
-   await leave(page,'paid').click();await settle(page);
-   const off=await record(page);assert.equal(off.leave,'paid');assert.equal(off.start,'09:00');assert.equal(off.end,'18:00');assert.deepEqual(off.allocation,{P1:0,P2:0,P3:0,P4:0,SET:0});
+   const beforeClear=await stored(page);await page.evaluate(()=>{window.clearOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota')};});
+   await leave(page,'paid').click();await settle(page);assert.deepEqual(await stored(page),beforeClear,'a rejected leave save cannot clear recorded punches');assert.equal(await page.locator('#startTime').inputValue(),'09:00');
+   await page.evaluate(()=>Storage.prototype.setItem=window.clearOriginalSetItem);await page.locator('#leaveForm button[type=submit]').click();await settle(page);
+   const off=await record(page);assert.equal(off.leave,'paid');assert.equal(off.start,'');assert.equal(off.end,'');assert.equal(off.overnight,false);assert.equal(await page.locator('#startTime').inputValue(),'');assert.equal(await page.locator('#endTime').inputValue(),'');assert.deepEqual(off.allocation,{P1:0,P2:0,P3:0,P4:0,SET:0});
    assert.equal(await page.evaluate(day=>{const C=window.PaperAttendance,s=JSON.parse(localStorage.getItem(window.PaperConfig.storageKey));return C.worked(s.records[day],day,C.clock());},DAY),0);
    await page.locator('#nav-records').click();await page.locator('#recordList [data-day="'+DAY+'"]').click();const beforeEditor=await stored(page);
    assert.match(await page.locator('#editWorked').innerText(),/^0/);assert.equal(await page.locator('#editStart').isDisabled(),true);
    await leave(page,'pm',true).click();assert.deepEqual(await stored(page),beforeEditor,'editor leave remains staged until Update');assert.equal(await page.locator('#editStart').isDisabled(),false);
+   assert.equal(await page.locator('#editStart').inputValue(),'');assert.equal(await page.locator('#editEnd').inputValue(),'');await page.locator('#editStart').fill('09:00');await page.locator('#editEnd').fill('18:00');await page.locator('#editEnd').dispatchEvent('change');
    await geometry(page,true);await tab(page,'phases',true).click();await page.locator('[data-action="editor-phase"][data-phase="operations"]').click();
    await tab(page,'note',true).click();await page.locator('#editNote').fill('編集画面でも入力を保持');await screenshot(page,(entry.includes('-app')?'local':'demo')+'-paper-batch23-editor');
    await page.locator('#dayForm button[type=submit]').click();await settle(page);assert.equal((await record(page)).leave,'pm');assert.equal((await record(page)).note,'編集画面でも入力を保持');assert.ok((await record(page)).phases.includes('operations'));assert.equal((await record(page)).allocation.P1,8);
    await fixture(page,true);await page.locator('#nav-records').click();await page.locator('#recordList [data-day="'+DAY+'"]').click();await leave(page,'am',true).click();await page.locator('#dayForm button[type=submit]').click();await settle(page);assert.equal((await record(page)).allocation.P2,2,'half-day leave preserves manual allocations');
-   await leave(page,'holiday',true).click();assert.match(await page.locator('#editWorked').innerText(),/^0/);await page.locator('#dayForm button[type=submit]').click();await settle(page);assert.equal((await record(page)).leave,'holiday');assert.equal((await record(page)).allocation.P2,0);
+   await leave(page,'holiday',true).click();assert.equal(await page.locator('#editStart').inputValue(),'');assert.equal(await page.locator('#editEnd').inputValue(),'');assert.equal(await page.locator('#editOvernight').isChecked(),false);assert.match(await page.locator('#editWorked').innerText(),/^0/);await page.locator('#dayForm button[type=submit]').click();await settle(page);assert.equal((await record(page)).leave,'holiday');assert.equal((await record(page)).allocation.P2,0);
 
    await fixture(page);await page.locator('[data-detail="leave"]').click();await page.evaluate(()=>window.__tabsAdapter.hold=true);await leave(page,'pm').click();
    await page.waitForFunction(()=>document.querySelector('#previewApp').getAttribute('aria-busy')==='true');
    assert.equal((await record(page)).leave,'');for(const button of await page.locator('[data-action="home-leave"]').all())assert.equal(await button.isDisabled(),true);
    await page.locator('#nav-records').click();await page.locator('#nav-home').click();assert.equal(await leave(page,'paid').isDisabled(),true);
    await page.evaluate(()=>window.__tabsAdapter.release());await settle(page);assert.equal((await record(page)).leave,'pm');assert.equal(await leave(page,'paid').isDisabled(),false);
-   console.log('PASS '+entry+' zero-hour full leave with retained clock times, staged editor changes and serial pending-save controls');await context.close();
+   console.log('PASS '+entry+' zero-hour full leave clears clock times only on accepted saves, staged editor changes and serial pending-save controls');await context.close();
   }
   assert.deepEqual(errors,[]);console.log('PASS tabbed work and leave icons in both entries without browser errors');
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
