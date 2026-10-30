@@ -2,7 +2,7 @@
 "use strict";
 const VERSION=1,KEY="day-paper-attendance-v1",FIRST="2026-04-01";
 const PROJECTS=["P1","P2","P3","P4","SET"],PROJECT_IDS=PROJECTS,WEEK=["日","月","火","水","木","金","土"];
-const PHASES=[{id:"requirements",label:"要件定義"},{id:"design",label:"設計"},{id:"implementation",label:"製造"},{id:"test",label:"テスト"},{id:"operations",label:"運用"},{id:"maintenance",label:"保守"},{id:"investigation",label:"調査"},{id:"meeting",label:"管理"}],PHASE_IDS=PHASES.map(phase=>phase.id);
+const PHASES=[{id:"requirements",label:"要件定義"},{id:"design",label:"設計"},{id:"implementation",label:"製造"},{id:"test",label:"テスト"},{id:"operations",label:"運用"},{id:"maintenance",label:"保守"},{id:"investigation",label:"調査"},{id:"meeting",label:"その他"}],PHASE_IDS=PHASES.map(phase=>phase.id);
 const LEAVES={"":"休暇なし",paid:"有給休暇",am:"午前半休",pm:"午後半休",holiday:"公休",special:"特別休暇",comp:"代休"};
 const LEAVE_REQUEST_FIELDS=["id","day","leave","sourceDay","requestedAt"],LEAVE_RECEIPT_FIELDS=[...LEAVE_REQUEST_FIELDS,"delivery"];
 const validRequestId=value=>typeof value==="string"&&/^[A-Za-z0-9_-]{1,128}$/.test(value)&&!["__proto__","constructor","prototype"].includes(value);
@@ -155,8 +155,11 @@ function validLeaveRequests(requests,first){
  if(!requests||typeof requests!=="object"||Array.isArray(requests)||Object.prototype.toString.call(requests)!=="[object Object]"||Reflect.ownKeys(requests).length!==Object.keys(requests).length)return false;
  return Object.entries(requests).every(([id,request])=>validRequestId(id)&&request?.id===id&&validLeaveRequest(request,first,true));
 }
-function prepareLeaveRequest(state,input,now){
+function prepareLeaveRequest(state,input,now,options={}){
  const bad=error=>({ok:false,error});
+ if(!options||typeof options!=="object"||Array.isArray(options))return bad("休暇申請の編集内容を確認してください。");
+ const optionKeys=Object.keys(options),hasRecord=Object.hasOwn(options,"record");
+ if(!exactObject(options,optionKeys)||optionKeys.some(key=>!["record","strictAllocation"].includes(key))||Object.hasOwn(options,"strictAllocation")&&typeof options.strictAllocation!=="boolean"||hasRecord&&options.strictAllocation===false)return bad("休暇申請の編集内容を確認してください。");
  if(!now||!validDay(now.day)||!Number.isInteger(now.minutes)||now.minutes<0||now.minutes>1439)return bad("現在の日付・時刻を確認してください。");
  if(!validLeaveRequest(input,firstDay(state)))return bad("休暇申請の日付・区分・代休元・送信日時を確認してください。");
  if(input.day>now.day)return bad("今日までの日付を選んでください。");
@@ -164,8 +167,15 @@ function prepareLeaveRequest(state,input,now){
  if(submitted.day!==now.day||submitted.minutes>now.minutes)return bad("送信日時が変わりました。もう一度確認してください。");
  const current=hydrate(state,now);if(!current)return bad("保存した勤怠と申請履歴を読み直してください。");
  if(Object.hasOwn(current.leaveRequests||{},input.id))return bad("この申請はすでに記録されています。重複して送信できません。");
- const changed={...changeLeave(current.records[input.day]||empty(current),input.leave,input.day,now),sourceDay:input.sourceDay};
- const checked=validateRecord(changed,input.day,now,current.settings);if(!checked.ok)return bad(checked.error);
+ let base=current.records[input.day]||empty(current);
+ if(hasRecord){
+  const snapshot=options.record;
+  if(!snapshot||typeof snapshot!=="object"||Array.isArray(snapshot)||Object.prototype.toString.call(snapshot)!=="[object Object]"||snapshot.leave!==input.leave)return bad("申請する休暇区分と編集内容を確認してください。");
+  const edited=validateRecord(snapshot,input.day,now,current.settings,{strictAllocation:true});if(!edited.ok)return bad(edited.error);
+  base=edited.value;
+ }
+ const changed={...changeLeave(base,input.leave,input.day,now),sourceDay:input.sourceDay};
+ const checked=validateRecord(changed,input.day,now,current.settings,{strictAllocation:hasRecord||options.strictAllocation===true});if(!checked.ok)return bad(checked.error);
  const relation=validateRecordChange(current,input.day,checked.value,now);if(!relation.ok)return bad(relation.error);
  const request={id:input.id,day:input.day,leave:input.leave,sourceDay:input.sourceDay,requestedAt:input.requestedAt,delivery:'local'},value=clone(current);
  value.records[input.day]=checked.value;value.leaveRequests={...(value.leaveRequests||{}),[request.id]:request};invalidateSubmissions(value,input.day);

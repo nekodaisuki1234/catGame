@@ -18,7 +18,7 @@ function unzip(bytes){
 async function main(){
  assert.deepEqual(plain(C.PHASES),[
   {id:"requirements",label:"要件定義"},{id:"design",label:"設計"},{id:"implementation",label:"製造"},{id:"test",label:"テスト"},
-  {id:"operations",label:"運用"},{id:"maintenance",label:"保守"},{id:"investigation",label:"調査"},{id:"meeting",label:"管理"}
+  {id:"operations",label:"運用"},{id:"maintenance",label:"保守"},{id:"investigation",label:"調査"},{id:"meeting",label:"その他"}
  ]);
  assert.deepEqual(plain(C.PHASE_IDS),plain(C.PHASES.map(phase=>phase.id)));
  assert.equal(new Set(C.PHASE_IDS).size,C.PHASE_IDS.length);
@@ -29,7 +29,7 @@ async function main(){
   const checked=C.validateRecord(freeze(chosen),day,now,current.settings,{strictAllocation:true});
   assert.equal(checked.ok,true);assert.deepEqual(plain(checked.value.phases),["meeting","test","requirements"]);
   assert.equal(checked.value.note,record.note);assert.equal(JSON.stringify(chosen),before,"validating a selection cannot modify input text or selection order");
-  assert.equal(C.phaseText(chosen),"要件定義・テスト・管理","display/export labels use a stable catalogue order");
+  assert.equal(C.phaseText(chosen),"要件定義・テスト・その他","display/export labels use a stable catalogue order");
   checked.value.phases.push("design");assert.equal(chosen.phases.length,3,"checked records do not share a mutable phase array with the caller");
 
   const phased=C.clone(current);phased.records[day]=C.clone(chosen);
@@ -112,7 +112,7 @@ async function main(){
  const phased=C.clone(current);phased.records[day].phases=["meeting","test","requirements"];
  const sheet=unzip(C.prepareSubmission(phased,period,now).bytes)["xl/worksheets/sheet1.xml"];
  assert.match(sheet,/<c r="P7"[^>]*><is><t[^>]*>フェーズ<\/t><\/is><\/c>/);
- assert.match(sheet,/<c r="P8"[^>]*><is><t[^>]*>要件定義・テスト・管理<\/t><\/is><\/c>/);
+ assert.match(sheet,/<c r="P8"[^>]*><is><t[^>]*>要件定義・テスト・その他<\/t><\/is><\/c>/);
  assert.match(sheet,/<c r="I8"[^>]*><is><t[^>]*>自由な作業内容 &amp; 設計の確認<\/t><\/is><\/c>/);
  assert.match(sheet,/<c r="N8"[^>]*><v>1<\/v><\/c>/,"SET hours retain their existing column");
  assert.match(sheet,/<col min="3" max="16" width="15"/);

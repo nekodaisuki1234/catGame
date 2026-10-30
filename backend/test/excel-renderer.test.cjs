@@ -128,7 +128,7 @@ test("optional phase columns export canonical Japanese labels separately from th
   const bytes = await template();
   const output = await createExcelRenderer({ ExcelJS }).render({ templateBytes: bytes, mapping: mapped, state: input, period, now });
   const sheet = (await load(output)).getWorksheet("勤務表");
-  assert.equal(sheet.getCell("S8").value, "設計・テスト・管理");
+  assert.equal(sheet.getCell("S8").value, "設計・テスト・その他");
   assert.equal(sheet.getCell("K8").value, note);
   assert.equal(sheet.getCell("S10").value, "", "old records with no phase field remain exportable");
   assert.equal(sheet.getCell("S11").value, "");

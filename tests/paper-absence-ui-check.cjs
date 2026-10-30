@@ -20,7 +20,7 @@ async function run(){
  const text=async(page,selector)=>(await page.locator(selector).textContent()).replace(/\s+/g,"");
  const absence=async(page,selector,value)=>assert.equal(await text(page,selector),value);
  const change=async(page,id,value)=>{await page.locator("#"+id).fill(value);await page.locator("#"+id).dispatchEvent("change");await page.clock.runFor(30);};
- const save=async page=>{await page.locator("#dayForm button[type=submit]").click();await page.clock.runFor(30);};
+ const save=async page=>{await page.locator("#dayForm button[type=submit]").click();if(await page.locator("[data-action=confirm-leave-request]").count())await page.locator("[data-action=confirm-leave-request]").click();await page.clock.runFor(30);};
  const home=async page=>{await page.locator("#nav-home").click();await page.locator("[data-detail=summary]").click();};
  const edit=async(page,day=DAY)=>{await page.locator("#nav-records").click();await page.locator(".paper-record[data-day='"+day+"']").click();assert.equal(await page.locator("#editDate").inputValue(),day);};
  const leave=async(page,value)=>{await page.locator("[data-detail=leave]").click();await page.locator('[data-action="home-leave"][data-leave="'+value+'"]').click();await page.locator("#leaveForm button[type=submit]").click();await page.locator("[data-action=confirm-leave-request]").click();await page.waitForFunction(()=>!document.querySelector("#paperDialog").open&&document.querySelector("#previewApp").getAttribute("aria-busy")!=="true");await page.clock.runFor(30);await page.locator("[data-detail=summary]").click();};

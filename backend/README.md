@@ -54,7 +54,7 @@ A. Paper の日別記録と検証ルールを、AWSで動かすためのバッ�
 }
 ```
 
-`phases`は要件定義`requirements`、設計`design`、製造`implementation`、テスト`test`、運用`operations`、保守`maintenance`、調査`investigation`、管理`meeting`から複数選択できます。管理は保存済みの選択・初期値との互換性のため内部ID`meeting`を維持します。重複や未知のIDは拒否します。自由入力の`note`とは別に保存し、フェーズだけを選んでも作業内容の未入力チェックは免除しません。旧クライアントが`phases`を省略した場合は既存値を保持し、`[]`を明示すると全選択を解除します。古い記録にフィールドがなくても読み込めます。
+`phases`は要件定義`requirements`、設計`design`、製造`implementation`、テスト`test`、運用`operations`、保守`maintenance`、調査`investigation`、その他`meeting`から複数選択できます。その他は保存済みの選択・初期値との互換性のため内部ID`meeting`を維持します。重複や未知のIDは拒否します。自由入力の`note`とは別に保存し、フェーズだけを選んでも作業内容の未入力チェックは免除しません。旧クライアントが`phases`を省略した場合は既存値を保持し、`[]`を明示すると全選択を解除します。古い記録にフィールドがなくても読み込めます。
 
 時刻だけの変更例です。警告はレスポンスの `warnings` に返し、保存結果と分けます。
 

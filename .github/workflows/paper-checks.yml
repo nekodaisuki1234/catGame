@@ -49,6 +49,7 @@ jobs:
         run: |
           export PAPER_PLAYWRIGHT_MODULE="$RUNNER_TEMP/paper-browser/node_modules/playwright"
           export PAPER_SCREENSHOT_DIR="$RUNNER_TEMP/paper-screenshots"
+          node tests/paper-leave-parity-ui-check.cjs
           node tests/paper-leave-request-ui-check.cjs
           node tests/paper-defaults-ui-check.cjs
           node tests/paper-tabs-ui-check.cjs

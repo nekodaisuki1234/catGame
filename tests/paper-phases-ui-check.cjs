@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,".."),server=http.createServer((req,res)=>{
 });
 const DAY="2026-10-27",INSTANT="2026-10-27T12:00:00Z",NOTE="保存済みの自由入力メモ";
 const PHASES=["requirements","design","implementation","test","operations","maintenance","investigation","meeting"];
-const LABELS=["要件定義","設計","製造","テスト","運用","保守","調査","管理"];
+const LABELS=["要件定義","設計","製造","テスト","運用","保守","調査","その他"];
 const ENTRIES=[{file:"a-paper.html?screen=1",mode:"demo"},{file:"a-paper-app.html",mode:"local"}];
 const screenshots=process.env.PAPER_SCREENSHOT_DIR;
 if(screenshots)fs.mkdirSync(screenshots,{recursive:true});
@@ -136,7 +136,7 @@ async function run(){
    await page.locator("[data-action=editor-prev]").click();await page.locator("[data-action=editor-next]").click();
    assert.deepEqual(sorted(await selected(page,true)),sorted(["requirements","test"]));assert.equal(await page.locator("#editNote").inputValue(),"編集画面で自由に入力した内容");
    await geometry(page,true,label+" editor");await screenshot(page,label+"-paper-phases-editor");
-   await page.locator("#dayForm button[type=submit]").click();await saved(page,["requirements","test"]);
+   await page.locator("#dayForm button[type=submit]").click();if(await page.locator("[data-action=confirm-leave-request]").count())await page.locator("[data-action=confirm-leave-request]").click();await saved(page,["requirements","test"]);
    assert.equal((await record(page)).note,"編集画面で自由に入力した内容");assert.equal((await record(page)).allocation.P2,2);
    await page.locator("#nav-home").click();await ready(page);assert.deepEqual(sorted(await selected(page)),sorted(["requirements","test"]));
    await geometry(page,false,label+" home");await screenshot(page,label+"-paper-phases-home");
@@ -167,7 +167,7 @@ async function run(){
    await page.locator("#nav-records").click();await page.locator('#recordList [data-day="'+DAY+'"]').click();
    assert.deepEqual(sorted(await selected(page,true)),sorted(["design","maintenance"]));
    await tapPhase(page,"maintenance",true);await tapPhase(page,"test",true);
-   await page.locator("#dayForm button[type=submit]").click();await saved(page,["design","test"]);
+   await page.locator("#dayForm button[type=submit]").click();if(await page.locator("[data-action=confirm-leave-request]").count())await page.locator("[data-action=confirm-leave-request]").click();await saved(page,["design","test"]);
    await page.locator("#nav-home").click();await ready(page);
    assert.deepEqual(sorted(await selected(page)),sorted(["design","test"]),"the accepted editor selection replaces the unchanged failed home selection");
    assert.doesNotMatch(await page.locator("#workSaveStatus").innerText(),/未保存/);assert.equal(await page.locator("[data-action=retry-work]").count(),0);
@@ -230,7 +230,7 @@ async function run(){
    assert.equal((await record(editing)).note,pendingNote);
    await writeMemo(editing,editorNote,true);await editing.locator("#editPlace").selectOption("place2");
    assert.equal((await record(editing)).note,pendingNote,"unrelated editor fields remain staged until explicit update");
-   await editing.evaluate(()=>window.__phaseAdapter.holdSave=false);await editing.locator("#dayForm button[type=submit]").click();await saved(editing,["requirements","design"]);
+   await editing.evaluate(()=>window.__phaseAdapter.holdSave=false);await editing.locator("#dayForm button[type=submit]").click();if(await editing.locator("[data-action=confirm-leave-request]").count())await editing.locator("[data-action=confirm-leave-request]").click();await saved(editing,["requirements","design"]);
    assert.equal((await record(editing)).note,editorNote);assert.equal((await record(editing)).locationId,"place2");
    assert.equal(await editing.evaluate(()=>window.__phaseAdapter.saveCalls),3);
    console.log("PASS "+label+" queued home phases enter the daily editor and survive unrelated edits while background saves complete");

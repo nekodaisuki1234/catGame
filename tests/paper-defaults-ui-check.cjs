@@ -48,7 +48,7 @@ async function run(){
 
    await page.locator('#nav-records').click();await page.locator('#recordList [data-day="2026-10-26"]').click();
    assert.equal(await page.locator('#editNote').inputValue(),NOTE);assert.deepEqual(await page.locator('#editorPhaseChoices [aria-pressed=true]').evaluateAll(nodes=>nodes.map(node=>node.dataset.phase)),['design','test']);
-   await page.locator('#editStart').fill('09:00');await page.locator('#editEnd').fill('18:00');await page.locator('#editEnd').dispatchEvent('change');await page.locator('#dayForm button[type=submit]').click();await settle(page);
+   await page.locator('#editStart').fill('09:00');await page.locator('#editEnd').fill('18:00');await page.locator('#editEnd').dispatchEvent('change');await page.locator('#dayForm button[type=submit]').click();if(await page.locator("[data-action=confirm-leave-request]").count())await page.locator("[data-action=confirm-leave-request]").click();await settle(page);
    assert.equal((await stored(page)).records['2026-10-26'].note,NOTE);assert.deepEqual((await stored(page)).records[DAY],existing[DAY]);
    await page.locator('#nav-home').click();await page.clock.setSystemTime(new Date('2026-10-28T00:00:00Z'));await page.clock.runFor(1200);await page.reload();await ready(page);await page.locator('[data-detail=work]').click();
    assert.equal(await page.locator('#workNote').inputValue(),NOTE);assert.deepEqual(await page.locator('#homePhaseChoices [aria-pressed=true]').evaluateAll(nodes=>nodes.map(node=>node.dataset.phase)),['design','test']);

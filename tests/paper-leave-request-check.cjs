@@ -50,11 +50,34 @@ async function main(){
  }
  for(const leave of ["paid","holiday","special"]){const state=initial();state.records[DAY]=work(state,{overnight:true});const result=prepare(state,{leave});assert.equal(result.ok,true);assert.equal(result.record.start,"");assert.equal(result.record.end,"");assert.equal(result.record.overnight,false);}
 
+ // Day-editor snapshots and their receipt commit together, without replacing the baseline used by link validation.
+ for(const mode of ["local","demo"]){
+  const state=initial(mode);state.records[DAY]=work(state);state.records["2026-10-26"]=work(state);
+  const before=JSON.stringify(state),snapshot=work(state,{start:"10:00",end:"15:00",leave:"am",locationId:"place3",note:"勤怠編集から送信した文章",phases:["investigation","meeting"],allocation:{P1:2,P2:1,P3:1,P4:0,SET:0}}),originalSnapshot=JSON.stringify(snapshot);
+  const edited=C.prepareLeaveRequest(freeze(state),input({id:"lr-editor",leave:"am"}),now,{record:freeze(snapshot),strictAllocation:true});assert.equal(edited.ok,true,edited.error);
+  assert.equal(JSON.stringify(state),before);assert.equal(JSON.stringify(snapshot),originalSnapshot);
+  assert.deepEqual(plain(edited.record),plain(snapshot));assert.deepEqual(plain(edited.value.records[DAY]),plain(snapshot));assert.equal(edited.value.leaveRequests["lr-editor"].leave,"am");
+  assert.deepEqual(plain(edited.value.records["2026-10-26"]),plain(state.records["2026-10-26"]));assert.equal(edited.value.revision,4);
+  const storage={raw:before,fail:true,getItem(){return this.raw;},setItem(key,value){if(this.fail)throw Error("quota");this.raw=value;}},repository=R.createLocal({key:"edited-request-"+mode,mode,initialState:()=>initial(mode),now:()=>now,storage,target:null});
+  await repository.load();await assert.rejects(repository.save(edited.value,{expectedRevision:4}));assert.equal(storage.raw,before,"a failed editor send cannot save only metadata, allocations or the request receipt");
+  storage.fail=false;const saved=await repository.save(edited.value,{expectedRevision:4});assert.equal(saved.revision,5);assert.equal(saved.records[DAY].note,snapshot.note);assert.deepEqual(plain(saved.records[DAY].allocation),plain(snapshot.allocation));assert.equal(saved.leaveRequests["lr-editor"].delivery,"local");
+  const mismatch={...plain(snapshot),end:"16:00"};
+  for(const options of [{record:mismatch,strictAllocation:true},{record:mismatch}]){const result=C.prepareLeaveRequest(state,input({leave:"am"}),now,options);assert.equal(result.ok,false);assert.match(result.error,/工数合計/);assert.equal(JSON.stringify(state),before);}
+  for(const options of [null,[],{unknown:true},{record:undefined},{record:null},{record:[]},{record:snapshot,strictAllocation:false},{record:snapshot,strictAllocation:undefined},{record:{...plain(snapshot),leave:"paid"},strictAllocation:true}])assert.equal(C.prepareLeaveRequest(state,input({leave:"am"}),now,options).ok,false,"invalid snapshot/options must not fall back to saved attendance");
+  const falseFull=work(state,{leave:"paid"});assert.equal(C.prepareLeaveRequest(state,input(),now,{record:falseFull,strictAllocation:true}).ok,false,"full-day conversion cannot hide invalid positive snapshot allocations");
+  const explicitFull=work(state,{leave:"paid",allocation:{P1:0,P2:0,P3:0,P4:0,SET:0},note:"編集した全休のメモ"}),full=C.prepareLeaveRequest(state,input(),now,{record:explicitFull,strictAllocation:true});assert.equal(full.ok,true,full.error);assert.equal(full.record.start,"");assert.equal(full.record.end,"");assert.equal(full.record.note,explicitFull.note);
+  const resumed=work(state,{leave:"",note:"全休を解除して新しく入力した時刻"}),withdrawn=C.prepareLeaveRequest(full.value,input({id:"lr-edited-withdrawal",leave:""}),now,{record:resumed,strictAllocation:true});assert.equal(withdrawn.ok,true,withdrawn.error);assert.equal(withdrawn.record.start,"09:00");assert.equal(withdrawn.record.end,"18:00");assert.equal(withdrawn.record.note,resumed.note);assert.equal(withdrawn.value.leaveRequests["lr-edited-withdrawal"].leave,"");
+  const running=work(state,{leave:"am",end:"",allocation:{P1:0,P2:2,P3:0,P4:0,SET:0}});assert.equal(C.prepareLeaveRequest(state,input({leave:"am"}),now,{record:running,strictAllocation:true}).ok,true);
+  const negative=work(state,{leave:"am",end:"09:30",allocation:{P1:0,P2:0,P3:0,P4:0,SET:0}}),savedNegative=C.prepareLeaveRequest(state,input({leave:"am"}),now,{record:negative,strictAllocation:true});assert.equal(savedNegative.ok,true);assert.match(savedNegative.warnings.join(),/マイナス|−0時間30分/);
+ }
+
  // Comp links are validated on application; old receipts are historical, not permanent locks.
  const state=initial(),SOURCE="2026-10-24";state.records[SOURCE]=work(state);state.records[DAY]=work(state);
  const linked=prepare(state,{leave:"comp",sourceDay:SOURCE});assert.equal(linked.ok,true,linked.error);assert.equal(linked.record.sourceDay,SOURCE);
  const repeated=prepare(linked.value,{id:"lr-second-comp",day:"2026-10-26",leave:"comp",sourceDay:SOURCE});assert.equal(repeated.ok,false);assert.match(repeated.error,/使用済み/);
  const sourceEdit=prepare(linked.value,{id:"lr-source-change",day:SOURCE,leave:"holiday"});assert.equal(sourceEdit.ok,false);assert.match(sourceEdit.error,/紐づく/);
+ const beforeSourceEdit=JSON.stringify(linked.value),sourceSnapshot={...C.empty(linked.value),leave:"paid",note:"元の休日出勤日を全休に変更"};
+ const editedSource=C.prepareLeaveRequest(freeze(linked.value),input({id:"lr-edited-source",day:SOURCE,leave:"paid"}),now,{record:freeze(sourceSnapshot),strictAllocation:true});assert.equal(editedSource.ok,false);assert.match(editedSource.error,/紐づく/);assert.equal(JSON.stringify(linked.value),beforeSourceEdit,"source validation must compare against the original records and preserve the linked day on failure");
  const withdraw=prepare(linked.value,{id:"lr-withdraw",leave:""});assert.equal(withdraw.ok,true,withdraw.error);assert.equal(withdraw.record.leave,"");assert.equal(withdraw.record.sourceDay,"");assert.equal(withdraw.record.start,"");assert.equal(withdraw.value.leaveRequests["lr-request-1"].leave,"comp");assert.equal(withdraw.value.leaveRequests["lr-withdraw"].leave,"");
  delete withdraw.value.records[SOURCE];assert.ok(C.hydrate(withdraw.value,now),"a withdrawn comp receipt remains readable after its old source is deleted");
  const reallocated=prepare(prepare(linked.value,{id:"lr-release",leave:""}).value,{id:"lr-new-comp",day:"2026-10-26",leave:"comp",sourceDay:SOURCE});assert.equal(reallocated.ok,true,reallocated.error);
@@ -79,6 +102,6 @@ async function main(){
  const snapshot=JSON.stringify(valid),rewound={day:"2026-10-26",minutes:0};assert.ok(C.hydrate(valid,rewound),"receipt history survives a rewound device clock");assert.equal(JSON.stringify(valid),snapshot);
  assert.equal(Object.hasOwn(C.hydrate(initial(),now),"leaveRequests"),false,"old states load without inventing or saving request history");
  const emptyMap={...initial(),leaveRequests:{}};assert.deepEqual(plain(C.hydrate(emptyMap,now).leaveRequests),{});
- console.log("Paper leave requests: atomic local receipt/application, strict payload/history, reload/failure/conflict, full/half leave, withdrawal, comp links and clock rewind passed.");
+ console.log("Paper leave requests: atomic home/editor receipt/application, strict snapshots/payload/history, reload/failure/conflict, full/half leave, withdrawal, original-state comp guards and clock rewind passed.");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
