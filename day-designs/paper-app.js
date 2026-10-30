@@ -8,7 +8,7 @@ if(embed)document.documentElement.setAttribute("data-embed","");
 if(new URLSearchParams(location.search).get("screen")==="1")document.documentElement.setAttribute("data-screen","");
 const PRESETS=[0,30,45,60,90];
 const DETAIL_TABS=[["work","work","勤務内容"],["summary","chart","勤務実績"],["leave","leave","休暇"],["allocation","settings","工数"]];
-let now=C.clock(),renderedDay=now.day,sampleClock="",view="home",detail="summary",restOpen=false,error="",toastTimer,lockUntil=0;
+let now=C.clock(),renderedDay=now.day,sampleClock="",view=config.mode==='local'&&new URLSearchParams(location.search).get('notifications')==='1'?'settings':'home',detail="summary",restOpen=false,error="",toastTimer,lockUntil=0;
 let selectedMonth=C.month(now.day).start,settingsTab="defaults",projectIndex=0,placeIndex=0,settingsDraft=null,defaultsDraft=null,editDay="",submitPeriod=null,testSubmission=true;
 const settingsPlanDrafts=new Map();
 let storageProblem="",data=null,repository=null,unsubscribe=null,loading=false,saving=false;
@@ -19,6 +19,7 @@ const editorTimeSignatures=new Map();
 const homeDrafts=new Map(),listPositions=new Map();let lastMinute="";
 const queuedPhaseDays=new Set();let phaseSaveTimer=null;
 let homeWorkTab='note',editorWorkTab='note',leaveConfirmation=null;
+let pushTesting=false;
 const homeDraft=(day=now.day)=>homeDrafts.get(day)||{};
 function setHomeDraft(key,value,day=now.day){homeDrafts.set(day,{...homeDraft(day),[key]:value});}
 function clearHomeDraft(...keys){const draft={...homeDraft()};keys.forEach(key=>delete draft[key]);homeDrafts.set(now.day,draft);}
@@ -164,7 +165,7 @@ function repositoryMessage(issue,fallback){
 }
 function syncPendingControls(){
  if(!saving)return;
- const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="quick-rest"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"],[data-action="project-tab"],[data-action="project-step"],[data-action="place-tab"],[data-action="default-break"],[data-action="editor-phase"],[data-action="home-leave"],[data-action="editor-leave"],[data-action="default-phase"],[data-action="confirm-leave-request"],[data-action="editor-leave-request"],[data-action="logout"],[data-action="confirm-logout"]';
+ const selector='input,select,textarea,button[type="submit"],[data-action="rest"],[data-action="quick-rest"],[data-action="allocate-rest"],[data-action="clear-day"],[data-action="reset-defaults"],[data-action="retry-work"],[data-action="confirm-submission"],[data-action="plan-auto"],[data-action="project-tab"],[data-action="project-step"],[data-action="place-tab"],[data-action="default-break"],[data-action="editor-phase"],[data-action="home-leave"],[data-action="editor-leave"],[data-action="default-phase"],[data-action="confirm-leave-request"],[data-action="editor-leave-request"],[data-action="logout"],[data-action="confirm-logout"],[data-action="push-test"]';
  const controls=[...root.querySelectorAll(selector),...dialog.querySelectorAll(selector),...document.querySelectorAll('[data-state],[data-action="reset"],[data-action="live"]')];
  for(const node of controls){if(node.id==="workNote")continue;if(!pendingControls.has(node))pendingControls.set(node,node.disabled);node.disabled=true;}
 }
@@ -173,7 +174,7 @@ function setSaving(value){
  if(value)syncPendingControls();else{for(const [node,disabled] of pendingControls)node.disabled=disabled;pendingControls.clear();}
  if($("punchActions"))$("punchActions").innerHTML=punches();
  syncWorkStatus();
- syncLeaveStatus();
+ syncLeaveStatus();syncPushSettings();
  if(!value)schedulePhaseSave();
 }
 function beginSave(){
@@ -457,12 +458,39 @@ function syncDefaultsDraft(){
 function defaultsSettings(d){
  return '<section class="settings-section"><form id="defaultsForm" class="paper-form-card defaults-settings-card"><div class="defaults-summary">'+icon('settings')+'<div><h2>新しい日の初期値</h2><p>自分の勤務場所・作業概要・フェーズ・休憩の初期値です。</p><span id="defaultsDraftState" role="status">'+(defaultsChanged(d)?'未保存の変更あり':'保存済みの内容')+'</span></div></div><div class="defaults-fields"><div class="form-field"><label class="paper-label" for="defaultPlace">いつもの勤務場所</label><select class="paper-input" id="defaultPlace">'+placeOptions(d.locationId)+'</select></div><div class="form-field"><label class="paper-label" for="defaultNote">共通の作業概要</label><textarea class="paper-input" id="defaultNote" maxlength="1000" rows="3" placeholder="新しい日に入力しておく作業内容">'+h(d.note)+'</textarea><p class="field-help">新しい日の作業内容に入力する文章です。</p></div>'+phaseChoices(d.phases||[],'defaults')+'<div class="form-field"><label class="paper-label" for="defaultBreak">初期の休憩時間</label><div class="field-unit"><input class="paper-input" id="defaultBreak" type="number" min="0" max="1440" step="1" inputmode="numeric" required value="'+h(d.breakMinutes)+'" aria-label="初期の休憩時間（分）" aria-describedby="defaultBreakHint"><span aria-hidden="true">分</span></div><p id="defaultBreakHint" class="field-help" role="status">'+defaultBreakText(d.breakMinutes)+'</p><div class="default-break-presets" role="group" aria-label="初期休憩時間の候補">'+PRESETS.map(minutes=>'<button type="button" data-action="default-break" data-minutes="'+minutes+'" aria-pressed="'+(String(d.breakMinutes).trim()!==''&&Number(d.breakMinutes)===minutes)+'">'+minutes+'分'+(minutes===60?'<span class="sr-only">（標準の1時間）</span>':'')+'</button>').join('')+'</div></div></div><p class="settings-save-hint">変更は「更新」で保存し、新しい日の入力に使います。</p><div class="paper-actions settings-save-row"><button type="button" class="paper-button secondary" data-action="reset-defaults">標準に戻す</button><button type="submit" class="paper-button">更新</button></div></form><button type="button" class="totals-button" data-action="totals">勤怠時間合計 <span aria-hidden="true">→</span></button></section>';
 }
+function pushDisplay(){
+ const state=window.PaperPush?.getState()||{canTest:false,reason:'unsupported',permission:'default'};
+ const help=state.reason==='home-screen'?'Safariの共有メニューからホーム画面に追加し、追加したSETを開いてください。':state.reason==='unsupported'?'iPhoneはiOS 16.4以降で、ホーム画面から開くと通知を使えます。':state.reason==='denied'?'端末の「設定」→「通知」で、このアプリの通知許可を確認してください。':'この端末にテスト通知を表示できます。';
+ const status=pushTesting?'確認中':state.reason==='home-screen'?'ホーム画面で開く':state.reason==='unsupported'?'対象外':state.permission==='denied'?'許可なし':state.permission==='granted'?'端末の許可あり':'未設定';
+ return {state,help,status,label:pushTesting?'通知を確認中…':state.permission==='granted'?'通知をテスト':'通知を許可してテスト'};
+}
+function pushSettings(){
+ const bell='<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>';
+ if(config.mode!=='local')return '<section id="pushSettings" class="push-settings" aria-labelledby="pushTitle" aria-busy="false"><div class="push-heading">'+bell+'<h2 id="pushTitle">iPhoneの通知</h2><span id="pushStatus">準備画面で確認</span></div><p class="push-help">サンプルのない準備画面で、ホーム画面への追加とテスト通知を確認できます。デモの勤怠は引き継がれません。</p><a class="paper-button secondary push-test" data-push-local href="./a-paper-app.html?notifications=1&amp;v=paper-push33" target="_blank" rel="noopener">通知の準備画面を開く <span aria-hidden="true">↗</span></a></section>';
+ const p=pushDisplay();
+ return '<section id="pushSettings" class="push-settings" aria-labelledby="pushTitle" aria-busy="'+pushTesting+'"><div class="push-heading">'+bell+'<h2 id="pushTitle">iPhoneの通知</h2><span id="pushStatus">'+p.status+'</span></div><p id="pushHelp" class="push-help">'+p.help+'</p><details class="push-install-guide"><summary>iPhoneで通知を使う手順</summary><ol><li>この準備画面をSafariで開きます。</li><li>共有メニューから「ホーム画面に追加」を選びます。</li><li>追加したSETを開き、「設定」から通知をテストします。</li><li>通知の確認画面が出たら「許可」を選びます。</li></ol></details><button type="button" id="pushTestButton" class="paper-button push-test" data-action="push-test"'+(!p.state.canTest||pushTesting||saving?' disabled':'')+'>'+p.label+'</button><p class="push-delivery-note">自動通知は準備中です。現在はこの端末でのテストのみ利用できます。</p></section>';
+}
+function syncPushSettings(){
+ const card=$('pushSettings');if(!card||config.mode!=='local')return;
+ const p=pushDisplay();card.setAttribute('aria-busy',String(pushTesting));$('pushStatus').textContent=p.status;$('pushHelp').textContent=p.help;
+ const button=$('pushTestButton');button.textContent=p.label;button.disabled=!p.state.canTest||pushTesting||saving;
+}
+async function testPush(){
+ if(config.mode!=='local'||pushTesting||saving||!window.PaperPush)return;
+ pushTesting=true;syncPushSettings();
+ let result;
+ try{result=await window.PaperPush.testNotification();}catch{result={ok:false,reason:'display'};}
+ finally{pushTesting=false;syncPushSettings();}
+ if(result.ok){toast('端末にテスト通知の表示を依頼しました。通知センターも確認してください。');return;}
+ const messages={'home-screen':'ホーム画面に追加したSETから通知をテストしてください。',unsupported:'この環境は通知に対応していません。iPhoneはiOS 16.4以降でホーム画面から開いてください。',denied:'通知が許可されていません。端末の通知設定を確認してください。',dismissed:'通知の許可は変更されていません。準備ができたらもう一度お試しください。',worker:'通知の準備ができませんでした。接続を確認してもう一度お試しください。',display:'通知を表示できませんでした。端末の通知設定を確認してください。'};
+ toast(messages[result.reason]||messages.display,{warning:true});
+}
 function settings(){
  const d=defaultsDraft||data.defaults,s=settingsDraft||data.settings;
  let body;
  if(settingsTab==='defaults')body=defaultsSettings(d);
  else body='<section class="settings-section"><form id="settingsForm"><section class="paper-form-card"><div class="settings-card-heading"><h2 class="form-card-heading">勤務時間</h2><p>勤務表に使う時間を設定します。</p></div><div class="hours-range"><div class="form-field"><label for="minHours"><span>基準時間の下限</span></label><div class="field-unit"><input id="minHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.minHours)?s.minHours:'')+'" aria-label="基準時間の下限（時間）"><span aria-hidden="true">時間</span></div></div><span aria-hidden="true">〜</span><div class="form-field"><label for="maxHours"><span>基準時間の上限</span></label><div class="field-unit"><input id="maxHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.maxHours)?s.maxHours:'')+'" aria-label="基準時間の上限（時間）"><span aria-hidden="true">時間</span></div></div></div>'+planningSettings(s)+'</section>'+projectSettings(s)+placeSettings(s)+'<div class="settings-save-row settings-sheet-actions"><p class="settings-save-hint">勤務予定・プロジェクト・作業場所をまとめて保存します。</p><button class="paper-button full-width" type="submit">更新</button></div></form></section>';
- return '<section class="subpage"><h1>設定</h1><p class="subpage-lede">いつもの入力と、勤務表に使う情報を整えます。</p><a class="login-preview-link" href="./a-paper-login.html?v=paper-logout30" target="_blank" rel="noopener" aria-label="Microsoft 365ログイン画面のプレビュー（新しいタブで開く）"><span>Microsoft 365ログイン</span><span>プレビュー <span aria-hidden="true">↗</span></span></a><div class="settings-tabs" aria-label="設定項目">'+[['defaults','いつもの勤務'],['sheet','勤務表の設定']].map(([id,label])=>'<button type="button" data-action="settings-tab" data-tab="'+id+'" aria-pressed="'+(settingsTab===id)+'">'+label+'</button>').join('')+'</div>'+body+'</section>';
+ return '<section class="subpage"><h1>設定</h1><p class="subpage-lede">いつもの入力と、勤務表に使う情報を整えます。</p><a class="login-preview-link" href="./a-paper-login.html?v=paper-push33" target="_blank" rel="noopener" aria-label="Microsoft 365ログイン画面のプレビュー（新しいタブで開く）"><span>Microsoft 365ログイン</span><span>プレビュー <span aria-hidden="true">↗</span></span></a>'+pushSettings()+'<div class="settings-tabs" aria-label="設定項目">'+[['defaults','いつもの勤務'],['sheet','勤務表の設定']].map(([id,label])=>'<button type="button" data-action="settings-tab" data-tab="'+id+'" aria-pressed="'+(settingsTab===id)+'">'+label+'</button>').join('')+'</div>'+body+'</section>';
 }
 function nav(){return '<nav class="app-nav" aria-label="メインナビゲーション">'+[["home","home","ホーム"],["records","calendar","勤怠"],["submit","send","提出"],["settings","settings","設定"]].map(([id,ic,label])=>'<button id="nav-'+id+'" type="button" class="nav-button" data-action="tab" data-tab="'+id+'" '+(view===id||view==="editor"&&id==="records"||view==="missing"&&id==="home"?'aria-current="page"':'')+'>'+icon(ic)+'<span>'+label+'</span></button>').join("")+'</nav>';}
 function logoutButton(){return '<button type="button" class="logout-button" data-action="logout"'+(saving?' disabled':'')+'><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H4v16h6m4-13 5 5-5 5m-6-5h13"/></svg><span>ログアウト</span></button>';}
@@ -474,7 +502,7 @@ function confirmLogout(button){
  if(saving){toast('保存が完了してからログアウトしてください。',{warning:true});return;}
  if(!dialog.open||!$('logoutDetails')||!dialog.contains(button))return;
  cancelPhaseSave();
- location.replace('./a-paper-login.html?v=paper-logout30&from='+(config.mode==='local'?'local':'demo'));
+ location.replace('./a-paper-login.html?v=paper-push33&from='+(config.mode==='local'?'local':'demo'));
 }
 function render(){
  if(!data){
@@ -625,6 +653,7 @@ document.addEventListener("click",async event=>{
  if(button.dataset.action==="retry-load"){await loadData();return;}
  if(button.dataset.action==='logout'){openLogout();return;}
  if(button.dataset.action==='confirm-logout'){confirmLogout(button);return;}
+ if(button.dataset.action==='push-test'){await testPush();return;}
  if(!data)return;
  if(button.dataset.state){await sample(button.dataset.state);return;}
  const action=button.dataset.action;
@@ -847,6 +876,7 @@ async function loadData(){
  }catch(issue){storageProblem=repositoryMessage(issue,"保存した記録を読み込めません。ブラウザの保存設定を確認してください。");data=null;}
  finally{loading=false;render();}
 }
-setInterval(tick,1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)tick();});
+setInterval(tick,1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden){tick();syncPushSettings();}});
+window.addEventListener("focus",syncPushSettings);
 void loadData();
 })();
