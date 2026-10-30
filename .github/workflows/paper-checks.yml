@@ -48,6 +48,7 @@ jobs:
         run: |
           export PAPER_PLAYWRIGHT_MODULE="$RUNNER_TEMP/paper-browser/node_modules/playwright"
           export PAPER_SCREENSHOT_DIR="$RUNNER_TEMP/paper-screenshots"
+          node tests/paper-phases-ui-check.cjs
           node tests/paper-ui-check.cjs
           node tests/paper-holidays-ui-check.cjs
           node tests/paper-submission-ui-check.cjs
@@ -58,7 +59,6 @@ jobs:
           node tests/paper-absence-ui-check.cjs
           node tests/paper-rest-ui-check.cjs
           node tests/paper-settings-ui-check.cjs
-          node tests/paper-phases-ui-check.cjs
       - name: Keep screenshots
         if: always()
         uses: actions/upload-artifact@v4

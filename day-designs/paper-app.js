@@ -151,6 +151,7 @@ async function updateToday(change,message,options={}){
  return saved;
 }
 async function saveWork(change,message,{day=renderedDay}={}){
+ if(saving){syncWorkStatus();return false;}
  now=clockNow();const saved=await saveRecord(day,{...record(day),...change},message);
  if(saved)clearSavedHomeDraft(day,change);
  else cancelPhaseSave();
