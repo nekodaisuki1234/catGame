@@ -39,6 +39,7 @@ jobs:
           node-version: 22
       - name: Model and submission checks
         run: |
+          node tests/paper-reminders-check.cjs
           node tests/paper-push-check.cjs
           node tests/paper-holiday-update-check.cjs
           node tests/paper-attendance-check.cjs

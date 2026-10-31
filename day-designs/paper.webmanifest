@@ -4,7 +4,7 @@
   "short_name": "SET",
   "description": "勤怠の入力・確認",
   "lang": "ja",
-  "start_url": "./a-paper-app.html?v=paper-push33",
+  "start_url": "./a-paper-app.html?v=paper-reminders34",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f4f3f1",

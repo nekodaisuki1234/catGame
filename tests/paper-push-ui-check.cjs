@@ -48,6 +48,11 @@ async function run(){
   assert.equal(await demo.locator('link[rel="manifest"]').count(),0);assert.match(await page.locator('link[rel="manifest"]').getAttribute("href"),/paper\.webmanifest/);
   await page.evaluate(()=>window.__pushHarness.standalone=true);await page.locator("#nav-home").click();await page.locator("#nav-settings").click();
   assert.equal(await button.isDisabled(),false);
+  const rules=page.locator(".push-reminder-rules");await rules.waitFor();
+  assert.match(await rules.innerText(),/翌営業日\s+09:00/);assert.match(await rules.innerText(),/15日・月末日（当日）/);assert.match(await rules.innerText(),/期限当日\s+09:00/);
+  assert.match(await page.locator("#reminderNext").innerText(),/10月28日.*09:00/);
+  await page.clock.setSystemTime(new Date("2026-10-30T09:30:00Z"));await page.evaluate(()=>window.dispatchEvent(new Event("focus")));
+  assert.match(await page.locator("#reminderNext").innerText(),/11月2日.*09:00/,"Friday after 09:00 previews the next business morning");
   for(const width of [320,390,430]){
    await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),"push settings overflow at "+width);
    const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44,"manual notification target at "+width);

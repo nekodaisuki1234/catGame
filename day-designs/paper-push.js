@@ -1,7 +1,7 @@
 (function(global){
 "use strict";
 const nav=global.navigator,base=new URL('./',global.document.currentScript?.src||global.location.href);
-const workerUrl=new URL('paper-notifications-sw.js',base),appUrl=new URL('a-paper-app.html?v=paper-push33',base);
+const workerUrl=new URL('paper-notifications-sw.js',base),appUrl=new URL('a-paper-app.html?v=paper-reminders34',base);
 const TIMEOUT=8000;
 let pending=null;
 const failed=reason=>({ok:false,reason});

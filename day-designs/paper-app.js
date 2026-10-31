@@ -464,16 +464,25 @@ function pushDisplay(){
  const status=pushTesting?'確認中':state.reason==='home-screen'?'ホーム画面で開く':state.reason==='unsupported'?'対象外':state.permission==='denied'?'許可なし':state.permission==='granted'?'端末の許可あり':'未設定';
  return {state,help,status,label:pushTesting?'通知を確認中…':state.permission==='granted'?'通知をテスト':'通知を許可してテスト'};
 }
+function reminderNextLabel(){
+ const next=window.PaperReminders?.nextMissingAt(clockNow());
+ return next?dayLabel(next.day)+' '+next.time:'祝日データの確認後に表示します';
+}
+function reminderRules(){
+ const rules=window.PaperReminders?.policy;if(!rules)return '';
+ return '<section class="push-reminder-rules" aria-labelledby="reminderRulesTitle"><h3 id="reminderRulesTitle">自動通知のルール（準備中）</h3><dl><div><dt>未入力のお知らせ</dt><dd>翌営業日 '+h(rules.missing.time)+'</dd></div><div><dt>提出期限</dt><dd>15日・月末日（当日）</dd></div><div><dt>期限のお知らせ</dt><dd>期限当日 '+h(rules.submission.time)+'</dd></div></dl><p>未入力が残っている場合、営業日の朝にまとめて1回お知らせします。全日休暇の日は対象に含めません。</p><p class="push-next-reminder">次の確認予定：<span id="reminderNext">'+h(reminderNextLabel())+'</span></p></section>';
+}
 function pushSettings(){
  const bell='<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>';
- if(config.mode!=='local')return '<section id="pushSettings" class="push-settings" aria-labelledby="pushTitle" aria-busy="false"><div class="push-heading">'+bell+'<h2 id="pushTitle">iPhoneの通知</h2><span id="pushStatus">準備画面で確認</span></div><p class="push-help">サンプルのない準備画面で、ホーム画面への追加とテスト通知を確認できます。デモの勤怠は引き継がれません。</p><a class="paper-button secondary push-test" data-push-local href="./a-paper-app.html?notifications=1&amp;v=paper-push33" target="_blank" rel="noopener">通知の準備画面を開く <span aria-hidden="true">↗</span></a></section>';
+ if(config.mode!=='local')return '<section id="pushSettings" class="push-settings" aria-labelledby="pushTitle" aria-busy="false"><div class="push-heading">'+bell+'<h2 id="pushTitle">iPhoneの通知</h2><span id="pushStatus">準備画面で確認</span></div><p class="push-help">サンプルのない準備画面で、ホーム画面への追加とテスト通知を確認できます。デモの勤怠は引き継がれません。</p><a class="paper-button secondary push-test" data-push-local href="./a-paper-app.html?notifications=1&amp;v=paper-reminders34" target="_blank" rel="noopener">通知の準備画面を開く <span aria-hidden="true">↗</span></a></section>';
  const p=pushDisplay();
- return '<section id="pushSettings" class="push-settings" aria-labelledby="pushTitle" aria-busy="'+pushTesting+'"><div class="push-heading">'+bell+'<h2 id="pushTitle">iPhoneの通知</h2><span id="pushStatus">'+p.status+'</span></div><p id="pushHelp" class="push-help">'+p.help+'</p><details class="push-install-guide"><summary>iPhoneで通知を使う手順</summary><ol><li>この準備画面をSafariで開きます。</li><li>共有メニューから「ホーム画面に追加」を選びます。</li><li>追加したSETを開き、「設定」から通知をテストします。</li><li>通知の確認画面が出たら「許可」を選びます。</li></ol></details><button type="button" id="pushTestButton" class="paper-button push-test" data-action="push-test"'+(!p.state.canTest||pushTesting||saving?' disabled':'')+'>'+p.label+'</button><p class="push-delivery-note">自動通知は準備中です。現在はこの端末でのテストのみ利用できます。</p></section>';
+ return '<section id="pushSettings" class="push-settings" aria-labelledby="pushTitle" aria-busy="'+pushTesting+'"><div class="push-heading">'+bell+'<h2 id="pushTitle">iPhoneの通知</h2><span id="pushStatus">'+p.status+'</span></div><p id="pushHelp" class="push-help">'+p.help+'</p><details class="push-install-guide"><summary>iPhoneで通知を使う手順</summary><ol><li>この準備画面をSafariで開きます。</li><li>共有メニューから「ホーム画面に追加」を選びます。</li><li>追加したSETを開き、「設定」から通知をテストします。</li><li>通知の確認画面が出たら「許可」を選びます。</li></ol></details><button type="button" id="pushTestButton" class="paper-button push-test" data-action="push-test"'+(!p.state.canTest||pushTesting||saving?' disabled':'')+'>'+p.label+'</button><p class="push-delivery-note">自動通知は準備中です。現在はこの端末でのテストのみ利用できます。</p>'+reminderRules()+'</section>';
 }
 function syncPushSettings(){
  const card=$('pushSettings');if(!card||config.mode!=='local')return;
  const p=pushDisplay();card.setAttribute('aria-busy',String(pushTesting));$('pushStatus').textContent=p.status;$('pushHelp').textContent=p.help;
  const button=$('pushTestButton');button.textContent=p.label;button.disabled=!p.state.canTest||pushTesting||saving;
+ if($('reminderNext'))$('reminderNext').textContent=reminderNextLabel();
 }
 async function testPush(){
  if(config.mode!=='local'||pushTesting||saving||!window.PaperPush)return;
@@ -490,7 +499,7 @@ function settings(){
  let body;
  if(settingsTab==='defaults')body=defaultsSettings(d);
  else body='<section class="settings-section"><form id="settingsForm"><section class="paper-form-card"><div class="settings-card-heading"><h2 class="form-card-heading">勤務時間</h2><p>勤務表に使う時間を設定します。</p></div><div class="hours-range"><div class="form-field"><label for="minHours"><span>基準時間の下限</span></label><div class="field-unit"><input id="minHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.minHours)?s.minHours:'')+'" aria-label="基準時間の下限（時間）"><span aria-hidden="true">時間</span></div></div><span aria-hidden="true">〜</span><div class="form-field"><label for="maxHours"><span>基準時間の上限</span></label><div class="field-unit"><input id="maxHours" class="paper-input" type="number" min="0" max="744" step="any" required value="'+(Number.isFinite(s.maxHours)?s.maxHours:'')+'" aria-label="基準時間の上限（時間）"><span aria-hidden="true">時間</span></div></div></div>'+planningSettings(s)+'</section>'+projectSettings(s)+placeSettings(s)+'<div class="settings-save-row settings-sheet-actions"><p class="settings-save-hint">勤務予定・プロジェクト・作業場所をまとめて保存します。</p><button class="paper-button full-width" type="submit">更新</button></div></form></section>';
- return '<section class="subpage"><h1>設定</h1><p class="subpage-lede">いつもの入力と、勤務表に使う情報を整えます。</p><a class="login-preview-link" href="./a-paper-login.html?v=paper-push33" target="_blank" rel="noopener" aria-label="Microsoft 365ログイン画面のプレビュー（新しいタブで開く）"><span>Microsoft 365ログイン</span><span>プレビュー <span aria-hidden="true">↗</span></span></a>'+pushSettings()+'<div class="settings-tabs" aria-label="設定項目">'+[['defaults','いつもの勤務'],['sheet','勤務表の設定']].map(([id,label])=>'<button type="button" data-action="settings-tab" data-tab="'+id+'" aria-pressed="'+(settingsTab===id)+'">'+label+'</button>').join('')+'</div>'+body+'</section>';
+ return '<section class="subpage"><h1>設定</h1><p class="subpage-lede">いつもの入力と、勤務表に使う情報を整えます。</p><a class="login-preview-link" href="./a-paper-login.html?v=paper-reminders34" target="_blank" rel="noopener" aria-label="Microsoft 365ログイン画面のプレビュー（新しいタブで開く）"><span>Microsoft 365ログイン</span><span>プレビュー <span aria-hidden="true">↗</span></span></a>'+pushSettings()+'<div class="settings-tabs" aria-label="設定項目">'+[['defaults','いつもの勤務'],['sheet','勤務表の設定']].map(([id,label])=>'<button type="button" data-action="settings-tab" data-tab="'+id+'" aria-pressed="'+(settingsTab===id)+'">'+label+'</button>').join('')+'</div>'+body+'</section>';
 }
 function nav(){return '<nav class="app-nav" aria-label="メインナビゲーション">'+[["home","home","ホーム"],["records","calendar","勤怠"],["submit","send","提出"],["settings","settings","設定"]].map(([id,ic,label])=>'<button id="nav-'+id+'" type="button" class="nav-button" data-action="tab" data-tab="'+id+'" '+(view===id||view==="editor"&&id==="records"||view==="missing"&&id==="home"?'aria-current="page"':'')+'>'+icon(ic)+'<span>'+label+'</span></button>').join("")+'</nav>';}
 function logoutButton(){return '<button type="button" class="logout-button" data-action="logout"'+(saving?' disabled':'')+'><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H4v16h6m4-13 5 5-5 5m-6-5h13"/></svg><span>ログアウト</span></button>';}
@@ -502,7 +511,7 @@ function confirmLogout(button){
  if(saving){toast('保存が完了してからログアウトしてください。',{warning:true});return;}
  if(!dialog.open||!$('logoutDetails')||!dialog.contains(button))return;
  cancelPhaseSave();
- location.replace('./a-paper-login.html?v=paper-push33&from='+(config.mode==='local'?'local':'demo'));
+ location.replace('./a-paper-login.html?v=paper-reminders34&from='+(config.mode==='local'?'local':'demo'));
 }
 function render(){
  if(!data){
